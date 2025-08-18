@@ -368,7 +368,7 @@ async def proxy_patch(service: str, path: str, request: Request):
 #             },
 #             status_code=500
 #         )
-
+#
 # # ===== [추가] 로그인 데이터 로깅 엔드포인트 (gateway_router에 통합) =====
 # @gateway_router.get("/gateway/login-logs", summary="로그인 데이터 로그 조회")
 # async def get_login_logs():
