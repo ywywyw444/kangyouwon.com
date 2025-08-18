@@ -29,7 +29,7 @@ export default function LoginPage() {
     // Railway 프로덕션 환경 로그인 로직
     try {
       // API URL 설정 - Railway 프로덕션 환경
-      const apiUrl = 'https://gateway-production-1104.up.railway.app';
+      const apiUrl = 'https://gateway-production-4c8b.up.railway.app';
       
       console.log('🚀 Railway 프로덕션 환경으로 로그인 요청 전송');
       console.log('📝 로그인 데이터:', formData);

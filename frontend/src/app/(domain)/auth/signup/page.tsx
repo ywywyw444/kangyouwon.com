@@ -49,7 +49,7 @@ export default function SignupPage() {
       alert(JSON.stringify(signupData, null, 2));
       
       // Railway 프로덕션 환경 API URL 설정
-      const apiUrl = 'https://gateway-production-1104.up.railway.app/api/v1/auth-service/signup';
+      const apiUrl = 'https://gateway-production-4c8b.up.railway.app.app/api/v1/auth-service/signup';
       // const apiUrl = 'https://auth-service-production-f2ef.up.railway.app/api/v1/auth/signup';
       
       console.log('🚀 Railway 프로덕션 환경으로 회원가입 요청 전송');
