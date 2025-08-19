@@ -36,17 +36,17 @@ export default function Logout({ className = '', variant = 'button' }: LogoutPro
             .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
         });
 
-        // 로그인 페이지로 리다이렉트
-        router.push('/auth');
+        // 홈페이지로 리다이렉트
+        router.push('/');
       } else {
         console.error('로그아웃 실패');
-        // 강제로 로그인 페이지로 이동
-        router.push('/auth/login');
+        // 강제로 홈페이지로 이동
+        router.push('/');
       }
     } catch (error) {
       console.error('로그아웃 중 오류:', error);
-      // 오류가 발생해도 로그인 페이지로 이동
-      router.push('/auth');
+      // 오류가 발생해도 홈페이지로 이동
+      router.push('/');
     } finally {
       setIsLoading(false);
     }
