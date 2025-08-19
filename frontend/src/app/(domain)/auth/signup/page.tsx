@@ -13,7 +13,7 @@ export default function SignupPage() {
     industry: '',
     email: '',
     name: '',
-    age: '',
+    birth: '',
     auth_id: '',
     auth_pw: ''
   });
@@ -39,7 +39,7 @@ export default function SignupPage() {
           "산업": formData.industry,
           "이메일": formData.email,
           "이름": formData.name,
-          "나이": formData.age,
+          "생년월일": formData.birth,
           "인증 ID": formData.auth_id,
           "인증 비밀번호": formData.auth_pw
         }
@@ -164,14 +164,14 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Age Input */}
+            {/* Birth Input */}
             <div className="relative">
               <input
                 type="text"
-                name="age"
-                value={formData.age}
+                name="birth"
+                value={formData.birth}
                 onChange={handleInputChange}
-                placeholder="나이"
+                placeholder="생년월일"
                 className="w-full px-4 py-3 text-gray-800 placeholder-gray-400 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none transition-all duration-300"
                 required
               />
