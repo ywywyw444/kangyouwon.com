@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import Logout from './Logout';
 
 export default function NavigationTabs() {
   const router = useRouter();
@@ -49,21 +50,28 @@ export default function NavigationTabs() {
   return (
     <div className="bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4">
-        <nav className="flex space-x-1" aria-label="Tabs">
-          {navigationTabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabClick(tab)}
-              className={`px-6 py-4 text-sm font-medium rounded-t-lg transition-all duration-200 ${
-                activeTab === tab.id
-                  ? `${tab.color} text-white shadow-lg`
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
-              }`}
-            >
-              {tab.name}
-            </button>
-          ))}
-        </nav>
+        <div className="flex justify-between items-center">
+          <nav className="flex space-x-1" aria-label="Tabs">
+            {navigationTabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => handleTabClick(tab)}
+                className={`px-6 py-4 text-sm font-medium rounded-t-lg transition-all duration-200 ${
+                  activeTab === tab.id
+                    ? `${tab.color} text-white shadow-lg`
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                }`}
+              >
+                {tab.name}
+              </button>
+            ))}
+          </nav>
+          
+          {/* 로그아웃 버튼 */}
+          <div className="flex items-center">
+            <Logout variant="button" className="ml-4" />
+          </div>
+        </div>
       </div>
     </div>
   );
