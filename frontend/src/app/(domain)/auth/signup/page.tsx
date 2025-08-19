@@ -49,15 +49,14 @@ export default function SignupPage() {
       alert(JSON.stringify(signupData, null, 2));
       
       // Railway 프로덕션 환경 API URL 설정
-      const apiUrl = 'https://gateway-production-4c8b.up.railway.app.app/api/v1/auth-service/signup';
-      // const apiUrl = 'https://auth-service-production-f2ef.up.railway.app/api/v1/auth/signup';
+      const apiUrl = 'https://gateway-production-4c8b.up.railway.app';
       
       console.log('🚀 Railway 프로덕션 환경으로 회원가입 요청 전송');
-      console.log(`📝 API URL: ${apiUrl}`);
+      console.log(`📝 API URL: ${apiUrl}/api/v1/auth-service/signup`);
       console.log('📝 회원가입 데이터:', formData);
       
       // 비동기 요청 처리
-      const response = await axios.post(`${apiUrl}`, formData);
+      const response = await axios.post(`${apiUrl}/api/v1/auth-service/signup`, formData);
       console.log('✅ Railway 회원가입 응답:', response.data);
       
       // 성공 메시지 표시
