@@ -7,11 +7,12 @@ const nextConfig = withPWA({
   skipWaiting: true,
   // 개발 환경에서 PWA 완전 비활성화 (HMR 문제 해결)
   disable: process.env.NODE_ENV === "development",
+
   // Service Worker 통신 문제 해결을 위한 추가 설정
   runtimeCaching: [
     {
       urlPattern: /^https?.*/,
-      handler: "NetworkFirst",
+      handler: "NetworkFirst" as const,
       options: {
         cacheName: "offlineCache",
         expiration: {
