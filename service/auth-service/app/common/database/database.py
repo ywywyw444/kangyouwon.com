@@ -10,7 +10,7 @@ from sqlalchemy import text
 logger = logging.getLogger("auth_service_db")
 
 # Railway PostgreSQL 연결 설정 (필수)
-DATABASE_URL = os.getenv("DATABASE_URL", postgres-production-844d.up.railway.app)
+DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     logger.error("❌ DATABASE_URL 환경변수가 설정되지 않았습니다.")
     raise ValueError("DATABASE_URL 환경변수를 설정해주세요.")

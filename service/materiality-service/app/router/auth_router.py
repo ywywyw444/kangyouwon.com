@@ -46,7 +46,7 @@ async def signup_process(request: Request):
     try:
         form_data = await request.json()
 
-                            required_fields = ['company_id', 'industry', 'email', 'name', 'birth', 'auth_id', 'auth_pw']
+        required_fields = ['company_id', 'industry', 'email', 'name', 'birth', 'auth_id', 'auth_pw']
         missing_fields = [f for f in required_fields if not form_data.get(f)]
         if missing_fields:
             logger.warning(f"필수 필드 누락: {missing_fields}")
@@ -57,7 +57,7 @@ async def signup_process(request: Request):
         logger.info(f"산업: {form_data.get('industry', 'N/A')}")
         logger.info(f"이메일: {form_data.get('email', 'N/A')}")
         logger.info(f"이름: {form_data.get('name', 'N/A')}")
-                            logger.info(f"생년월일: {form_data.get('birth', 'N/A')}")
+        logger.info(f"생년월일: {form_data.get('birth', 'N/A')}")
         logger.info(f"인증 ID: {form_data.get('auth_id', 'N/A')}")
         logger.info(f"인증 비밀번호: [PROTECTED]")
         logger.info("==========================")
