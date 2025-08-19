@@ -5,8 +5,8 @@ import logging
 # 로거 설정
 logger = logging.getLogger(__name__)
 
-from app.domain.user.user_schema import LoginRequest, SignupRequest
-from app.domain.user.user_controller import user_controller
+from ..domain.user.schema.user_schema import LoginRequest, SignupRequest
+from ..domain.user.controller.user_controller import user_controller
 
 auth_router = APIRouter(prefix="/auth-service", tags=["Auth"])
 

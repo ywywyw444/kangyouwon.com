@@ -4,6 +4,7 @@ Auth 서비스 메인 애플리케이션 진입점
 import os
 import logging
 import sys
+import traceback
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from typing import List
@@ -14,7 +15,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi import APIRouter
 
 # Router import
-from app.router.auth_router import auth_router
+from .router.auth_router import auth_router
 
 
 # 환경 변수 로드
@@ -86,4 +87,4 @@ async def log_requests(request: Request, call_next):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=int(PORT), reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=int(PORT), reload=True)
