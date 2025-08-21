@@ -9,6 +9,7 @@ import email.utils
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
+from itertools import product
 
 import requests
 import pandas as pd
@@ -174,6 +175,8 @@ class NaverNewsCrawler:
         logger.info("엑셀 저장 완료: %s", xlsx_path)
         return str(xlsx_path)
 
+    from itertools import product
+
     def build_training_dataset(
         self,
         excel_path: str,
@@ -182,7 +185,7 @@ class NaverNewsCrawler:
         end_date: str = "2023-12-31",
         max_results_per_keyword: int = 1000,
         *,
-        # ⬇️ 추가된 옵션
+        # ⬇️ 옵션 유지
         search_unique_companies: bool = True,
         unique_company_max_results: int = 300,
         deduplicate: bool = True,
@@ -195,15 +198,37 @@ class NaverNewsCrawler:
         """
         seed_df = pd.read_excel(excel_path)
 
-        # ── 1) 질의 목록 구성 ─────────────────────────────────────────────
+        # ── 1) 질의 목록 구성 (기업명 × 모든 이슈) ───────────────────────────
         queries: List[Dict[str, str]] = []
 
-        # 1-1) 기존: "기업명 + 이슈" 조합
-        for _, row in seed_df.iterrows():
-            company = str(row["기업명"]).strip() if pd.notna(row.get("기업명")) else ""
-            issue = str(row["중대성평가 목록"]).strip() if pd.notna(row.get("중대성평가 목록")) else ""
-            if not company or not issue:
-                continue
+        # 1-0) 입력 정합성 체크 & 전처리
+        if "기업명" not in seed_df.columns or "중대성평가 목록" not in seed_df.columns:
+            raise ValueError("엑셀에 '기업명'과 '중대성평가 목록' 컬럼이 있어야 합니다.")
+
+        # 고유 기업명 / 고유 이슈 추출 (공백/NaN 제거)
+        unique_companies = (
+            seed_df["기업명"]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .replace("", pd.NA)
+            .dropna()
+            .drop_duplicates()
+            .tolist()
+        )
+        unique_issues = (
+            seed_df["중대성평가 목록"]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .replace("", pd.NA)
+            .dropna()
+            .drop_duplicates()
+            .tolist()
+        )
+
+        # 1-1) "기업명 + 이슈"의 완전 조합 생성
+        for company, issue in product(unique_companies, unique_issues):
             queries.append({
                 "keyword": f"{company} {issue}",
                 "company": company,
@@ -212,23 +237,13 @@ class NaverNewsCrawler:
                 "max_results": str(max_results_per_keyword),
             })
 
-        # 1-2) 추가: 고유 기업명만으로 검색
-        if search_unique_companies and "기업명" in seed_df.columns:
-            unique_companies = (
-                seed_df["기업명"]
-                .dropna()
-                .astype(str)
-                .str.strip()
-                .replace("", pd.NA)
-                .dropna()
-                .drop_duplicates()
-                .tolist()
-            )
+        # 1-2) 기업명만 단독 검색 추가 (옵션)
+        if search_unique_companies:
             for company in unique_companies:
                 queries.append({
                     "keyword": company,
                     "company": company,
-                    "issue": "",  # 이슈는 공백
+                    "issue": "",
                     "query_kind": "company_only",
                     "max_results": str(unique_company_max_results),
                 })
@@ -237,13 +252,13 @@ class NaverNewsCrawler:
             logger.warning("생성된 검색 질의가 없습니다. 엑셀의 '기업명', '중대성평가 목록'을 확인하세요.")
             return ""
 
-        # ── 2) 수집 실행 ─────────────────────────────────────────────────
+        # ── 2) 수집 실행 (이하 기존 로직 그대로) ───────────────────────────
         all_items: List[Dict[str, Any]] = []
         for q in queries:
             keyword = q["keyword"]
             company = q["company"]
             issue = q["issue"]
-            query_kind = q["query_kind"]
+            query_kind = q["query_kind"] # company_issue, company_only 모두 검색되도록
             per_kw_limit = int(q["max_results"])
 
             logger.info("검색 시작 [%s]: %s", query_kind, keyword)
@@ -270,10 +285,8 @@ class NaverNewsCrawler:
             logger.warning("수집된 뉴스가 없습니다.")
             return ""
 
-        # ── 3) DataFrame 구성 + (옵션) 중복제거 ──────────────────────────
+        # ── 3) DataFrame 구성 + (옵션) 중복제거 ───────────────────────────
         df = pd.DataFrame(all_items)
-
-        # 필요한 컬럼 보강
         desired_cols = [
             "title", "description", "originallink", "pubDate",
             "company", "issue", "keyword", "query_kind"
@@ -281,17 +294,16 @@ class NaverNewsCrawler:
         for c in desired_cols:
             if c not in df.columns:
                 df[c] = ""
-
         df = df[desired_cols]
 
-        # 중복 제거 (제목+원본링크+발행일 기준) — 필요시 기준 수정 가능
+        # 중복 제거를 원하면 주석 해제
         # if deduplicate:
         #     before = len(df)
         #     df = df.drop_duplicates(subset=["title", "originallink", "pubDate"])
         #     after = len(df)
         #     logger.info("중복 제거: %d → %d (-%d)", before, after, before - after)
 
-        # ── 4) 저장 ─────────────────────────────────────────────────────
+        # ── 4) 저장 ────────────────────────────────────────────────────────
         save_path = Path.cwd() / output_file
         with pd.ExcelWriter(save_path, engine="openpyxl") as writer:
             df.to_excel(writer, sheet_name="뉴스데이터", index=False)
@@ -299,4 +311,3 @@ class NaverNewsCrawler:
 
         logger.info("전체 뉴스 데이터 저장 완료: %s", save_path)
         return str(save_path)
-    

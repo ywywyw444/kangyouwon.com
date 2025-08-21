@@ -8,12 +8,31 @@ export default function NavigationTabs() {
   const router = useRouter();
   const pathname = usePathname();
   const [isCustomDomain, setIsCustomDomain] = useState(false);
+  const [userInfo, setUserInfo] = useState<{ name?: string; email?: string } | null>(null);
   
   useEffect(() => {
     // 커스텀 도메인인지 확인
     const hostname = window.location.hostname;
     const isCustom = !hostname.includes('vercel.app') && !hostname.includes('localhost');
     setIsCustomDomain(isCustom);
+    
+    // 사용자 정보 가져오기 (localStorage에서)
+    const getUserInfo = () => {
+      try {
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          setUserInfo({
+            name: parsedUser.name || parsedUser.username || '사용자',
+            email: parsedUser.email || ''
+          });
+        }
+      } catch (error) {
+        console.error('사용자 정보를 가져오는데 실패했습니다:', error);
+      }
+    };
+    
+    getUserInfo();
   }, []);
   
   // 현재 경로에 따라 활성 탭 결정
@@ -47,6 +66,16 @@ export default function NavigationTabs() {
     }
   };
 
+  const handleUserInfoClick = () => {
+    if (isCustomDomain) {
+      // 커스텀 도메인에서는 window.location.href 사용
+      window.location.href = '/dashboard';
+    } else {
+      // Vercel 도메인에서는 Next.js router 사용
+      router.push('/dashboard');
+    }
+  };
+
   return (
     <div className="bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-7xl mx-auto px-4">
@@ -67,9 +96,29 @@ export default function NavigationTabs() {
             ))}
           </nav>
           
-          {/* 로그아웃 버튼 */}
-          <div className="flex items-center">
-            <Logout variant="button" className="ml-4" />
+          {/* 사용자 정보 및 로그아웃 버튼 */}
+          <div className="flex items-center space-x-3">
+            {/* 사용자 정보 버튼 */}
+            {userInfo && (
+              <button
+                onClick={handleUserInfoClick}
+                className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200 cursor-pointer"
+                title="Dashboard로 이동"
+              >
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                  {userInfo.name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold text-gray-800">{userInfo.name}</div>
+                  {userInfo.email && (
+                    <div className="text-xs text-gray-500 truncate max-w-32">{userInfo.email}</div>
+                  )}
+                </div>
+              </button>
+            )}
+            
+            {/* 로그아웃 버튼 */}
+            <Logout variant="button" className="ml-2" />
           </div>
         </div>
       </div>

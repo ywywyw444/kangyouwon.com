@@ -104,7 +104,7 @@ if __name__ == "__main__":
         lambda r: (r.get("company", "") != "") and (company_norm.loc[r.name] in title_norm.loc[r.name]),
         axis=1
     )
-    df.loc[mask_title_contains_company, "news_score"] = "+"
+    df.loc[mask_title_contains_company, "news_score"] = "++"
 
     # description: △/▲ 뒤에 회사명이(한글만 일치 포함) 있으면 행 삭제
     mask_drop = df.apply(lambda r: has_triangle_then_company(r.get("description", ""), r.get("company", "")), axis=1)
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     df.loc[delta_days.notna() & (92 < delta_days) & (delta_days <= 183), "recent_score"] = "+"
 
     # 저장
-    output_path = "뉴스중복데이터_가공결과2.xlsx"
+    output_path = "뉴스중복데이터_가공결과.xlsx"
     df = df.drop(columns=["pub_dt_utc"], errors="ignore")
     df.to_excel(output_path, index=False)
     print(f"✅ 완료: {output_path}")
