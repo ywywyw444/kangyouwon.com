@@ -40,6 +40,15 @@ export default function LoginPage() {
       
       // 성공 메시지 표시
       if (response.data.success) {
+        // 사용자 정보를 localStorage에 저장
+        const userData = {
+          name: response.data.name,
+          email: response.data.email,
+          company_id: response.data.company_id,
+          auth_id: formData.auth_id
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+        
         alert(`✅ 로그인 성공!\n\n이름: ${response.data.name}\n이메일: ${response.data.email}\n회사 ID: ${response.data.company_id}`);
         
         // 로그인 성공 후 대시보드로 이동
