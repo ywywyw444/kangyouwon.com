@@ -4,18 +4,36 @@ import React, { useState } from 'react';
 import NavigationTabs from '@/component/NavigationTabs';
 
 export default function MaterialityHomePage() {
-  const [selectedCompany, setSelectedCompany] = useState('ABC 기업');
-  const [selectedYear, setSelectedYear] = useState('2024');
+  const [selectedCompany, setSelectedCompany] = useState('');
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [reportPeriod, setReportPeriod] = useState({
+    startDate: '',
+    endDate: ''
+  });
 
-  const companies = [
-    'ABC 기업',
-    'XYZ 그룹',
-    'DEF 주식회사',
-    'GHI 산업',
-    'JKL 전자'
-  ];
+  // 로그인한 사용자의 기업 정보 가져오기
+  React.useEffect(() => {
+    const getUserCompany = () => {
+      try {
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          const user = JSON.parse(userData);
+          if (user.company_id) {
+            setSelectedCompany(user.company_id);
+            // 실제로는 API에서 기업 목록을 가져와야 함
+            // 임시로 하드코딩된 기업 목록 사용
+            setCompanies([user.company_id, 'ABC 기업', 'XYZ 그룹', 'DEF 주식회사']);
+          }
+        }
+      } catch (error) {
+        console.error('사용자 정보를 가져오는데 실패했습니다:', error);
+        // 기본 기업 목록 설정
+        setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
+      }
+    };
 
-  const years = ['2020', '2021', '2022', '2023', '2024'];
+    getUserCompany();
+  }, []);
 
   const materialityTopics = [
     {
@@ -91,6 +109,11 @@ export default function MaterialityHomePage() {
     // 여기에 보고서 보기 로직 추가
   };
 
+  const handleMediaSearch = () => {
+    console.log('미디어 검색 시작', { selectedCompany, reportPeriod });
+    // 여기에 미디어 검색 로직 추가
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
@@ -156,20 +179,40 @@ export default function MaterialityHomePage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  평가 연도
+                  보고기간
                 </label>
-                <select
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  {years.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">시작일</label>
+                    <input
+                      type="date"
+                      value={reportPeriod.startDate}
+                      onChange={(e) => setReportPeriod(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">종료일</label>
+                    <input
+                      type="date"
+                      value={reportPeriod.endDate}
+                      onChange={(e) => setReportPeriod(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                </div>
               </div>
+            </div>
+            
+            {/* 미디어 검색 시작 버튼 */}
+            <div className="mt-6">
+              <button
+                onClick={handleMediaSearch}
+                className="w-full bg-purple-600 text-white py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors duration-200 font-medium text-lg flex items-center justify-center space-x-2"
+              >
+                <span>🔍</span>
+                <span>미디어 검색 시작</span>
+              </button>
             </div>
           </div>
 
