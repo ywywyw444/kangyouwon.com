@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import NavigationTabs from '@/component/NavigationTabs';
+import { MediaCard, MediaItem } from '@/component/MediaCard';
 
 export default function MaterialityHomePage() {
   const [selectedCompany, setSelectedCompany] = useState('');
@@ -35,38 +36,62 @@ export default function MaterialityHomePage() {
     getUserCompany();
   }, []);
 
-  const materialityTopics = [
+  const mediaItems: MediaItem[] = [
     {
-      id: 'environmental',
-      name: '환경',
-      icon: '🌱',
-      description: '기후변화, 자원관리, 생물다양성',
-      progress: 75,
-      color: 'from-green-500 to-emerald-600'
+      id: 1,
+      title: '기후변화 대응을 위한 ESG 경영 전략',
+      keyword: '기후변화, ESG, 지속가능성',
+      url: 'https://example.com/article1',
+      publishedAt: '2024-01-15T10:00:00Z'
     },
     {
-      id: 'social',
-      name: '사회',
-      icon: '👥',
-      description: '인권, 노동환경, 지역사회',
-      progress: 60,
-      color: 'from-blue-500 to-cyan-600'
+      id: 2,
+      title: '인권과 노동환경 개선을 위한 기업의 역할',
+      keyword: '인권, 노동환경, 사회책임',
+      url: 'https://example.com/article2',
+      publishedAt: '2024-01-14T14:30:00Z'
     },
     {
-      id: 'governance',
-      name: '거버넌스',
-      icon: '🏛️',
-      description: '윤리경영, 투명성, 리스크관리',
-      progress: 85,
-      color: 'from-purple-500 to-indigo-600'
+      id: 3,
+      title: '거버넌스 강화를 통한 투명성 확보',
+      keyword: '거버넌스, 투명성, 윤리경영',
+      url: 'https://example.com/article3',
+      publishedAt: '2024-01-13T09:15:00Z'
     },
     {
-      id: 'economic',
-      name: '경제',
-      icon: '💰',
-      description: '경제적 영향, 공급망, 혁신',
-      progress: 45,
-      color: 'from-yellow-500 to-orange-600'
+      id: 4,
+      title: '공급망 관리와 경제적 영향 분석',
+      keyword: '공급망, 경제영향, 리스크관리',
+      url: 'https://example.com/article4',
+      publishedAt: '2024-01-12T16:45:00Z'
+    },
+    {
+      id: 5,
+      title: '생물다양성 보전을 위한 기업 활동',
+      keyword: '생물다양성, 환경보호, 생태계',
+      url: 'https://example.com/article5',
+      publishedAt: '2024-01-11T11:20:00Z'
+    },
+    {
+      id: 6,
+      title: '지역사회 발전과 기업의 사회적 책임',
+      keyword: '지역사회, 사회책임, 지역발전',
+      url: 'https://example.com/article6',
+      publishedAt: '2024-01-10T13:10:00Z'
+    },
+    {
+      id: 7,
+      title: '혁신 기술을 활용한 지속가능한 성장',
+      keyword: '혁신, 기술, 지속가능성',
+      url: 'https://example.com/article7',
+      publishedAt: '2024-01-09T15:30:00Z'
+    },
+    {
+      id: 8,
+      title: '자원관리와 순환경제 모델 구축',
+      keyword: '자원관리, 순환경제, 효율성',
+      url: 'https://example.com/article8',
+      publishedAt: '2024-01-08T08:45:00Z'
     }
   ];
 
@@ -94,10 +119,7 @@ export default function MaterialityHomePage() {
     }
   ];
 
-  const handleTopicClick = (topicId: string) => {
-    console.log(`${topicId} 토픽 클릭됨`);
-    // 여기에 각 토픽별 상세 페이지로 이동하는 로직 추가
-  };
+
 
   const handleNewAssessment = () => {
     console.log('새로운 중대성 평가 시작');
@@ -216,34 +238,16 @@ export default function MaterialityHomePage() {
             </div>
           </div>
 
-          {/* 중대성 토픽 카드 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {materialityTopics.map((topic) => (
-              <div
-                key={topic.id}
-                onClick={() => handleTopicClick(topic.id)}
-                className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-              >
-                <div className="text-center">
-                  <div className="text-4xl mb-3">{topic.icon}</div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                    {topic.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    {topic.description}
-                  </p>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`bg-gradient-to-r ${topic.color} h-2 rounded-full transition-all duration-300`}
-                      style={{ width: `${topic.progress}%` }}
-                    ></div>
-                  </div>
-                  <div className="mt-2 text-sm font-medium text-gray-700">
-                    {topic.progress}% 완료
-                  </div>
-                </div>
-              </div>
-            ))}
+          {/* 미디어 카드 */}
+          <div className="mb-8">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+              관련 미디어 기사
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {mediaItems.map((item) => (
+                <MediaCard key={item.id} item={item} />
+              ))}
+            </div>
           </div>
 
           {/* 액션 버튼 */}
@@ -299,8 +303,8 @@ export default function MaterialityHomePage() {
           {/* 통계 요약 */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
             <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-              <div className="text-3xl font-bold text-blue-600 mb-2">4</div>
-              <div className="text-gray-600">평가 토픽</div>
+              <div className="text-3xl font-bold text-blue-600 mb-2">8</div>
+              <div className="text-gray-600">미디어 기사</div>
             </div>
             <div className="bg-white rounded-xl shadow-lg p-6 text-center">
               <div className="text-3xl font-bold text-green-600 mb-2">66%</div>
