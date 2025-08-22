@@ -241,7 +241,7 @@ export default function MaterialityHomePage() {
           {/* 미디어 카드 */}
           <div className="mb-8">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-              관련 미디어 기사
+              미디어 검색 결과
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {mediaItems.map((item) => (

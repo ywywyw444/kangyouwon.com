@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from itertools import product
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode 
 
 import requests
 import pandas as pd
@@ -175,90 +176,127 @@ class NaverNewsCrawler:
         logger.info("엑셀 저장 완료: %s", xlsx_path)
         return str(xlsx_path)
 
-    from itertools import product
+
+    def _canonicalize_url(self, url: str) -> str:
+        """URL 비교용 정규화: 호스트 소문자/`www.` 제거, trailing slash 제거,
+        utm/gclid/fbclid 등 트래킹 파라미터 제거, fragment 제거."""
+        if not url:
+            return ""
+        try:
+            p = urlparse(url.strip())
+            netloc = p.netloc.lower()
+            if netloc.startswith("www."):
+                netloc = netloc[4:]
+
+            drop_keys = {
+                "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+                "gclid", "fbclid", "igshid", "mc_cid", "mc_eid", "ref"
+            }
+            q = [(k, v) for k, v in parse_qsl(p.query, keep_blank_values=True) if k not in drop_keys]
+            path = p.path.rstrip("/")
+            return urlunparse((p.scheme, netloc, path, "", urlencode(q, doseq=True), ""))
+        except Exception:
+            return url.strip()
+
 
     def build_training_dataset(
         self,
         excel_path: str,
-        output_file: str = "2023,2022년 중대성평가 목록 기반 뉴스데이터(중복허용).xlsx",
+        output_file: str = "2023,2022년 중대성평가 목록 기반 뉴스데이터(전수검색).xlsx",
         start_date: str = "2023-01-01",
         end_date: str = "2023-12-31",
         max_results_per_keyword: int = 1000,
         *,
-        # ⬇️ 옵션 유지
         search_unique_companies: bool = True,
         unique_company_max_results: int = 300,
         deduplicate: bool = True,
     ) -> str:
         """
-        입력 엑셀(기업명, 중대성평가 목록) 기반으로 기사 크롤링 후
-        학습 데이터 엑셀 생성.
-        최종 컬럼: title, description, originallink, pubDate, company, issue, keyword, query_kind
-        query_kind ∈ {"company_issue", "company_only"}
+        전수검색:
+        - 엑셀의 '기업명'과 '중대성평가 목록'을 사용
+        - '중대성평가 목록'을 '/' 기준으로 분리하여 전역 토큰 집합 생성
+        - 모든 기업 × 모든 전역 토큰으로 질의 생성 (query_kind='company_issue_all')
+        - 각 결과행에 issue(토큰) + issue_original(토큰이 포함된 원문들의 세미콜론 결합) 보존
+        - 저장 전, 같은 issue_original 그룹 내에서 URL(정규화 키) 기준 중복 제거
         """
+        import pandas as pd
+        from pathlib import Path
+
+        # ── 0) 입력 로드/검증 ───────────────────────────────────────────────
         seed_df = pd.read_excel(excel_path)
-
-        # ── 1) 질의 목록 구성 (기업명 × 모든 이슈) ───────────────────────────
-        queries: List[Dict[str, str]] = []
-
-        # 1-0) 입력 정합성 체크 & 전처리
         if "기업명" not in seed_df.columns or "중대성평가 목록" not in seed_df.columns:
             raise ValueError("엑셀에 '기업명'과 '중대성평가 목록' 컬럼이 있어야 합니다.")
 
-        # 고유 기업명 / 고유 이슈 추출 (공백/NaN 제거)
+        # 기업명 유니크 리스트
         unique_companies = (
             seed_df["기업명"]
-            .dropna()
-            .astype(str)
-            .str.strip()
-            .replace("", pd.NA)
-            .dropna()
-            .drop_duplicates()
-            .tolist()
-        )
-        unique_issues = (
-            seed_df["중대성평가 목록"]
-            .dropna()
-            .astype(str)
-            .str.strip()
-            .replace("", pd.NA)
-            .dropna()
-            .drop_duplicates()
-            .tolist()
+            .dropna().astype(str).str.strip()
+            .replace("", pd.NA).dropna()
+            .drop_duplicates().tolist()
         )
 
-        # 1-1) "기업명 + 이슈"의 완전 조합 생성
-        for company, issue in product(unique_companies, unique_issues):
-            queries.append({
-                "keyword": f"{company} {issue}",
-                "company": company,
-                "issue": issue,
-                "query_kind": "company_issue",
-                "max_results": str(max_results_per_keyword),
-            })
+        # ── 1) 전역 토큰 집합 및 토큰→원문 매핑 ─────────────────────────────
+        def split_issues(raw: str):
+            # 전각/유사 구분자는 필요 시 여기서 추가 정규화
+            s = str(raw).strip().replace("／", "/").replace("｜", "/")
+            if not s:
+                return []
+            parts = [p.strip() for p in s.split("/") if p and p.strip()]
+            return parts if parts else [s]
 
-        # 1-2) 기업명만 단독 검색 추가 (옵션)
+        token_to_originals = {}  # Dict[str, set[str]]
+        # 이 버전은 사용자가 정정해준 엑셀 구조(단일 '중대성평가 목록' 컬럼)를 가정
+        for _, r in seed_df.iterrows():
+            val = str(r.get("중대성평가 목록", "")).strip()
+            if not val or val.lower() == "nan":
+                continue
+            for tok in split_issues(val):
+                token_to_originals.setdefault(tok, set()).add(val)
+
+        unique_tokens = sorted(token_to_originals.keys())
+
+        if not unique_companies or not unique_tokens:
+            logger.warning("기업 또는 토큰이 비어 있습니다. 기업 수=%d, 토큰 수=%d",
+                        len(unique_companies), len(unique_tokens))
+            return ""
+
+        logger.info("전수검색 질의 생성: 기업 %d × 토큰 %d = %d",
+                    len(unique_companies), len(unique_tokens),
+                    len(unique_companies) * len(unique_tokens))
+
+        # ── 2) 질의 목록 생성 (회사 × 전역 토큰) ────────────────────────────
+        queries = []
+        for company in unique_companies:
+            for tok in unique_tokens:
+                queries.append({
+                    "keyword": f"{company} {tok}",
+                    "company": company,
+                    "issue": tok,  # 실제 검색 토큰
+                    "issue_original": "; ".join(sorted(token_to_originals.get(tok, []))),  # 토큰이 포함된 원문(들)
+                    "query_kind": "company_issue_all",
+                    "max_results": str(max_results_per_keyword),
+                })
+
+        # 기업명 단독 검색(옵션)
         if search_unique_companies:
             for company in unique_companies:
                 queries.append({
                     "keyword": company,
                     "company": company,
                     "issue": "",
+                    "issue_original": "",
                     "query_kind": "company_only",
                     "max_results": str(unique_company_max_results),
                 })
 
-        if not queries:
-            logger.warning("생성된 검색 질의가 없습니다. 엑셀의 '기업명', '중대성평가 목록'을 확인하세요.")
-            return ""
-
-        # ── 2) 수집 실행 (이하 기존 로직 그대로) ───────────────────────────
+        # ── 3) 수집 실행 ────────────────────────────────────────────────────
         all_items: List[Dict[str, Any]] = []
         for q in queries:
             keyword = q["keyword"]
             company = q["company"]
             issue = q["issue"]
-            query_kind = q["query_kind"] # company_issue, company_only 모두 검색되도록
+            issue_original = q.get("issue_original", "")
+            query_kind = q["query_kind"]
             per_kw_limit = int(q["max_results"])
 
             logger.info("검색 시작 [%s]: %s", query_kind, keyword)
@@ -272,6 +310,7 @@ class NaverNewsCrawler:
                 for it in result.get("items", []):
                     it["company"] = company
                     it["issue"] = issue
+                    it["issue_original"] = issue_original
                     it["keyword"] = keyword
                     it["query_kind"] = query_kind
                     all_items.append(it)
@@ -285,29 +324,46 @@ class NaverNewsCrawler:
             logger.warning("수집된 뉴스가 없습니다.")
             return ""
 
-        # ── 3) DataFrame 구성 + (옵션) 중복제거 ───────────────────────────
+        # ── 4) DF 구성 + (옵션) URL 중복 제거(issue_original 그룹 내) ────────
         df = pd.DataFrame(all_items)
+
+        # 링크 후보 컬럼 보정
+        for c in ["originallink", "원본링크", "link", "네이버링크"]:
+            if c not in df.columns:
+                df[c] = ""
+
+        if deduplicate:
+            df["__url_raw"] = df["originallink"]
+            df.loc[df["__url_raw"].isna() | (df["__url_raw"] == ""), "__url_raw"] = df["원본링크"]
+            df.loc[df["__url_raw"].isna() | (df["__url_raw"] == ""), "__url_raw"] = df["link"]
+            df.loc[df["__url_raw"].isna() | (df["__url_raw"] == ""), "__url_raw"] = df["네이버링크"]
+
+            # 클래스 메서드로 정규화
+            df["__url_key"] = df["__url_raw"].astype(str).map(self._canonicalize_url)
+
+            before = len(df)
+            df = df.drop_duplicates(subset=["company", "issue_original", "__url_key"], keep="first")
+            removed = before - len(df)
+            if removed > 0:
+                logger.info("URL 기준 중복 제거(기업 × 이슈 범위 내): %d건 제거됨", removed)
+
+
+            df = df.drop(columns=["__url_raw", "__url_key"], errors="ignore")
+
+        # ── 5) 컬럼 정리 & 저장 ──────────────────────────────────────────────
         desired_cols = [
             "title", "description", "originallink", "pubDate",
-            "company", "issue", "keyword", "query_kind"
+            "company", "issue", "issue_original", "keyword", "query_kind"
         ]
         for c in desired_cols:
             if c not in df.columns:
                 df[c] = ""
         df = df[desired_cols]
 
-        # 중복 제거를 원하면 주석 해제
-        # if deduplicate:
-        #     before = len(df)
-        #     df = df.drop_duplicates(subset=["title", "originallink", "pubDate"])
-        #     after = len(df)
-        #     logger.info("중복 제거: %d → %d (-%d)", before, after, before - after)
-
-        # ── 4) 저장 ────────────────────────────────────────────────────────
         save_path = Path.cwd() / output_file
         with pd.ExcelWriter(save_path, engine="openpyxl") as writer:
             df.to_excel(writer, sheet_name="뉴스데이터", index=False)
             self._auto_fit_columns(writer.sheets["뉴스데이터"])
 
-        logger.info("전체 뉴스 데이터 저장 완료: %s", save_path)
+        logger.info("전체 뉴스 데이터 저장 완료: %s (행수: %d)", save_path, len(df))
         return str(save_path)
