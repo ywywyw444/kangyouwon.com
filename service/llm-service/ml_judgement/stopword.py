@@ -33,22 +33,27 @@ class KoreanNewsPreprocessor:
             '와', '과', '도', '만', '은', '는', '이', '가', '을', '를',
             '의', '에', '에서', '로', '으로', '와', '과', '도', '만',
             '은', '는', '이', '가', '을', '를', '의', '에', '에서',
-            '로', '으로', '와', '과', '도', '만', '은', '는'
+            '로', '으로', '와', '과', '도', '만', '은', '는', "라며"
         ]
         
-        # 뉴스 관련 불용어 추가
+        # 뉴스 관련 불용어 추가 (긍정/부정 판단에 중요한 키워드는 제외)
         news_stopwords = [
             '뉴스', '기사', '보도', '발표', '공개', '발표', '전망',
-            '예상', '추정', '분석', '조사', '연구', '개발', '투자',
-            '매출', '실적', '성장', '발전', '향상', '개선', '확대',
-            '증가', '감소', '상승', '하락', '변화', '전환', '확산'
+            '예상', '추정', '분석', '조사'
+            # 제외된 키워드 (긍정/부정 판단에 중요):
+            # '연구', '개발', '투자' - 긍정적 활동
+            # '매출', '실적' - 재무 성과
+            # '성장', '발전', '향상', '개선', '확대', '증가', '상승' - 긍정적 지표
+            # '감소', '하락', '변화', '전환', '확산' - 부정적 지표
         ]
         
-        # 숫자, 특수문자 관련
+        # 숫자, 특수문자 관련 (재무 성과 단위는 제외)
         symbol_stopwords = [
-            '년', '월', '일', '시', '분', '초', '원', '억', '만',
-            '천', '백', '십', '개', '명', '회', '차', '번', '회',
-            '퍼센트', '프로', '%', '원', '달러', '엔', '위안'
+            '년', '월', '일', '시', '분', '초', '개', '명', '회', '차', '번'
+            # 제외된 키워드 (재무 성과 단위):
+            # '원', '억', '만', '천', '백', '십' - 금액 단위
+            # '퍼센트', '프로', '%' - 비율 단위
+            # '달러', '엔', '위안' - 외화 단위
         ]
         
         # 사람이름 관련 불용어 (성씨 + 일반적인 이름 패턴)
@@ -165,82 +170,7 @@ class KoreanNewsPreprocessor:
         
         return filtered_tokens
     
-    def categorize_tokens(self, tokens):
-        """토큰을 카테고리별로 분류"""
-        categories = {
-            'technology': [],      # 기술 관련
-            'business': [],        # 비즈니스/경제 관련
-            'environment': [],     # 환경/ESG 관련
-            'social': [],          # 사회/인권 관련
-            'governance': [],      # 거버넌스/윤리 관련
-            'industry': [],        # 산업/제조업 관련
-            'finance': [],         # 금융/투자 관련
-            'innovation': [],      # 혁신/연구개발 관련
-            'sustainability': [],  # 지속가능성 관련
-            'other': []            # 기타
-        }
-        
-        # 카테고리별 키워드 정의
-        category_keywords = {
-            'technology': [
-                '기술', '기술력', '혁신', '디지털', 'AI', '인공지능', '머신러닝', '빅데이터',
-                '클라우드', '블록체인', 'IoT', '자율주행', '로봇', '반도체', '전자', '소프트웨어',
-                '플랫폼', '알고리즘', '자동화', '스마트', '컴퓨터', '네트워크', '보안', '암호화'
-            ],
-            'business': [
-                '매출', '실적', '성장', '시장', '경쟁', '전략', '마케팅', '브랜드', '고객',
-                '서비스', '제품', '품질', '효율', '비용', '수익', '매출액', '영업이익',
-                '순이익', '자산', '부채', '자본', '재무', '경영', '사업', '운영'
-            ],
-            'environment': [
-                '환경', '친환경', '탄소', '기후', '에너지', '재생', '태양광', '풍력', '수소',
-                '배출', '오염', '폐기물', '순환', '녹색', '생태', '자연', '대기', '수질',
-                '토양', '생물', '다양성', '보전', '보호', '개선', '관리', '정책'
-            ],
-            'social': [
-                '사회', '인권', '노동', '고용', '교육', '의료', '복지', '건강', '안전',
-                '공정', '평등', '다양성', '포용', '지역', '커뮤니티', '협력', '파트너십',
-                '기부', '봉사', '자원봉사', '사회공헌', '책임', '윤리', '도덕', '가치'
-            ],
-            'governance': [
-                '거버넌스', '윤리', '투명', '공정', '책임', '감사', '내부통제', '리스크',
-                '준법', '규정', '정책', '절차', '평가', '모니터링', '보고', '공시',
-                '이사회', '주주', '이해관계자', '독립성', '객관성', '무결성'
-            ],
-            'industry': [
-                '산업', '제조', '생산', '공장', '설비', '자동화', '로봇', '시스템',
-                '공정', '품질관리', '물류', '공급망', '원자재', '부품', '조립', '검사',
-                '유지보수', '개선', '최적화', '효율성', '생산성', '수율'
-            ],
-            'finance': [
-                '금융', '투자', '자본', '주식', '채권', '펀드', '보험', '은행', '증권',
-                '리스크', '수익률', '변동성', '유동성', '안정성', '성장성', '가치',
-                '평가', '분석', '전망', '예측', '모델', '시나리오'
-            ],
-            'innovation': [
-                '혁신', '연구', '개발', 'R&D', '특허', '기술개발', '신기술', '신제품',
-                '창의', '아이디어', '솔루션', '프로토타입', '검증', '실험', '테스트',
-                '최적화', '개선', '진화', '도약', '성과', '성취'
-            ],
-            'sustainability': [
-                '지속가능', '지속가능성', 'ESG', '환경', '사회', '거버넌스', '통합',
-                '균형', '미래', '세대', '책임', '영향', '측정', '평가', '보고',
-                '목표', '전략', '실행', '모니터링', '검토', '개선'
-            ]
-        }
-        
-        for token in tokens:
-            categorized = False
-            for category, keywords in category_keywords.items():
-                if token in keywords:
-                    categories[category].append(token)
-                    categorized = True
-                    break
-            
-            if not categorized:
-                categories['other'].append(token)
-        
-        return categories
+
     
     def preprocess_text(self, text, company_names=None):
         """전체 전처리 과정"""
@@ -270,17 +200,6 @@ class KoreanNewsPreprocessor:
         df['title_processed'] = ''
         df['description_processed'] = ''
         
-        # 카테고리별 분류 결과를 저장할 컬럼들 추가 (title과 description만)
-        category_columns = [
-            'title_tech', 'title_business', 'title_env', 'title_social', 'title_gov',
-            'title_industry', 'title_finance', 'title_innovation', 'title_sustainability', 'title_other',
-            'desc_tech', 'desc_business', 'desc_env', 'desc_social', 'desc_gov',
-            'desc_industry', 'desc_finance', 'desc_innovation', 'desc_sustainability', 'desc_other'
-        ]
-        
-        for col in category_columns:
-            df[col] = ''
-        
         # company 컬럼에서 모든 기업명 수집
         company_names = []
         if 'company' in df.columns:
@@ -291,31 +210,17 @@ class KoreanNewsPreprocessor:
             if idx % 100 == 0:
                 ic(f"처리 진행률: {idx}/{len(df)}")
             
-            # title 전처리 및 카테고리 분류
+            # title 전처리
             if 'title' in df.columns:
                 title_tokens = self.preprocess_text(row['title'], company_names)
                 df.at[idx, 'title_processed'] = ' '.join(title_tokens)
-                
-                # 카테고리별 분류
-                title_categories = self.categorize_tokens(title_tokens)
-                for category, tokens in title_categories.items():
-                    col_name = f'title_{category}'
-                    if col_name in df.columns:
-                        df.at[idx, col_name] = ' '.join(tokens)
             
-            # description 전처리 및 카테고리 분류
+            # description 전처리
             if 'description' in df.columns:
                 desc_tokens = self.preprocess_text(row['description'], company_names)
                 df.at[idx, 'description_processed'] = ' '.join(desc_tokens)
-                
-                # 카테고리별 분류
-                desc_categories = self.categorize_tokens(desc_tokens)
-                for category, tokens in desc_categories.items():
-                    col_name = f'desc_{category}'
-                    if col_name in df.columns:
-                        df.at[idx, col_name] = ' '.join(tokens)
         
-        ic("전처리 및 카테고리 분류 완료!")
+        ic("전처리 완료!")
         return df
     
     def analyze_frequency(self, df, column_name):
@@ -336,29 +241,7 @@ class KoreanNewsPreprocessor:
         
         return freq_df
     
-    def analyze_categories(self, df):
-        """카테고리별 분석 결과 출력"""
-        ic("\n=== 카테고리별 분석 ===")
-        
-        # 카테고리별 토큰 수 집계
-        category_stats = {}
-        
-        for col in df.columns:
-            if any(cat in col for cat in ['tech', 'business', 'env', 'social', 'gov', 'industry', 'finance', 'innovation', 'sustainability', 'other']):
-                if col.startswith('title_'):
-                    category = col.replace('title_', '')
-                    total_tokens = sum(len(str(df.at[idx, col]).split()) if df.at[idx, col] else 0 for idx in range(len(df)))
-                    category_stats[f'title_{category}'] = total_tokens
-                elif col.startswith('desc_'):
-                    category = col.replace('desc_', '')
-                    total_tokens = sum(len(str(df.at[idx, col]).split()) if df.at[idx, col] else 0 for idx in range(len(df)))
-                    category_stats[f'desc_{category}'] = total_tokens
-        
-        # 결과 출력
-        for category, count in sorted(category_stats.items(), key=lambda x: x[1], reverse=True):
-            ic(f"{category}: {count}개 토큰")
-        
-        return category_stats
+
     
     def create_wordcloud(self, df, column_name, output_path=None):
         """워드클라우드 생성"""
@@ -432,8 +315,7 @@ def main():
         title_freq = preprocessor.analyze_frequency(processed_df, 'title_processed')
         desc_freq = preprocessor.analyze_frequency(processed_df, 'description_processed')
         
-        # 3. 카테고리별 분석
-        category_stats = preprocessor.analyze_categories(processed_df)
+
         
         # 4. 워드클라우드 생성
         ic("\n=== 워드클라우드 생성 ===")
