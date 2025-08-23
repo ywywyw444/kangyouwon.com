@@ -9,6 +9,10 @@ JPype1>=0.7.0
 pandas>=1.3.0
 numpy>=1.6.0
 
+# 머신러닝
+scikit-learn>=1.0.0
+joblib>=1.1.0
+
 # 자연어 처리 도구
 nltk>=3.6.0
 
