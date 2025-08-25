@@ -61,7 +61,6 @@ async def get_client() -> httpx.AsyncClient:
     global _CLIENT
     if _CLIENT is None:
         _CLIENT = httpx.AsyncClient(
-            http2=True,
             timeout=httpx.Timeout(30.0),
             limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
         )
@@ -265,3 +264,5 @@ class SimpleServiceFactory:
                 return {"status_code": resp.status_code, "data": resp.text}
         else:
             return {"error": True, "status_code": resp.status_code, "detail": resp.text}
+
+
