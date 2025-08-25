@@ -73,15 +73,38 @@ class ServiceProxyFactory:
 # 간단한 서비스 팩토리 (기존 코드와의 호환성을 위해)
 class SimpleServiceFactory:
     def __init__(self):
-        self.auth_service_url = os.getenv("AUTH_SERVICE_URL", "https://auth-service-production-f2ef.up.railway.app")
-        logger.info(f"🔧 Auth Service URL: {self.auth_service_url}")
+        # 모든 서비스 URL을 저장
+        self.service_urls = SERVICE_URLS
+        logger.info(f"🔧 모든 서비스 URL 로드: {list(self.service_urls.keys())}")
     
     async def forward_request(self, method: str, path: str, headers: dict = None, body: str = None) -> dict:
-        """Auth Service로 요청을 전달"""
+        """요청을 적절한 서비스로 전달"""
         try:
+            # 경로에서 서비스명 추출 (예: /materiality-service/search/companies → materiality-service)
+            path_parts = path.strip('/').split('/')
+            if len(path_parts) > 0:
+                service_name = path_parts[0]
+                actual_path = '/' + '/'.join(path_parts[1:]) if len(path_parts) > 1 else '/'
+            else:
+                service_name = "auth-service"  # 기본값
+                actual_path = path
+            
+            logger.info(f"🎯 서비스명: {service_name}")
+            logger.info(f"🎯 실제 경로: {actual_path}")
+            
+            # 서비스 URL 가져오기
+            service_url = self.service_urls.get(service_name)
+            if not service_url:
+                logger.error(f"❌ 서비스를 찾을 수 없음: {service_name}")
+                return {
+                    "error": True,
+                    "status_code": 404,
+                    "detail": f"Service {service_name} not found"
+                }
+            
             # URL 구성
-            url = f"{self.auth_service_url}{path}"
-            logger.info(f"🎯 Auth Service로 전달: {method} {url}")
+            url = f"{service_url}{actual_path}"
+            logger.info(f"🎯 {service_name}로 전달: {method} {url}")
             
             # 로그인/회원가입 요청 상세 로깅
             if body and ("login" in path or "signup" in path):
@@ -124,7 +147,7 @@ class SimpleServiceFactory:
             async with httpx.AsyncClient() as client:
                 response = await client.request(**request_kwargs)
                 
-                logger.info(f"✅ Auth Service 응답: {response.status_code}")
+                logger.info(f"✅ {service_name} 응답: {response.status_code}")
                 
                 # 응답 데이터도 로깅
                 if response.status_code < 400:
@@ -138,7 +161,7 @@ class SimpleServiceFactory:
                         return {"status_code": response.status_code, "data": response_text}
                 else:
                     error_detail = response.text
-                    logger.error(f"❌ Auth Service 오류 응답: {response.status_code} - {error_detail}")
+                    logger.error(f"❌ {service_name} 오류 응답: {response.status_code} - {error_detail}")
                     return {
                         "error": True,
                         "status_code": response.status_code,
@@ -146,5 +169,5 @@ class SimpleServiceFactory:
                     }
                     
         except Exception as e:
-            logger.error(f"❌ Auth Service 요청 실패: {str(e)}")
+            logger.error(f"❌ 서비스 요청 실패: {str(e)}")
             return {"error": True, "detail": str(e)}
