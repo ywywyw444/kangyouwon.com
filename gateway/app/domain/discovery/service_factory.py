@@ -117,9 +117,12 @@ class SimpleServiceFactory:
                     "detail": "Auth Service URL not found"
                 }
             
-            # URL 구성
-            url = f"{service_url}{path}"
+            # URL 구성 - Auth Service는 /auth-service prefix를 포함해야 함
+            actual_path = f"/auth-service{path}" if not path.startswith("/auth-service") else path
+            url = f"{service_url}{actual_path}"
             logger.info(f"🎯 Auth Service로 전달: {method} {url}")
+            logger.info(f"🎯 원본 경로: {path}")
+            logger.info(f"🎯 수정된 경로: {actual_path}")
             
             # 로그인/회원가입 요청 상세 로깅
             if body and ("login" in path or "signup" in path):
