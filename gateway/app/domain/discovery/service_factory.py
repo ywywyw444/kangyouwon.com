@@ -97,6 +97,9 @@ class SimpleServiceFactory:
                 return await self._handle_auth_service(method, actual_path, headers, body)
             elif service_name == "materiality-service":
                 return await self._handle_materiality_service(method, actual_path, headers, body)
+            elif service_name == "search":
+                # search 서비스는 materiality-service로 매핑
+                return await self._handle_materiality_service(method, actual_path, headers, body)
             else:
                 return await self._handle_generic_service(service_name, method, actual_path, headers, body)
                     

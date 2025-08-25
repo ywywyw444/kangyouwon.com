@@ -40,7 +40,7 @@ export default function MaterialityHomePage() {
         // Gateway를 통해 materiality-service 호출
         const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
         const response = await axios.get(
-          `${gatewayUrl}/api/v1/materiality-service/search/companies`,
+          `${gatewayUrl}/api/v1/search/companies`,
           {
             headers: {
               'Content-Type': 'application/json',
@@ -233,7 +233,7 @@ export default function MaterialityHomePage() {
       // Gateway를 통해 materiality-service 호출
       const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
       const response = await axios.post(
-        `${gatewayUrl}/api/v1/materiality-service/search-media`, 
+        `${gatewayUrl}/api/v1/search-media`, 
         searchData,
         {
           headers: {
