@@ -100,19 +100,50 @@ async def proxy_get(
 ):
     logger.info("🚀 GET 프록시 함수 시작!")
     try:
-        service_factory = request.app.state.service_factory
-        headers = dict(request.headers)
-
-        # ===== [수정] 내부로 넘길 경로 재작성 =====
-        # auth-service는 /auth-service 경로를 포함해서 전달
-        forward_path = f"/auth-service/{path}"
-        logger.info(f"🎯 최종 전달 경로(GET): {forward_path}")
-
-        response = await service_factory.forward_request(
-            method="GET",
-            path=forward_path,
-            headers=headers
-        )
+        # 서비스별로 다른 처리
+        if service == "auth-service":
+            service_factory = request.app.state.service_factory
+            headers = dict(request.headers)
+            forward_path = f"/auth-service/{path}"
+            logger.info(f"🎯 Auth Service로 전달: {forward_path}")
+            
+            response = await service_factory.forward_request(
+                method="GET",
+                path=forward_path,
+                headers=headers
+            )
+        elif service == "materiality-service":
+            # Materiality Service로 전달
+            from app.domain.discovery.service_factory import ServiceProxyFactory
+            materiality_factory = ServiceProxyFactory("materiality-service")
+            headers = dict(request.headers)
+            
+            # /api/v1 prefix 제거하고 실제 경로만 전달
+            actual_path = f"/{path}"
+            logger.info(f"🎯 Materiality Service로 전달: {actual_path}")
+            
+            http_response = await materiality_factory.request(
+                method="GET",
+                path=actual_path,
+                headers=headers
+            )
+            
+            return JSONResponse(
+                content=http_response.json() if http_response.content else {},
+                status_code=http_response.status_code
+            )
+        else:
+            # 기타 서비스는 기본 처리
+            service_factory = request.app.state.service_factory
+            headers = dict(request.headers)
+            forward_path = f"/{service}/{path}"
+            logger.info(f"🎯 {service}로 전달: {forward_path}")
+            
+            response = await service_factory.forward_request(
+                method="GET",
+                path=forward_path,
+                headers=headers
+            )
         
         if response.get("error"):
             return JSONResponse(
@@ -148,26 +179,57 @@ async def proxy_post_json(
     logger.info(f"🚀 요청 URL: {request.url}")
 
     try:
-        service_factory = request.app.state.service_factory
         headers = dict(request.headers)
         headers["content-type"] = "application/json"
         # Content-Length 헤더 제거 (자동 계산되도록)
         if "content-length" in headers:
             del headers["content-length"]
-        body = json.dumps(payload)  # service_discovery.request가 raw body 받는다고 가정
+        body = json.dumps(payload)
 
-        # 내부로 넘길 경로
-        forward_path = f"/auth-service/{path}"
-        logger.info(f"🎯 최종 전달 경로(POST, JSON): {forward_path}")
-        logger.info(f"🔧 전달할 body 크기: {len(body) if body else 0} bytes")
-        logger.info(f"🔧 전달할 headers: {headers}")
-
-        response = await service_factory.forward_request(
-            method="POST",
-            path=forward_path,
-            headers=headers,
-            body=body
-        )
+        # 서비스별로 다른 처리
+        if service == "auth-service":
+            service_factory = request.app.state.service_factory
+            forward_path = f"/auth-service/{path}"
+            logger.info(f"🎯 Auth Service로 전달: {forward_path}")
+            
+            response = await service_factory.forward_request(
+                method="POST",
+                path=forward_path,
+                headers=headers,
+                body=body
+            )
+        elif service == "materiality-service":
+            # Materiality Service로 전달
+            from app.domain.discovery.service_factory import ServiceProxyFactory
+            materiality_factory = ServiceProxyFactory("materiality-service")
+            
+            # /api/v1 prefix 제거하고 실제 경로만 전달
+            actual_path = f"/{path}"
+            logger.info(f"🎯 Materiality Service로 전달: {actual_path}")
+            
+            http_response = await materiality_factory.request(
+                method="POST",
+                path=actual_path,
+                headers=headers,
+                body=body
+            )
+            
+            return JSONResponse(
+                content=http_response.json() if http_response.content else {},
+                status_code=http_response.status_code
+            )
+        else:
+            # 기타 서비스는 기본 처리
+            service_factory = request.app.state.service_factory
+            forward_path = f"/{service}/{path}"
+            logger.info(f"🎯 {service}로 전달: {forward_path}")
+            
+            response = await service_factory.forward_request(
+                method="POST",
+                path=forward_path,
+                headers=headers,
+                body=body
+            )
 
         if response.get("error"):
             return JSONResponse(

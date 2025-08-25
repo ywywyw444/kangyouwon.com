@@ -57,7 +57,7 @@ app.add_middleware(
 
 # 라우터 등록
 app.include_router(media_router, prefix="/api/v1", tags=["materiality"])
-app.include_router(search_router, prefix="/api/v1", tags=["search"])
+app.include_router(search_router, tags=["search"])
 
 @app.get("/")
 async def root():
@@ -101,9 +101,9 @@ async def startup_event():
     logger.info("   - GET /api/v1/search/companies")
     logger.info("   - POST /api/v1/search/company")
     logger.info("   - POST /api/v1/search/validate")
-    logger.info("   - POST /api/v1/materiality-service/search-media")
-    logger.info("   - POST /api/v1/materiality-service/assessment")
-    logger.info("   - GET /api/v1/materiality-service/reports")
+    logger.info("   - POST /api/v1/search-media")
+    logger.info("   - POST /api/v1/assessment")
+    logger.info("   - GET /api/v1/reports")
 
 @app.on_event("shutdown")
 async def shutdown_event():
