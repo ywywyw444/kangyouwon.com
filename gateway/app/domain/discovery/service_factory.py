@@ -92,19 +92,34 @@ class SimpleServiceFactory:
             logger.info(f"🎯 서비스명: {service_name}")
             logger.info(f"🎯 실제 경로: {actual_path}")
             
-            # 서비스 URL 가져오기
-            service_url = self.service_urls.get(service_name)
+            # 서비스별로 다른 처리
+            if service_name == "auth-service":
+                return await self._handle_auth_service(method, actual_path, headers, body)
+            elif service_name == "materiality-service":
+                return await self._handle_materiality_service(method, actual_path, headers, body)
+            else:
+                return await self._handle_generic_service(service_name, method, actual_path, headers, body)
+                    
+        except Exception as e:
+            logger.error(f"❌ 서비스 요청 실패: {str(e)}")
+            return {"error": True, "detail": str(e)}
+    
+    async def _handle_auth_service(self, method: str, path: str, headers: dict = None, body: str = None) -> dict:
+        """Auth Service 요청 처리"""
+        try:
+            # Auth Service URL 가져오기
+            service_url = self.service_urls.get("auth-service")
             if not service_url:
-                logger.error(f"❌ 서비스를 찾을 수 없음: {service_name}")
+                logger.error("❌ Auth Service URL을 찾을 수 없음")
                 return {
                     "error": True,
                     "status_code": 404,
-                    "detail": f"Service {service_name} not found"
+                    "detail": "Auth Service URL not found"
                 }
             
             # URL 구성
-            url = f"{service_url}{actual_path}"
-            logger.info(f"🎯 {service_name}로 전달: {method} {url}")
+            url = f"{service_url}{path}"
+            logger.info(f"🎯 Auth Service로 전달: {method} {url}")
             
             # 로그인/회원가입 요청 상세 로깅
             if body and ("login" in path or "signup" in path):
@@ -126,6 +141,130 @@ class SimpleServiceFactory:
                 except Exception as e:
                     logger.warning(f"⚠️ 요청 데이터 파싱 실패: {str(e)}")
                     logger.info(f"   - 원본 데이터: {body}")
+            
+            # 헤더 준비
+            request_headers = headers or {}
+            if "host" in request_headers:
+                del request_headers["host"]
+            
+            # 요청 파라미터
+            request_kwargs = {
+                "method": method,
+                "url": url,
+                "headers": request_headers,
+                "timeout": 30.0
+            }
+            
+            if body:
+                request_kwargs["content"] = body
+            
+            # HTTP 요청 실행
+            async with httpx.AsyncClient() as client:
+                response = await client.request(**request_kwargs)
+                
+                logger.info(f"✅ Auth Service 응답: {response.status_code}")
+                
+                # 응답 데이터도 로깅
+                if response.status_code < 400:
+                    try:
+                        response_data = response.json()
+                        logger.info(f"📤 응답 데이터: {response_data}")
+                        return {"status_code": response.status_code, "data": response_data}
+                    except Exception:
+                        response_text = response.text
+                        logger.info(f"📤 응답 텍스트: {response_text}")
+                        return {"status_code": response.status_code, "data": response_text}
+                else:
+                    error_detail = response.text
+                    logger.error(f"❌ Auth Service 오류 응답: {response.status_code} - {error_detail}")
+                    return {
+                        "error": True,
+                        "status_code": response.status_code,
+                        "detail": error_detail
+                    }
+                    
+        except Exception as e:
+            logger.error(f"❌ Auth Service 요청 실패: {str(e)}")
+            return {"error": True, "detail": str(e)}
+    
+    async def _handle_materiality_service(self, method: str, path: str, headers: dict = None, body: str = None) -> dict:
+        """Materiality Service 요청 처리"""
+        try:
+            # Materiality Service URL 가져오기
+            service_url = self.service_urls.get("materiality-service")
+            if not service_url:
+                logger.error("❌ Materiality Service URL을 찾을 수 없음")
+                return {
+                    "error": True,
+                    "status_code": 404,
+                    "detail": "Materiality Service URL not found"
+                }
+            
+            # URL 구성
+            url = f"{service_url}{path}"
+            logger.info(f"🎯 Materiality Service로 전달: {method} {url}")
+            
+            # 헤더 준비
+            request_headers = headers or {}
+            if "host" in request_headers:
+                del request_headers["host"]
+            
+            # 요청 파라미터
+            request_kwargs = {
+                "method": method,
+                "url": url,
+                "headers": request_headers,
+                "timeout": 30.0
+            }
+            
+            if body:
+                request_kwargs["content"] = body
+            
+            # HTTP 요청 실행
+            async with httpx.AsyncClient() as client:
+                response = await client.request(**request_kwargs)
+                
+                logger.info(f"✅ Materiality Service 응답: {response.status_code}")
+                
+                # 응답 데이터도 로깅
+                if response.status_code < 400:
+                    try:
+                        response_data = response.json()
+                        logger.info(f"📤 응답 데이터: {response_data}")
+                        return {"status_code": response.status_code, "data": response_data}
+                    except Exception:
+                        response_text = response.text
+                        logger.info(f"📤 응답 텍스트: {response_text}")
+                        return {"status_code": response.status_code, "data": response_text}
+                else:
+                    error_detail = response.text
+                    logger.error(f"❌ Materiality Service 오류 응답: {response.status_code} - {error_detail}")
+                    return {
+                        "error": True,
+                        "status_code": response.status_code,
+                        "detail": error_detail
+                    }
+                    
+        except Exception as e:
+            logger.error(f"❌ Materiality Service 요청 실패: {str(e)}")
+            return {"error": True, "detail": str(e)}
+    
+    async def _handle_generic_service(self, service_name: str, method: str, path: str, headers: dict = None, body: str = None) -> dict:
+        """기타 서비스 요청 처리"""
+        try:
+            # 서비스 URL 가져오기
+            service_url = self.service_urls.get(service_name)
+            if not service_url:
+                logger.error(f"❌ 서비스를 찾을 수 없음: {service_name}")
+                return {
+                    "error": True,
+                    "status_code": 404,
+                    "detail": f"Service {service_name} not found"
+                }
+            
+            # URL 구성
+            url = f"{service_url}{path}"
+            logger.info(f"🎯 {service_name}로 전달: {method} {url}")
             
             # 헤더 준비
             request_headers = headers or {}
@@ -169,5 +308,5 @@ class SimpleServiceFactory:
                     }
                     
         except Exception as e:
-            logger.error(f"❌ 서비스 요청 실패: {str(e)}")
+            logger.error(f"❌ {service_name} 요청 실패: {str(e)}")
             return {"error": True, "detail": str(e)}
