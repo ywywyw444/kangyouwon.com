@@ -22,7 +22,9 @@ export default function MaterialityHomePage() {
         if (userData) {
           const user = JSON.parse(userData);
           if (user.company_id) {
+            // 사용자의 기업명을 기본값으로 설정
             setSelectedCompany(user.company_id);
+            console.log('✅ 로그인된 사용자의 기업명 설정:', user.company_id);
           }
         }
       } catch (error) {
@@ -52,15 +54,47 @@ export default function MaterialityHomePage() {
           const companyNames = response.data.companies.map((company: any) => company.companyname);
           setCompanies(companyNames);
           console.log(`✅ ${companyNames.length}개 기업 목록을 성공적으로 가져왔습니다.`);
+          
+          // 로그인된 사용자의 기업이 목록에 있는지 확인하고, 없다면 추가
+          const userData = localStorage.getItem('user');
+          if (userData) {
+            const user = JSON.parse(userData);
+            if (user.company_id && !companyNames.includes(user.company_id)) {
+              setCompanies(prev => [user.company_id, ...prev]);
+              console.log('✅ 사용자 기업을 목록 맨 앞에 추가:', user.company_id);
+            }
+          }
         } else {
           console.warn('⚠️ 기업 목록을 가져올 수 없습니다:', response.data.message);
-          // API 실패 시 기본 기업 목록 사용
-          setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
+          // API 실패 시 사용자 기업만 표시
+          const userData = localStorage.getItem('user');
+          if (userData) {
+            const user = JSON.parse(userData);
+            if (user.company_id) {
+              setCompanies([user.company_id]);
+              console.log('✅ API 실패 시 사용자 기업만 표시:', user.company_id);
+            } else {
+              setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
+            }
+          } else {
+            setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
+          }
         }
       } catch (error) {
         console.error('❌ Gateway를 통한 기업 목록 API 호출 실패:', error);
-        // API 실패 시 기본 기업 목록 사용
-        setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
+        // API 실패 시 사용자 기업만 표시
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          const user = JSON.parse(userData);
+          if (user.company_id) {
+            setCompanies([user.company_id]);
+            console.log('✅ API 오류 시 사용자 기업만 표시:', user.company_id);
+          } else {
+            setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
+          }
+        } else {
+          setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
+        }
       } finally {
         setLoading(false);
       }
@@ -168,7 +202,7 @@ export default function MaterialityHomePage() {
     try {
       // 입력값 검증
       if (!selectedCompany) {
-        alert('기업을 선택해주세요.');
+        alert('기업을 선택해주세요.\n\n현재 로그인된 기업이 자동으로 선택되어야 합니다.');
         return;
       }
       
@@ -294,15 +328,23 @@ export default function MaterialityHomePage() {
                   onChange={(e) => setSelectedCompany(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
-                  <option value="">기업을 선택하세요</option>
                   {loading ? (
-                    <option value="">로딩 중...</option>
+                    <option value="">🔄 기업 목록을 불러오는 중...</option>
+                  ) : companies.length === 0 ? (
+                    <option value="">❌ 기업 목록을 불러올 수 없습니다</option>
                   ) : (
-                    companies.map((company) => (
-                      <option key={company} value={company}>
-                        {company}
-                      </option>
-                    ))
+                    <>
+                      <option value="">기업을 선택하세요</option>
+                      {companies.map((company) => (
+                        <option 
+                          key={company} 
+                          value={company}
+                          className={company === selectedCompany ? "font-bold text-blue-600" : ""}
+                        >
+                          {company === selectedCompany ? `👤 ${company} (현재 로그인)` : company}
+                        </option>
+                      ))}
+                    </>
                   )}
                 </select>
               </div>
