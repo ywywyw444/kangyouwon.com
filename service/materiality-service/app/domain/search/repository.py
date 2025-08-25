@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.domain.search.schema import CompanySearchRequest
 from app.domain.search.entity import CorporationEntity
-from app.common.database.database import get_db
+from app.common.database.corporation_db import get_db
 import logging
 
 logger = logging.getLogger(__name__)

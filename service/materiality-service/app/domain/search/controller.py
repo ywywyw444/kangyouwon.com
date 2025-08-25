@@ -3,8 +3,8 @@ Search Controller - MVC 구조에서 BaseModel을 SearchService로 전달하는 
 데이터베이스 연결은 하지 않고, Service를 거쳐 Repository까지 BaseModel을 전달
 """
 import logging
-from app.domain.search.search_service import SearchService
-from app.domain.search.search_schema import CompanySearchRequest
+from app.domain.search.service import SearchService
+from app.domain.search.schema import CompanySearchRequest
 
 logger = logging.getLogger(__name__)
 

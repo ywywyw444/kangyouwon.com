@@ -36,7 +36,7 @@ export default function MaterialityHomePage() {
         console.log('🔍 기업 목록을 Gateway를 통해 가져오는 중...');
         
         // Gateway를 통해 materiality-service 호출
-        const gatewayUrl = 'https://gateway-production-0876.up.railway.app';
+        const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
         const response = await axios.get(
           `${gatewayUrl}/api/v1/materiality-service/search/companies`,
           {
@@ -197,7 +197,7 @@ export default function MaterialityHomePage() {
       console.log('🚀 미디어 검색 데이터를 Gateway로 전송:', searchData);
 
       // Gateway를 통해 materiality-service 호출
-      const gatewayUrl = 'https://gateway-production-0876.up.railway.app';
+      const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
       const response = await axios.post(
         `${gatewayUrl}/api/v1/materiality-service/search-media`, 
         searchData,

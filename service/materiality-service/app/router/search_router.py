@@ -3,8 +3,8 @@ Search Router - 기업 검색 관련 API 엔드포인트
 """
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
-from app.domain.search.search_controller import search_controller
-from app.domain.search.search_schema import CompanySearchRequest
+from app.domain.search.controller import search_controller
+from app.domain.search.schema import CompanySearchRequest
 import logging
 import traceback
 

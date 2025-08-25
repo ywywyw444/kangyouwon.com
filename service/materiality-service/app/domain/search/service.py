@@ -4,8 +4,8 @@ BaseModel을 받아서 Repository로 전달하는 중간 계층
 데이터베이스 연결은 하지 않음
 """
 import logging
-from app.domain.search.search_repository import SearchRepository
-from app.domain.search.search_schema import CompanySearchRequest
+from app.domain.search.repository import SearchRepository
+from app.domain.search.schema import CompanySearchRequest
 
 logger = logging.getLogger("search_service")
 
