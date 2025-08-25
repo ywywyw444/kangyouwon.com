@@ -1,4 +1,4 @@
-loginfrom typing import Optional
+from typing import Optional
 from fastapi import HTTPException
 import httpx
 import os
@@ -11,7 +11,7 @@ SERVICE_URLS = {
     "auth-service": os.getenv("AUTH_SERVICE_URL", "https://auth-service-production-f2ef.up.railway.app"),
     "chatbot-service": os.getenv("CHATBOT_SERVICE_URL", "https://chatbot-service-production-93a9.up.railway.app"),
     "gri-service": os.getenv("GRI_SERVICE_URL", "https://gri-service-production.up.railway.app"),
-    "materiality-service": os.getenv("MATERIALITY_SERVICE_URL", "hmateriality-service-production-0876.up.railway.app"),
+    "materiality-service": os.getenv("MATERIALITY_SERVICE_URL", "https://materiality-service-production-0876.up.railway.app"),
     "report-service": os.getenv("REPORT_SERVICE_URL", "https://report-service-production.up.railway.app"),
     "tcfd-service": os.getenv("TCFD_SERVICE_URL", "https://tcfd-service-production.up.railway.app"),
     "survey-service": os.getenv("SURVEY_SERVICE_URL", "https://survey-service-production.up.railway.app"),
