@@ -164,7 +164,7 @@ export default function MaterialityHomePage() {
       console.log('🚀 미디어 검색 데이터를 gateway로 전송:', searchData);
 
       // Railway 프로덕션 환경 API 호출
-      const apiUrl = 'materiality-service-production-0876.up.railway.app';
+      const apiUrl = 'https://materiality-service-production-0876.up.railway.app';
       const response = await axios.post(
         `${apiUrl}/api/v1/materiality-service/search-media`, 
         searchData,
