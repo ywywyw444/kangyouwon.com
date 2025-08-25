@@ -6,18 +6,14 @@ import logging
 import sys
 import traceback
 from dotenv import load_dotenv
-from contextlib import asynccontextmanager
-from typing import List
-
-from fastapi import FastAPI, Request, Depends, Response, HTTPException
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi import APIRouter
-
-# Router import
 from app.router.media_router import media_router
+from app.router.search_router import search_router
 
-# 환경 변수 로드
+# 환경 변수 로드 (Railway 환경에서는 건너뛰기)
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
     load_dotenv()
 
@@ -30,38 +26,42 @@ if not PORT.isdigit():
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
 )
+
 logger = logging.getLogger("materiality_service")
 
-# FastAPI 애플리케이션 생성
+# FastAPI 앱 생성
 app = FastAPI(
     title="Materiality Service API",
     description="기업의 지속가능성 중대성 평가를 위한 서비스",
     version="0.1.0"
 )
 
-# CORS 미들웨어 추가
+# CORS 미들웨어 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 특정 도메인만 허용하도록 수정
+    allow_origins=["*"],  # 프로덕션에서는 특정 도메인으로 제한
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
 
-# Trusted Host 미들웨어 추가
+# TrustedHost 미들웨어 설정
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"]  # 프로덕션에서는 특정 호스트만 허용하도록 수정
+    allowed_hosts=["*"]  # 프로덕션에서는 특정 호스트로 제한
 )
 
 # 라우터 등록
 app.include_router(media_router, prefix="/api/v1", tags=["materiality"])
+app.include_router(search_router, prefix="/api/v1", tags=["search"])
 
-# 기본 루트 경로
 @app.get("/")
 async def root():
+    """루트 엔드포인트"""
     return {
         "message": "Materiality Service API",
         "version": "0.1.0",
@@ -69,19 +69,19 @@ async def root():
         "service": "materiality-service"
     }
 
-# 헬스 체크 엔드포인트
 @app.get("/health")
 async def health_check():
+    """헬스 체크 엔드포인트"""
     return {
         "status": "healthy",
-        "service": "materiality-service",
+        "service": "Materiality Service",
         "port": PORT,
         "timestamp": "2025-01-13T08:00:00Z"
     }
 
-# 예외 처리 미들웨어 추가
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    """HTTP 요청 로깅 미들웨어"""
     client_host = request.headers.get("x-forwarded-for") or (request.client.host if request.client else "unknown")
     logger.info(f"📥 요청: {request.method} {request.url.path} (클라이언트: {client_host})")
     try:
@@ -93,18 +93,21 @@ async def log_requests(request: Request, call_next):
         logger.error(traceback.format_exc())
         raise
 
-# 애플리케이션 시작 이벤트
 @app.on_event("startup")
 async def startup_event():
+    """서비스 시작 시 실행되는 이벤트"""
     logger.info(f"🚀 Materiality Service 시작됨 (포트: {PORT})")
     logger.info("📋 등록된 엔드포인트:")
+    logger.info("   - GET /api/v1/search/companies")
+    logger.info("   - POST /api/v1/search/company")
+    logger.info("   - POST /api/v1/search/validate")
     logger.info("   - POST /api/v1/materiality-service/search-media")
     logger.info("   - POST /api/v1/materiality-service/assessment")
     logger.info("   - GET /api/v1/materiality-service/reports")
 
-# 애플리케이션 종료 이벤트
 @app.on_event("shutdown")
 async def shutdown_event():
+    """서비스 종료 시 실행되는 이벤트"""
     logger.info("🛑 Materiality Service 종료됨")
 
 if __name__ == "__main__":

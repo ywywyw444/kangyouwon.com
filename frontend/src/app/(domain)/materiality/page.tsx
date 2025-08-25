@@ -8,12 +8,13 @@ import axios from 'axios';
 export default function MaterialityHomePage() {
   const [selectedCompany, setSelectedCompany] = useState('');
   const [companies, setCompanies] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
   const [reportPeriod, setReportPeriod] = useState({
     startDate: '',
     endDate: ''
   });
 
-  // 로그인한 사용자의 기업 정보 가져오기
+  // 로그인한 사용자의 기업 정보 가져오기 및 기업 목록 API 호출
   React.useEffect(() => {
     const getUserCompany = () => {
       try {
@@ -22,19 +23,51 @@ export default function MaterialityHomePage() {
           const user = JSON.parse(userData);
           if (user.company_id) {
             setSelectedCompany(user.company_id);
-            // 실제로는 API에서 기업 목록을 가져와야 함
-            // 임시로 하드코딩된 기업 목록 사용
-            setCompanies([user.company_id, 'ABC 기업', 'XYZ 그룹', 'DEF 주식회사']);
           }
         }
       } catch (error) {
         console.error('사용자 정보를 가져오는데 실패했습니다:', error);
-        // 기본 기업 목록 설정
+      }
+    };
+
+    const fetchCompanies = async () => {
+      try {
+        setLoading(true);
+        console.log('🔍 기업 목록을 Gateway를 통해 가져오는 중...');
+        
+        // Gateway를 통해 materiality-service 호출
+        const gatewayUrl = 'https://gateway-production-0876.up.railway.app';
+        const response = await axios.get(
+          `${gatewayUrl}/api/v1/materiality-service/search/companies`,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          }
+        );
+
+        console.log('✅ Gateway를 통한 기업 목록 API 응답:', response.data);
+
+        if (response.data.success && response.data.companies) {
+          const companyNames = response.data.companies.map((company: any) => company.companyname);
+          setCompanies(companyNames);
+          console.log(`✅ ${companyNames.length}개 기업 목록을 성공적으로 가져왔습니다.`);
+        } else {
+          console.warn('⚠️ 기업 목록을 가져올 수 없습니다:', response.data.message);
+          // API 실패 시 기본 기업 목록 사용
+          setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
+        }
+      } catch (error) {
+        console.error('❌ Gateway를 통한 기업 목록 API 호출 실패:', error);
+        // API 실패 시 기본 기업 목록 사용
         setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
+      } finally {
+        setLoading(false);
       }
     };
 
     getUserCompany();
+    fetchCompanies();
   }, []);
 
   const mediaItems: MediaItem[] = [
@@ -161,12 +194,12 @@ export default function MaterialityHomePage() {
         timestamp: new Date().toISOString()
       };
 
-      console.log('🚀 미디어 검색 데이터를 gateway로 전송:', searchData);
+      console.log('🚀 미디어 검색 데이터를 Gateway로 전송:', searchData);
 
-      // Railway 프로덕션 환경 API 호출
-      const apiUrl = 'https://materiality-service-production-0876.up.railway.app';
+      // Gateway를 통해 materiality-service 호출
+      const gatewayUrl = 'https://gateway-production-0876.up.railway.app';
       const response = await axios.post(
-        `${apiUrl}/api/v1/materiality-service/search-media`, 
+        `${gatewayUrl}/api/v1/materiality-service/search-media`, 
         searchData,
         {
           headers: {
@@ -262,11 +295,15 @@ export default function MaterialityHomePage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">기업을 선택하세요</option>
-                  {companies.map((company) => (
-                    <option key={company} value={company}>
-                      {company}
-                    </option>
-                  ))}
+                  {loading ? (
+                    <option value="">로딩 중...</option>
+                  ) : (
+                    companies.map((company) => (
+                      <option key={company} value={company}>
+                        {company}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
               <div>
