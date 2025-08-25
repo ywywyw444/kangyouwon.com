@@ -103,10 +103,9 @@ async def proxy_get(
         service_factory = request.app.state.service_factory
         headers = dict(request.headers)
 
-        # ===== [수정] 내부로 넘길 경로 재작성 =====
-        # auth-service는 /auth-service 경로를 포함해서 전달
+        # Service Factory가 모든 서비스 라우팅을 담당
         forward_path = f"/{service}/{path}"
-        logger.info(f"🎯 최종 전달 경로(GET): {forward_path}")
+        logger.info(f"🎯 Service Factory로 전달: {forward_path}")
 
         response = await service_factory.forward_request(
             method="GET",
@@ -148,17 +147,17 @@ async def proxy_post_json(
     logger.info(f"🚀 요청 URL: {request.url}")
 
     try:
-        service_factory = request.app.state.service_factory
         headers = dict(request.headers)
         headers["content-type"] = "application/json"
         # Content-Length 헤더 제거 (자동 계산되도록)
         if "content-length" in headers:
             del headers["content-length"]
-        body = json.dumps(payload)  # service_discovery.request가 raw body 받는다고 가정
+        body = json.dumps(payload)
 
-        # 내부로 넘길 경로
+        # Service Factory가 모든 서비스 라우팅을 담당
+        service_factory = request.app.state.service_factory
         forward_path = f"/{service}/{path}"
-        logger.info(f"🎯 최종 전달 경로(POST, JSON): {forward_path}")
+        logger.info(f"🎯 Service Factory로 전달: {forward_path}")
         logger.info(f"🔧 전달할 body 크기: {len(body) if body else 0} bytes")
         logger.info(f"🔧 전달할 headers: {headers}")
 

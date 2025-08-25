@@ -80,7 +80,7 @@ class SimpleServiceFactory:
     async def forward_request(self, method: str, path: str, headers: dict = None, body: str = None) -> dict:
         """요청을 적절한 서비스로 전달"""
         try:
-            # 경로에서 서비스명 추출 (예: /materiality-service/search/companies → materiality-service)
+            # 경로에서 서비스명 추출 (예: /auth-service/login → auth-service)
             path_parts = path.strip('/').split('/')
             if len(path_parts) > 0:
                 service_name = path_parts[0]
