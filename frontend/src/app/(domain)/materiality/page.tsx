@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import NavigationTabs from '@/component/NavigationTabs';
 import { MediaCard, MediaItem } from '@/component/MediaCard';
+import axios from 'axios';
 
 export default function MaterialityHomePage() {
   const [selectedCompany, setSelectedCompany] = useState('');
@@ -119,8 +120,6 @@ export default function MaterialityHomePage() {
     }
   ];
 
-
-
   const handleNewAssessment = () => {
     console.log('새로운 중대성 평가 시작');
     // 여기에 새로운 평가 시작 로직 추가
@@ -131,9 +130,79 @@ export default function MaterialityHomePage() {
     // 여기에 보고서 보기 로직 추가
   };
 
-  const handleMediaSearch = () => {
-    console.log('미디어 검색 시작', { selectedCompany, reportPeriod });
-    // 여기에 미디어 검색 로직 추가
+  // 미디어 검색 데이터를 gateway로 전송하는 함수
+  const handleMediaSearch = async () => {
+    try {
+      // 입력값 검증
+      if (!selectedCompany) {
+        alert('기업을 선택해주세요.');
+        return;
+      }
+      
+      if (!reportPeriod.startDate || !reportPeriod.endDate) {
+        alert('보고기간을 설정해주세요.');
+        return;
+      }
+
+      // 시작일이 종료일보다 늦은 경우 검증
+      if (new Date(reportPeriod.startDate) > new Date(reportPeriod.endDate)) {
+        alert('시작일은 종료일보다 빨라야 합니다.');
+        return;
+      }
+
+      // JSON 데이터 구성
+      const searchData = {
+        company_id: selectedCompany,
+        report_period: {
+          start_date: reportPeriod.startDate,
+          end_date: reportPeriod.endDate
+        },
+        search_type: 'materiality_assessment',
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('🚀 미디어 검색 데이터를 gateway로 전송:', searchData);
+
+      // Railway 프로덕션 환경 API 호출
+      const apiUrl = 'materiality-service-production-0876.up.railway.app';
+      const response = await axios.post(
+        `${apiUrl}/api/v1/materiality-service/search-media`, 
+        searchData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      console.log('✅ Gateway 응답:', response.data);
+
+      if (response.data.success) {
+        alert(`✅ 미디어 검색 요청이 성공적으로 전송되었습니다!\n\n기업: ${selectedCompany}\n기간: ${reportPeriod.startDate} ~ ${reportPeriod.endDate}`);
+        
+        // 성공 후 추가 처리 로직 (예: 검색 결과 표시, 로딩 상태 관리 등)
+        // 여기에 실제 검색 결과를 받아와서 mediaItems를 업데이트하는 로직 추가 가능
+        
+      } else {
+        alert(`❌ 미디어 검색 요청 실패: ${response.data.message || '알 수 없는 오류'}`);
+      }
+
+    } catch (error: unknown) {
+      console.error('❌ 미디어 검색 요청 실패:', error);
+      
+      // 에러 응답 처리 - 타입 가드 사용
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string; detail?: string } } };
+        if (axiosError.response?.data) {
+          const errorData = axiosError.response.data;
+          alert(`❌ 미디어 검색 요청 실패: ${errorData.message || errorData.detail || '알 수 없는 오류'}`);
+        } else {
+          alert('❌ 미디어 검색 요청에 실패했습니다. Gateway 서버 연결을 확인해주세요.');
+        }
+      } else {
+        alert('❌ 미디어 검색 요청에 실패했습니다. Gateway 서버 연결을 확인해주세요.');
+      }
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -192,6 +261,7 @@ export default function MaterialityHomePage() {
                   onChange={(e) => setSelectedCompany(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
+                  <option value="">기업을 선택하세요</option>
                   {companies.map((company) => (
                     <option key={company} value={company}>
                       {company}
