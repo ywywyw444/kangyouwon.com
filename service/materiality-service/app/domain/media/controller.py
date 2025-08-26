@@ -24,7 +24,7 @@ class MediaController:
             logger.info(f"🔍 컨트롤러: 미디어 검색 요청을 Service로 전달 - {search_data.get('company_id', 'Unknown')}")
             
             # 딕셔너리를 Service로 전달 (데이터베이스 연결 없음)
-            result = await search_media(search_data)
+            result = search_media(search_data)
             
             logger.info(f"✅ 컨트롤러: Service 응답 수신 - {result.get('success', False)}")
             return result

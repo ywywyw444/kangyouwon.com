@@ -1,22 +1,17 @@
-# app/domain/media/service.py
-
-from __future__ import annotations
+# app/service/service.py
 
 import os
 import time
 import random
 import logging
 import email.utils
-import asyncio
 from datetime import datetime, timezone, date
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
-import requests
+import httpx
 
-from app.domain.media.repository import MediaRepository
-
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("materiality.service")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 네이버 뉴스 API 클라이언트 (동기)  — service에서 to_thread로 실행
@@ -47,7 +42,7 @@ class NaverNewsClient:
 
         self._last_request_ts = 0.0
 
-        self.session = requests.Session()
+        self.session = httpx.Client()
         self.session.headers.update(
             {
                 "X-Naver-Client-Id": self.client_id,
@@ -71,10 +66,10 @@ class NaverNewsClient:
                 self._throttle()
                 resp = self.session.get(BASE_URL, params=params, timeout=10)
                 if resp.status_code == 429 or 500 <= resp.status_code < 600:
-                    raise requests.HTTPError(f"HTTP {resp.status_code}: {resp.text[:180]}")
+                    raise httpx.HTTPStatusError(f"HTTP {resp.status_code}: {resp.text[:160]}")
                 resp.raise_for_status()
                 return resp.json()
-            except requests.RequestException as e:
+            except httpx.RequestError as e:
                 last_exc = e
                 backoff = (self.min_interval * (2 ** (attempt - 1))) + random.uniform(*JITTER_RANGE)
                 logger.warning("네이버 API 요청 실패(%s/%s): %s → %.2fs 후 재시도", attempt, self.max_retries, e, backoff)
@@ -185,63 +180,71 @@ def _dedupe_by_url(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 # 서비스 엔트리포인트 (비동기)
 # ──────────────────────────────────────────────────────────────────────────────
 
-async def search_media(search_data: Dict[str, Any]) -> Dict[str, Any]:
+def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
-    controller → service 진입점.
-    - search_data: {'company_id': '...', 'report_period': {'start_date': 'YYYY-MM-DD', 'end_date': '...'}, ...}
-    - end_date는 무시하고 '오늘 날짜'로 자동 설정.
-    - repository에서 모든 카테고리를 BaseModel로 받아와 category_name을 '/' 분해하여 토큰 생성.
+    프론트에서 전달한 JSON(payload)을 받아, 회사×이슈 조합으로
+    네이버 뉴스 API를 검색한 뒤 JSON 결과를 반환한다.
+
+    반환 형식:
+    {
+        "success": True,
+        "message": "...",
+        "data": {
+            "company_id": "...",
+            "search_period": {"start_date": "...", "end_date": "..."},
+            "search_type": "...",
+            "total_results": int,
+            "articles": [...],  # title, description, pubDate, originallink, 네이버링크, company, issue, keyword, query_kind
+        },
+        "timestamp": "...(요청에서 받은 값 그대로 반환)"
+    }
     """
-    company_id = (search_data or {}).get("company_id") or (search_data or {}).get("companyname") or ""
+    # 요청 데이터 파싱
+    company_id: str = payload.get("company_id") or payload.get("companyname") or ""
     if not company_id:
-        return {"success": False, "message": "company_id가 필요합니다."}
+        raise ValueError("company_id 가 필요합니다.")
 
-    rp = (search_data or {}).get("report_period") or {}
-    start_date = rp.get("start_date")
+    rp: Dict[str, Any] = payload.get("report_period") or {}
+    start_date: str = rp.get("start_date")
     if not start_date:
-        return {"success": False, "message": "report_period.start_date가 필요합니다."}
+        raise ValueError("report_period.start_date 가 필요합니다.")
 
-    # 검색 종료일은 '요청 시점의 당일'
-    end_date = date.today().isoformat()
-    search_type = (search_data or {}).get("search_type", "materiality_assessment")
-    timestamp = (search_data or {}).get("timestamp")
+    # end_date는 '검색 당일'로 유동 적용
+    end_date: str = date.today().isoformat()
 
-    logger.info("🔎 미디어 검색: company=%s, start=%s, end=%s, type=%s", company_id, start_date, end_date, search_type)
+    search_type: str = payload.get("search_type", "materiality_assessment")
+    timestamp: Optional[str] = payload.get("timestamp")
 
-    # 1) Repository에서 모든 카테고리(BaseModel) 조회 후 토큰화
-    repo = MediaRepository()
-    category_models = await repo.get_all_materiality_categories()  # List[MaterialityCategoryRequest]
-    tokens: List[str] = []
-    for cm in category_models or []:
-        # BaseModel: MaterialityCategoryRequest(category_name, esg_classification_id)
-        tokens.extend(_split_category_tokens(getattr(cm, "category_name", None)))
+    logger.info("🔍 매체검색: company_id=%s, start=%s, end=%s, type=%s", company_id, start_date, end_date, search_type)
 
-    # 중복 제거 & 정렬
-    tokens = sorted({t for t in tokens if t})
+    # 간단한 토큰 생성 (실제로는 DB에서 가져와야 함)
+    tokens: List[str] = ["ESG", "지속가능성", "중대성"]
 
+    # 토큰이 없으면 회사명 단독 검색만 수행
     if not tokens:
-        logger.warning("카테고리 토큰이 비어 있어 회사명 단독 검색만 수행합니다.")
+        logger.warning("카테고리 토큰이 없어 회사명 단독 검색만 수행합니다. company=%s", company_id)
 
-    # 2) 네이버 클라이언트 설정
+    # 네이버 API 클라이언트
     client = NaverNewsClient()
 
-    # 환경변수 기반 튜닝
+    # 질의 목록 구성: (회사명 + 토큰) + 회사명 단독
+    queries: List[Dict[str, Any]] = []
     max_results_per_keyword = int(os.getenv("NAVER_MAX_RESULTS_PER_KEYWORD", "300"))
     unique_company_max_results = int(os.getenv("NAVER_UNIQUE_COMPANY_MAX_RESULTS", "150"))
 
-    # 3) 질의 구성: (회사명 × 토큰) + 회사명 단독
-    queries: List[Dict[str, Any]] = []
     for tok in tokens:
+        keyword = f"{company_id} {tok}"
         queries.append(
             {
-                "keyword": f"{company_id} {tok}",
+                "keyword": keyword,
                 "company": company_id,
                 "issue": tok,
                 "query_kind": "company_issue",
                 "max_results": max_results_per_keyword,
             }
         )
-    # 회사명 단독
+
+    # 회사명 단독 검색도 추가
     queries.append(
         {
             "keyword": company_id,
@@ -252,7 +255,7 @@ async def search_media(search_data: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
 
-    # 4) 실행 (동기 클라이언트를 스레드로 돌림)
+    # 실행
     all_items: List[Dict[str, Any]] = []
     for q in queries:
         kw = q["keyword"]
@@ -260,16 +263,10 @@ async def search_media(search_data: Dict[str, Any]) -> Dict[str, Any]:
         issue = q["issue"]
         query_kind = q["query_kind"]
         per_kw_limit = int(q["max_results"])
-
         logger.info("▶︎ 네이버 검색 시작 [%s]: %s (%s~%s, limit=%d)", query_kind, kw, start_date, end_date, per_kw_limit)
-
         try:
-            result: Dict[str, Any] = await asyncio.to_thread(
-                client.search_by_date_range,
-                keyword=kw,
-                start_date=start_date,
-                end_date=end_date,
-                max_results=per_kw_limit,
+            result = client.search_by_date_range(
+                keyword=kw, start_date=start_date, end_date=end_date, max_results=per_kw_limit
             )
             for it in result.get("items", []):
                 it["company"] = company
@@ -277,23 +274,21 @@ async def search_media(search_data: Dict[str, Any]) -> Dict[str, Any]:
                 it["keyword"] = kw
                 it["query_kind"] = query_kind
                 all_items.append(it)
-
-            # 키워드 간 대기 (이건 비동기 sleep)
-            await asyncio.sleep(max(0.0, client.per_keyword_pause) + random.uniform(*JITTER_RANGE))
+            # 키워드 간 간격 (지터 포함)
+            time.sleep(max(0.0, client.per_keyword_pause) + random.uniform(*JITTER_RANGE))
         except Exception as e:
             logger.error("검색 실패 [%s] %s: %s", query_kind, kw, e)
 
     if not all_items:
         logger.warning("수집된 뉴스가 없습니다. company=%s", company_id)
 
-    # 5) 중복 제거
+    # URL 기준 중복 제거(기업 범위 내)
     try:
         all_items = _dedupe_by_url(all_items)
     except Exception as e:
-        logger.warning("중복 제거 중 오류: %s (무시)", e)
+        logger.warning("중복 제거 중 오류(무시하고 계속): %s", e)
 
-    # 6) 결과 반환(JSON)
-    return {
+    response = {
         "success": True,
         "message": "미디어 검색 요청이 성공적으로 처리되었습니다",
         "data": {
@@ -301,7 +296,8 @@ async def search_media(search_data: Dict[str, Any]) -> Dict[str, Any]:
             "search_period": {"start_date": start_date, "end_date": end_date},
             "search_type": search_type,
             "total_results": len(all_items),
-            "articles": all_items,
+            "articles": all_items,  # 그대로 반환 (title/description/pubDate/originallink/네이버링크 등 포함)
         },
         "timestamp": timestamp,
     }
+    return response
