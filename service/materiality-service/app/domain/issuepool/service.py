@@ -59,6 +59,31 @@ class IssuePoolService:
             sorted_issuepools_year_minus_2 = sorted(issuepools_year_minus_2, key=lambda x: x.ranking)
             sorted_issuepools_year_minus_1 = sorted(issuepools_year_minus_1, key=lambda x: x.ranking)
             
+            # ESG 분포 계산 함수
+            def calculate_esg_distribution(issuepools):
+                """ESG 분류별 비율 계산"""
+                esg_counts = {}
+                total = len(issuepools)
+                
+                for issuepool in issuepools:
+                    esg_name = issuepool.esg_classification_name or "미분류"
+                    esg_counts[esg_name] = esg_counts.get(esg_name, 0) + 1
+                
+                # 비율(%)로 변환
+                esg_distribution = {}
+                for esg_name, count in esg_counts.items():
+                    percentage = round((count / total) * 100) if total > 0 else 0
+                    esg_distribution[esg_name] = {
+                        "count": count,
+                        "percentage": percentage
+                    }
+                
+                return esg_distribution
+            
+            # year-2년과 year-1년 각각의 ESG 분포 계산
+            esg_distribution_year_minus_2 = calculate_esg_distribution(sorted_issuepools_year_minus_2)
+            esg_distribution_year_minus_1 = calculate_esg_distribution(sorted_issuepools_year_minus_1)
+            
             # 응답 데이터 구성
             response_data = {
                 "success": True,
@@ -83,7 +108,8 @@ class IssuePoolService:
                                 "esg_classification_id": issuepool.esg_classification_id,
                                 "esg_classification_name": issuepool.esg_classification_name
                             } for issuepool in sorted_issuepools_year_minus_2
-                        ]
+                        ],
+                        "esg_distribution": esg_distribution_year_minus_2
                     },
                     "year_minus_1": {
                         "year": year_minus_1,
@@ -98,7 +124,8 @@ class IssuePoolService:
                                 "esg_classification_id": issuepool.esg_classification_id,
                                 "esg_classification_name": issuepool.esg_classification_name
                             } for issuepool in sorted_issuepools_year_minus_1
-                        ]
+                        ],
+                        "esg_distribution": esg_distribution_year_minus_1
                     },
                     "total_count": len(sorted_issuepools_year_minus_2) + len(sorted_issuepools_year_minus_1)
                 }
