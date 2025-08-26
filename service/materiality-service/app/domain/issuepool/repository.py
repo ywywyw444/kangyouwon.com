@@ -77,8 +77,8 @@ class IssuePoolRepository:
                         SELECT id, corporation_id, publish_year, ranking, 
                                base_issue_pool, issue_pool, category_id, esg_classification_id
                         FROM issuepool 
-                        WHERE corporation_id = :corp_id::INTEGER 
-                        AND publish_year = :pub_year::INTEGER
+                        WHERE corporation_id = CAST(:corp_id AS INTEGER) 
+                        AND publish_year = CAST(:pub_year AS INTEGER)
                         ORDER BY ranking
                     """)
                     params = {"corp_id": corporation_id, "pub_year": publish_year}
@@ -87,7 +87,7 @@ class IssuePoolRepository:
                         SELECT id, corporation_id, publish_year, ranking, 
                                base_issue_pool, issue_pool, category_id, esg_classification_id
                         FROM issuepool 
-                        WHERE corporation_id = :corp_id::INTEGER
+                        WHERE corporation_id = CAST(:corp_id AS INTEGER)
                         ORDER BY ranking
                     """)
                     params = {"corp_id": corporation_id}
@@ -126,24 +126,30 @@ class IssuePoolRepository:
             
             # 데이터베이스 연결
             async for db in get_db():
-                query = select(IssuePoolEntity).where(IssuePoolEntity.publish_year == publish_year)
-                result = await db.execute(query)
-                issuepool_entities = result.scalars().all()
+                query = text("""
+                    SELECT id, corporation_id, publish_year, ranking, 
+                           base_issue_pool, issue_pool, category_id, esg_classification_id
+                    FROM issuepool 
+                    WHERE publish_year = CAST(:pub_year AS INTEGER)
+                    ORDER BY ranking
+                """)
+                result = await db.execute(query, {"pub_year": publish_year})
+                rows = result.fetchall()
                 
-                logger.info(f"🔍 DB에서 가져온 Entity 데이터: {len(issuepool_entities)}개")
+                logger.info(f"🔍 DB에서 가져온 raw 데이터: {len(rows)}개")
                 
-                # Entity들을 BaseModel로 변환하여 반환
+                # raw 데이터를 BaseModel로 변환하여 반환
                 issuepool_models = []
-                for issuepool_entity in issuepool_entities:
+                for row in rows:
                     issuepool_model = IssuePoolResponse(
-                        id=issuepool_entity.id,
-                        corporation_id=issuepool_entity.corporation_id,
-                        publish_year=issuepool_entity.publish_year,
-                        ranking=issuepool_entity.ranking,
-                        base_issue_pool=issuepool_entity.base_issue_pool,
-                        issue_pool=issuepool_entity.issue_pool,
-                        category_id=issuepool_entity.category_id,
-                        esg_classification_id=issuepool_entity.esg_classification_id
+                        id=row[0],
+                        corporation_id=row[1],
+                        publish_year=row[2],
+                        ranking=row[3],
+                        base_issue_pool=row[4],
+                        issue_pool=row[5],
+                        category_id=row[6],
+                        esg_classification_id=row[7]
                     )
                     issuepool_models.append(issuepool_model)
                 
@@ -161,21 +167,26 @@ class IssuePoolRepository:
             
             # 데이터베이스 연결
             async for db in get_db():
-                query = select(IssuePoolEntity).where(IssuePoolEntity.id == issuepool_id)
-                result = await db.execute(query)
-                issuepool_entity = result.scalar_one_or_none()
+                query = text("""
+                    SELECT id, corporation_id, publish_year, ranking, 
+                           base_issue_pool, issue_pool, category_id, esg_classification_id
+                    FROM issuepool 
+                    WHERE id = CAST(:issuepool_id AS INTEGER)
+                """)
+                result = await db.execute(query, {"issuepool_id": issuepool_id})
+                row = result.fetchone()
                 
-                if issuepool_entity:
-                    # Entity를 BaseModel로 변환하여 반환
+                if row:
+                    # raw 데이터를 BaseModel로 변환하여 반환
                     issuepool_model = IssuePoolResponse(
-                        id=issuepool_entity.id,
-                        corporation_id=issuepool_entity.corporation_id,
-                        publish_year=issuepool_entity.publish_year,
-                        ranking=issuepool_entity.ranking,
-                        base_issue_pool=issuepool_entity.base_issue_pool,
-                        issue_pool=issuepool_entity.issue_pool,
-                        category_id=issuepool_entity.category_id,
-                        esg_classification_id=issuepool_entity.esg_classification_id
+                        id=row[0],
+                        corporation_id=row[1],
+                        publish_year=row[2],
+                        ranking=row[3],
+                        base_issue_pool=row[4],
+                        issue_pool=row[5],
+                        category_id=row[6],
+                        esg_classification_id=row[7]
                     )
                     logger.info(f"✅ 리포지토리: 이슈풀 조회 성공 - ID: {issuepool_id}")
                     return issuepool_model
