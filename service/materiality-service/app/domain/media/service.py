@@ -22,6 +22,81 @@ from app.domain.media.repository import MediaRepository
 logger = logging.getLogger("materiality.service")
 
 # ──────────────────────────────────────────────────────────────────────────────
+# 작업 상태 관리 (메모리 기반)
+# ──────────────────────────────────────────────────────────────────────────────
+
+# 작업 상태를 저장할 메모리 딕셔너리
+_job_status: Dict[str, Dict[str, Any]] = {}
+
+def create_job_status(job_id: str, search_data: Dict[str, Any]) -> None:
+    """작업 상태 초기화"""
+    _job_status[job_id] = {
+        "status": "running",
+        "progress": 0,
+        "message": "검색을 시작했습니다",
+        "start_time": datetime.now().isoformat(),
+        "search_data": search_data,
+        "result": None,
+        "error": None
+    }
+
+def update_job_status(job_id: str, **kwargs) -> None:
+    """작업 상태 업데이트"""
+    if job_id in _job_status:
+        _job_status[job_id].update(kwargs)
+
+def get_job_status(job_id: str) -> Optional[Dict[str, Any]]:
+    """작업 상태 조회"""
+    return _job_status.get(job_id)
+
+def complete_job(job_id: str, result: Dict[str, Any]) -> None:
+    """작업 완료 처리"""
+    if job_id in _job_status:
+        _job_status[job_id].update({
+            "status": "completed",
+            "progress": 100,
+            "message": "검색이 완료되었습니다",
+            "end_time": datetime.now().isoformat(),
+            "result": result
+        })
+
+def fail_job(job_id: str, error: str) -> None:
+    """작업 실패 처리"""
+    if job_id in _job_status:
+        _job_status[job_id].update({
+            "status": "failed",
+            "message": f"검색에 실패했습니다: {error}",
+            "end_time": datetime.now().isoformat(),
+            "error": error
+        })
+
+def cleanup_old_jobs() -> None:
+    """오래된 작업 정리 (24시간 이상)"""
+    current_time = datetime.now()
+    jobs_to_remove = []
+    
+    for job_id, job_data in _job_status.items():
+        if "start_time" in job_data:
+            start_time = datetime.fromisoformat(job_data["start_time"])
+            if (current_time - start_time).total_seconds() > 86400:  # 24시간
+                jobs_to_remove.append(job_id)
+    
+    for job_id in jobs_to_remove:
+        del _job_status[job_id]
+        logger.info(f"오래된 작업 정리: {job_id}")
+
+# 주기적으로 오래된 작업 정리
+async def cleanup_scheduler():
+    """정리 스케줄러"""
+    while True:
+        try:
+            cleanup_old_jobs()
+            await asyncio.sleep(3600)  # 1시간마다 실행
+        except Exception as e:
+            logger.error(f"작업 정리 중 오류: {e}")
+            await asyncio.sleep(3600)
+
+# ──────────────────────────────────────────────────────────────────────────────
 # 카테고리 처리 및 검색 키워드 생성
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -74,7 +149,7 @@ def process_materiality_categories(categories: List[Any]) -> Tuple[List[str], Di
 BASE_URL = "https://openapi.naver.com/v1/search/news.json"
 MAX_DISPLAY = 100  # 네이버 API 최대값 유지
 MAX_START_LIMIT = 1000
-JITTER_RANGE = (0.02, 0.08)  # 지터 범위를 줄여서 더 빠르게
+JITTER_RANGE = (0.01, 0.03)  # 지터 범위를 줄여서 더 빠르게
 
 
 class NaverNewsClient:
@@ -626,3 +701,93 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
         "excel_base64": excel_base64
     }
     return response
+
+
+async def search_media_background(job_id: str, payload: Dict[str, Any]) -> None:
+    """백그라운드에서 미디어 검색 실행"""
+    try:
+        logger.info(f"🔄 백그라운드 검색 시작: {job_id}")
+        update_job_status(job_id, message="카테고리 데이터를 조회하고 있습니다...", progress=10)
+        
+        # 기존 search_media 로직을 백그라운드에서 실행
+        result = await search_media(payload)
+        
+        # 작업 완료 처리
+        complete_job(job_id, result)
+        logger.info(f"✅ 백그라운드 검색 완료: {job_id}")
+        
+    except Exception as e:
+        logger.error(f"❌ 백그라운드 검색 실패: {job_id} - {str(e)}")
+        fail_job(job_id, str(e))
+
+
+async def start_media_search(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """미디어 검색 작업 시작 - 즉시 job_id 반환"""
+    try:
+        # 고유 작업 ID 생성
+        job_id = str(uuid.uuid4())
+        
+        # 작업 상태 초기화
+        create_job_status(job_id, payload)
+        
+        # 백그라운드에서 검색 실행
+        asyncio.create_task(search_media_background(job_id, payload))
+        
+        logger.info(f"🚀 미디어 검색 작업 시작: {job_id}")
+        
+        return {
+            "success": True,
+            "message": "미디어 검색이 시작되었습니다",
+            "job_id": job_id,
+            "status": "started"
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ 검색 작업 시작 실패: {str(e)}")
+        return {
+            "success": False,
+            "message": f"검색 작업 시작에 실패했습니다: {str(e)}",
+            "status": "failed"
+        }
+
+
+def get_search_status(job_id: str) -> Dict[str, Any]:
+    """검색 작업 상태 조회"""
+    try:
+        job_status = get_job_status(job_id)
+        
+        if not job_status:
+            return {
+                "success": False,
+                "message": "작업을 찾을 수 없습니다",
+                "status": "not_found"
+            }
+        
+        # 작업 상태에 따라 응답 구성
+        response = {
+            "success": True,
+            "job_id": job_id,
+            "status": job_status["status"],
+            "message": job_status["message"],
+            "progress": job_status.get("progress", 0),
+            "start_time": job_status.get("start_time"),
+            "end_time": job_status.get("end_time")
+        }
+        
+        # 완료된 경우 결과 포함
+        if job_status["status"] == "completed" and job_status.get("result"):
+            response["result"] = job_status["result"]
+        
+        # 실패한 경우 오류 정보 포함
+        if job_status["status"] == "failed" and job_status.get("error"):
+            response["error"] = job_status["error"]
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"❌ 작업 상태 조회 실패: {job_id} - {str(e)}")
+        return {
+            "success": False,
+            "message": f"작업 상태 조회에 실패했습니다: {str(e)}",
+            "status": "error"
+        }
