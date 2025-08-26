@@ -6,10 +6,11 @@ import logging
 import sys
 import traceback
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi import APIRouter
+
+# 라우터
 from app.router.media_router import media_router
 from app.router.search_router import search_router
 
@@ -26,11 +27,8 @@ if not PORT.isdigit():
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
-
 logger = logging.getLogger("materiality_service")
 
 # FastAPI 앱 생성
@@ -43,7 +41,7 @@ app = FastAPI(
 # CORS 미들웨어 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 프로덕션에서는 특정 도메인으로 제한
+    allow_origins=["*"],  # 프로덕션에서는 특정 도메인으로 제한 권장
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
@@ -52,11 +50,13 @@ app.add_middleware(
 # TrustedHost 미들웨어 설정
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=["*"]  # 프로덕션에서는 특정 호스트로 제한
+    allowed_hosts=["*"]  # 프로덕션에서는 특정 호스트로 제한 권장
 )
 
-# 라우터 등록
-app.include_router(media_router, prefix="/materiality-service", tags=["materiality"])
+# ─────────────────────────────────────────────────────────
+# 라우터 등록 (prefix는 여기에서만 부여)
+# ─────────────────────────────────────────────────────────
+app.include_router(media_router,  prefix="/materiality-service", tags=["materiality"])
 app.include_router(search_router, prefix="/materiality-service", tags=["search"])
 
 @app.get("/")
@@ -76,7 +76,6 @@ async def health_check():
         "status": "healthy",
         "service": "Materiality Service",
         "port": PORT,
-        "timestamp": "2025-01-13T08:00:00Z"
     }
 
 @app.middleware("http")
@@ -97,13 +96,11 @@ async def log_requests(request: Request, call_next):
 async def startup_event():
     """서비스 시작 시 실행되는 이벤트"""
     logger.info(f"🚀 Materiality Service 시작됨 (포트: {PORT})")
-    logger.info("📋 등록된 엔드포인트:")
-    logger.info("   - GET /api/v1/search/companies")
-    logger.info("   - POST /api/v1/search/company")
-    logger.info("   - POST /api/v1/search/validate")
-    logger.info("   - POST /api/v1/search-media")
-    logger.info("   - POST /api/v1/assessment")
-    logger.info("   - GET /api/v1/reports")
+    logger.info("📋 등록된 엔드포인트(주요):")
+    logger.info("   - POST /materiality-service/search-media")
+    logger.info("   - POST /materiality-service/assessment")
+    logger.info("   - GET  /materiality-service/reports")
+    logger.info("   - (search_router 내 엔드포인트들도 /materiality-service/* 로 노출)")
 
 @app.on_event("shutdown")
 async def shutdown_event():
