@@ -105,65 +105,6 @@ export default function MaterialityHomePage() {
     };
   }, []);
 
-  const mediaItems: MediaItem[] = [
-    {
-      id: 1,
-      title: '기후변화 대응을 위한 ESG 경영 전략',
-      keyword: '기후변화, ESG, 지속가능성',
-      url: 'https://example.com/article1',
-      publishedAt: '2024-01-15T10:00:00Z'
-    },
-    {
-      id: 2,
-      title: '인권과 노동환경 개선을 위한 기업의 역할',
-      keyword: '인권, 노동환경, 사회책임',
-      url: 'https://example.com/article2',
-      publishedAt: '2024-01-14T14:30:00Z'
-    },
-    {
-      id: 3,
-      title: '거버넌스 강화를 통한 투명성 확보',
-      keyword: '거버넌스, 투명성, 윤리경영',
-      url: 'https://example.com/article3',
-      publishedAt: '2024-01-13T09:15:00Z'
-    },
-    {
-      id: 4,
-      title: '공급망 관리와 경제적 영향 분석',
-      keyword: '공급망, 경제영향, 리스크관리',
-      url: 'https://example.com/article4',
-      publishedAt: '2024-01-12T16:45:00Z'
-    },
-    {
-      id: 5,
-      title: '생물다양성 보전을 위한 기업 활동',
-      keyword: '생물다양성, 환경보호, 생태계',
-      url: 'https://example.com/article5',
-      publishedAt: '2024-01-11T11:20:00Z'
-    },
-    {
-      id: 6,
-      title: '지역사회 발전과 기업의 사회적 책임',
-      keyword: '지역사회, 사회책임, 지역발전',
-      url: 'https://example.com/article6',
-      publishedAt: '2024-01-10T13:10:00Z'
-    },
-    {
-      id: 7,
-      title: '혁신 기술을 활용한 지속가능한 성장',
-      keyword: '혁신, 기술, 지속가능성',
-      url: 'https://example.com/article7',
-      publishedAt: '2024-01-09T15:30:00Z'
-    },
-    {
-      id: 8,
-      title: '자원관리와 순환경제 모델 구축',
-      keyword: '자원관리, 순환경제, 효율성',
-      url: 'https://example.com/article8',
-      publishedAt: '2024-01-08T08:45:00Z'
-    }
-  ];
-
   const handleNewAssessment = () => {
     console.log('새로운 중대성 평가 시작');
     // 여기에 새로운 평가 시작 로직 추가
@@ -478,186 +419,185 @@ export default function MaterialityHomePage() {
             </div>
           </div>
 
-                     {/* 미디어 검색 결과 */}
-           {searchResult && (
-             <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-               <div className="flex items-center justify-between mb-6">
-                 <h2 className="text-2xl font-semibold text-gray-800">
-                   🔍 미디어 검색 결과
-                 </h2>
-                 <button
-                   onClick={() => setIsSearchResultCollapsed(!isSearchResultCollapsed)}
-                   className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                 >
-                   <span>{isSearchResultCollapsed ? '펼치기' : '접기'}</span>
-                   <span className="text-lg">{isSearchResultCollapsed ? '▼' : '▲'}</span>
-                 </button>
-               </div>
-               
-               {/* 접힌 상태일 때 간단한 요약만 표시 */}
-               {isSearchResultCollapsed ? (
-                 <div className="bg-gray-50 p-4 rounded-lg">
-                   <div className="flex items-center justify-between">
-                     <div className="text-gray-700">
-                       <strong>기업:</strong> {searchResult.data?.company_id} | 
-                       <strong>기간:</strong> {searchResult.data?.search_period?.start_date} ~ {searchResult.data?.search_period?.end_date} | 
-                       <strong>결과:</strong> {searchResult.data?.total_results || 0}개 기사
-                     </div>
-                     {excelFilename && excelBase64 && (
-                       <button
-                         onClick={() => downloadExcelFromBase64(excelBase64, excelFilename)}
-                         className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors duration-200"
-                       >
-                         📥 엑셀 다운로드
-                       </button>
-                     )}
-                   </div>
-                 </div>
-               ) : (
-                 <>
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                     <div className="bg-blue-50 p-4 rounded-lg">
-                       <h3 className="font-semibold text-blue-800 mb-2">검색 정보</h3>
-                       <p className="text-blue-700">
-                         <strong>기업:</strong> {searchResult.data?.company_id}<br/>
-                         <strong>검색 기간:</strong> {searchResult.data?.search_period?.start_date} ~ {searchResult.data?.search_period?.end_date}<br/>
-                         <strong>총 결과:</strong> {searchResult.data?.total_results || 0}개 기사
-                       </p>
-                     </div>
-                     
-                     {excelFilename && excelBase64 && (
-                       <div className="bg-green-50 p-4 rounded-lg">
-                         <h3 className="font-semibold text-green-800 mb-2">📊 엑셀 파일</h3>
-                         <p className="text-green-700 mb-3">
-                           검색 결과가 엑셀 파일로 생성되었습니다.
-                         </p>
-                         <button
-                           onClick={() => downloadExcelFromBase64(excelBase64, excelFilename)}
-                           className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
-                         >
-                           📥 엑셀 다운로드
-                         </button>
-                       </div>
-                     )}
-                   </div>
-                   
-                   {/* 검색된 기사 미리보기 */}
+          {/* 미디어 검색 결과 */}
+          {searchResult && (
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold text-gray-800">
+                  🔍 미디어 검색 결과
+                </h2>
+                <button
+                  onClick={() => setIsSearchResultCollapsed(!isSearchResultCollapsed)}
+                  className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                >
+                  <span>{isSearchResultCollapsed ? '펼치기' : '접기'}</span>
+                  <span className="text-lg">{isSearchResultCollapsed ? '▼' : '▲'}</span>
+                </button>
+              </div>
+              
+              {/* 접힌 상태일 때 간단한 요약만 표시 */}
+              {isSearchResultCollapsed ? (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="text-gray-700">
+                      <strong>기업:</strong> {searchResult.data?.company_id} | 
+                      <strong>기간:</strong> {searchResult.data?.search_period?.start_date} ~ {searchResult.data?.search_period?.end_date} | 
+                      <strong>결과:</strong> {searchResult.data?.total_results || 0}개 기사
+                    </div>
+                    {excelFilename && excelBase64 && (
+                      <button
+                        onClick={() => downloadExcelFromBase64(excelBase64, excelFilename)}
+                        className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors duration-200"
+                      >
+                        📥 엑셀 다운로드
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <h3 className="font-semibold text-blue-800 mb-2">검색 정보</h3>
+                      <p className="text-blue-700">
+                        <strong>기업:</strong> {searchResult.data?.company_id}<br/>
+                        <strong>검색 기간:</strong> {searchResult.data?.search_period?.start_date} ~ {searchResult.data?.search_period?.end_date}<br/>
+                        <strong>총 결과:</strong> {searchResult.data?.total_results || 0}개 기사
+                      </p>
+                    </div>
+                    
+                    {excelFilename && excelBase64 && (
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <h3 className="font-semibold text-green-800 mb-2">📊 엑셀 파일</h3>
+                        <p className="text-green-700 mb-3">
+                          검색 결과가 엑셀 파일로 생성되었습니다.
+                        </p>
+                        <button
+                          onClick={() => downloadExcelFromBase64(excelBase64, excelFilename)}
+                          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
+                        >
+                          📥 엑셀 다운로드
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                                     {/* 검색된 기사 미리보기 */}
                    {searchResult.data?.articles && searchResult.data.articles.length > 0 && (
                      <div>
-                       <h3 className="font-semibold text-gray-800 mb-4">📰 검색된 기사 미리보기 (최대 5개)</h3>
+                       <h3 className="font-semibold text-gray-800 mb-4">📰 검색된 기사 미리보기 (최대 8개)</h3>
                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                         {searchResult.data.articles.slice(0, 5).map((article: any, index: number) => (
-                           <div 
-                             key={index} 
-                             className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200 cursor-pointer"
-                             onClick={() => {
-                               if (article.originallink) {
-                                 window.open(article.originallink, '_blank', 'noopener,noreferrer');
-                               }
-                             }}
-                           >
-                             <div className="text-xs text-gray-500 mb-2">
-                               {article.pubDate ? new Date(article.pubDate).toLocaleDateString('ko-KR', {
-                                 year: 'numeric',
-                                 month: '2-digit',
-                                 day: '2-digit'
-                               }).replace(/\. /g, '. ').replace(/\.$/, '.') : '날짜 없음'}
-                             </div>
-                             <h4 className="font-medium text-gray-800 mb-2 text-sm leading-tight" style={{ 
-                               display: '-webkit-box', 
-                               WebkitLineClamp: 3, 
-                               WebkitBoxOrient: 'vertical', 
-                               overflow: 'hidden' 
-                             }}>
-                               {article.title}
-                             </h4>
-                             <div className="text-xs text-gray-600 mb-3">
-                               <span className="font-medium">검색 키워드:</span> {article.issue || '일반'}
-                             </div>
-                             <div className="flex items-center justify-between text-xs text-gray-500">
-                               <span className="flex items-center">
-                                 <span className="mr-1">🏢</span>
-                                 {article.company || '기업명 없음'}
-                               </span>
-                               {article.original_category && (
-                                 <span className="flex items-center">
-                                   <span className="mr-1">📂</span>
-                                   {article.original_category}
-                                 </span>
-                               )}
-                             </div>
-                           </div>
-                         ))}
-                       </div>
-                     </div>
-                   )}
-                   
-                   {/* 전체 검색 결과 표시 */}
-                   {searchResult.data?.articles && searchResult.data.articles.length > 5 && (
-                     <div className="mt-8">
-                       <h3 className="font-semibold text-gray-800 mb-4">📰 전체 검색 결과 ({searchResult.data.articles.length}개)</h3>
-                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto">
-                         {searchResult.data.articles.map((article: any, index: number) => (
-                           <div 
-                             key={index} 
-                             className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200 cursor-pointer"
-                             onClick={() => {
-                               if (article.originallink) {
-                                 window.open(article.originallink, '_blank', 'noopener,noreferrer');
-                               }
-                             }}
-                           >
-                             <div className="text-xs text-gray-500 mb-2">
-                               {article.pubDate ? new Date(article.pubDate).toLocaleDateString('ko-KR', {
-                                 year: 'numeric',
-                                 month: '2-digit',
-                                 day: '2-digit'
-                               }).replace(/\. /g, '. ').replace(/\.$/, '.') : '날짜 없음'}
-                             </div>
-                             <h4 className="font-medium text-gray-800 mb-2 text-sm leading-tight" style={{ 
-                               display: '-webkit-box', 
-                               WebkitLineClamp: 3, 
-                               WebkitBoxOrient: 'vertical', 
-                               overflow: 'hidden' 
-                             }}>
-                               {article.title}
-                             </h4>
-                             <div className="text-xs text-gray-600 mb-3">
-                               <span className="font-medium">검색 키워드:</span> {article.issue || '일반'}
-                             </div>
-                             <div className="flex items-center justify-between text-xs text-gray-500">
-                               <span className="flex items-center">
-                                 <span className="mr-1">🏢</span>
-                                 {article.company || '기업명 없음'}
-                               </span>
-                               {article.original_category && (
-                                 <span className="flex items-center">
-                                   <span className="mr-1">📂</span>
-                                   {article.original_category}
-                                 </span>
-                               )}
-                             </div>
-                           </div>
-                         ))}
-                       </div>
-                     </div>
-                   )}
-                 </>
-               )}
-             </div>
-           )}
-
-          {/* 미디어 카드 */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-              미디어 검색 결과
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {mediaItems.map((item) => (
-                <MediaCard key={item.id} item={item} />
-              ))}
+                         {searchResult.data.articles.slice(0, 8).map((article: any, index: number) => (
+                          <div 
+                            key={index} 
+                            className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                            onClick={() => {
+                              if (article.originallink) {
+                                window.open(article.originallink, '_blank', 'noopener,noreferrer');
+                              }
+                            }}
+                          >
+                            <div className="text-xs text-gray-500 mb-2">
+                              {article.pubDate ? new Date(article.pubDate).toLocaleDateString('ko-KR', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit'
+                              }).replace(/\. /g, '. ').replace(/\.$/, '.') : '날짜 없음'}
+                            </div>
+                            <h4 className="font-medium text-gray-800 mb-2 text-sm leading-tight" style={{ 
+                              display: '-webkit-box', 
+                              WebkitLineClamp: 3, 
+                              WebkitBoxOrient: 'vertical', 
+                              overflow: 'hidden' 
+                            }}>
+                              {article.title}
+                            </h4>
+                            <div className="text-xs text-gray-600 mb-3">
+                              <span className="font-medium">🏷️검색 키워드:</span> {article.issue || '일반'}
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <span className="flex items-center">
+                                <span className="mr-1">🏢</span>
+                                {article.company || '기업명 없음'}
+                              </span>
+                              {article.original_category && (
+                                <span className="flex items-center">
+                                  <span className="mr-1">📂</span>
+                                  {article.original_category}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                                       {/* 전체 검색 결과 표시 */}
+                    {searchResult.data?.articles && searchResult.data.articles.length > 8 && (
+                      <div className="mt-8">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-semibold text-gray-800">📰 전체 검색 결과 ({searchResult.data.articles.length}개)</h3>
+                          <button
+                            onClick={() => setIsSearchResultCollapsed(!isSearchResultCollapsed)}
+                            className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                          >
+                            <span>{isSearchResultCollapsed ? '펼치기' : '접기'}</span>
+                            <span className="text-lg">{isSearchResultCollapsed ? '▼' : '▲'}</span>
+                          </button>
+                        </div>
+                        {!isSearchResultCollapsed && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto">
+                           {searchResult.data.articles.map((article: any, index: number) => (
+                          <div 
+                            key={index} 
+                            className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                            onClick={() => {
+                              if (article.originallink) {
+                                window.open(article.originallink, '_blank', 'noopener,noreferrer');
+                              }
+                            }}
+                          >
+                            <div className="text-xs text-gray-500 mb-2">
+                              {article.pubDate ? new Date(article.pubDate).toLocaleDateString('ko-KR', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit'
+                              }).replace(/\. /g, '. ').replace(/\.$/, '.') : '날짜 없음'}
+                            </div>
+                            <h4 className="font-medium text-gray-800 mb-2 text-sm leading-tight" style={{ 
+                              display: '-webkit-box', 
+                              WebkitLineClamp: 3, 
+                              WebkitBoxOrient: 'vertical', 
+                              overflow: 'hidden' 
+                            }}>
+                              {article.title}
+                            </h4>
+                            <div className="text-xs text-gray-600 mb-3">
+                              <span className="font-medium">검색 키워드:</span> {article.issue || '일반'}
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-gray-500">
+                              <span className="flex items-center">
+                                <span className="mr-1">🏢</span>
+                                {article.company || '기업명 없음'}
+                              </span>
+                              {article.original_category && (
+                                <span className="flex items-center">
+                                  <span className="mr-1">📂</span>
+                                  {article.original_category}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                </>
+              )}
             </div>
-          </div>
+          )}
 
           {/* 액션 버튼 */}
           <div className="flex flex-col sm:flex-row gap-4 mb-8">
