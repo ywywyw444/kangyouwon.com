@@ -13,6 +13,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 # 라우터
 from app.router.media_router import media_router
 from app.router.search_router import search_router
+from app.router.issuepool_router import issuepool_router
 
 # 환경 변수 로드 (Railway 환경에서는 건너뛰기)
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
@@ -58,6 +59,7 @@ app.add_middleware(
 # ─────────────────────────────────────────────────────────
 app.include_router(media_router,  prefix="/materiality-service", tags=["materiality"])
 app.include_router(search_router, prefix="/materiality-service", tags=["search"])
+app.include_router(issuepool_router, prefix="/materiality-service", tags=["issuepool"])
 
 @app.get("/")
 async def root():

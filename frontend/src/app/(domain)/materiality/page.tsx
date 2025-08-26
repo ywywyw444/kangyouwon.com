@@ -111,9 +111,93 @@ export default function MaterialityHomePage() {
     // 여기에 새로운 평가 시작 로직 추가
   };
 
-  const handleViewReport = () => {
-    console.log('보고서 보기');
-    // 여기에 보고서 보기 로직 추가
+  const handleViewReport = async () => {
+    try {
+      // 기존 검색 결과가 있는지 확인
+      if (!searchResult) {
+        alert('먼저 미디어 검색을 수행해주세요.\n\n기업 선택과 보고기간 설정 후 미디어 검색을 먼저 실행해주세요.');
+        return;
+      }
+
+      // 입력값 검증
+      if (!selectedCompany) {
+        alert('기업을 선택해주세요.');
+        return;
+      }
+      
+      if (!reportPeriod.startDate || !reportPeriod.endDate) {
+        alert('보고기간을 설정해주세요.');
+        return;
+      }
+
+      // 시작일이 종료일보다 늦은 경우 검증
+      if (new Date(reportPeriod.startDate) > new Date(reportPeriod.endDate)) {
+        alert('시작일은 종료일보다 빨라야 합니다.');
+        return;
+      }
+
+      console.log('📊 지난 중대성 평가 목록 요청:', {
+        company_id: selectedCompany,
+        report_period: reportPeriod
+      });
+
+      // 기존 검색 결과의 데이터를 재사용하여 JSON 구성
+      const requestData = {
+        company_id: selectedCompany,
+        report_period: {
+          start_date: reportPeriod.startDate,
+          end_date: reportPeriod.endDate
+        },
+        request_type: 'issuepool_list',
+        timestamp: new Date().toISOString(),
+        // 기존 검색 결과에서 추가 정보 활용
+        search_context: {
+          total_articles: searchResult.data?.total_results || 0,
+          search_period: searchResult.data?.search_period,
+          company_id: searchResult.data?.company_id
+        }
+      };
+
+      // Gateway를 통해 materiality-service의 issuepool 엔드포인트 호출
+      const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
+      const response = await axios.post(
+        `${gatewayUrl}/api/v1/materiality-service/issuepool/list`, 
+        requestData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      console.log('✅ Gateway 응답:', response.data);
+
+      if (response.data.success) {
+        alert(`✅ 지난 중대성 평가 목록을 성공적으로 가져왔습니다!\n\n기업: ${selectedCompany}\n기간: ${reportPeriod.startDate} ~ ${reportPeriod.endDate}\n\n총 ${response.data.data?.total_count || 0}개의 평가 데이터를 찾았습니다.`);
+        
+        // 여기에 응답 데이터 처리 로직 추가 가능
+        // 예: 상태 업데이트, UI 렌더링 등
+        
+      } else {
+        alert(`❌ 중대성 평가 목록 요청 실패: ${response.data.message || '알 수 없는 오류'}`);
+      }
+
+    } catch (error: unknown) {
+      console.error('❌ 중대성 평가 목록 요청 실패:', error);
+      
+      // 에러 응답 처리
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { data?: { message?: string; detail?: string } } };
+        if (axiosError.response?.data) {
+          const errorData = axiosError.response.data;
+          alert(`❌ 중대성 평가 목록 요청 실패: ${errorData.message || errorData.detail || '알 수 없는 오류'}`);
+        } else {
+          alert('❌ 중대성 평가 목록 요청에 실패했습니다. Gateway 서버 연결을 확인해주세요.');
+        }
+      } else {
+        alert('❌ 중대성 평가 목록 요청에 실패했습니다. Gateway 서버 연결을 확인해주세요.');
+      }
+    }
   };
 
   // 미디어 검색 데이터를 gateway로 전송하는 함수
@@ -606,17 +690,17 @@ export default function MaterialityHomePage() {
 
           {/* 액션 버튼 */}
           <div className="flex flex-col sm:flex-row gap-4 mb-8">
-            <button
-              onClick={handleNewAssessment}
-              className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium text-lg"
-            >
-              🚀 새로운 중대성 평가 시작
-            </button>
+                         <button
+               onClick={handleViewReport}
+               className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium text-lg"
+             >
+               📊 지난 중대성 평가 목록 보기
+             </button>
             <button
               onClick={handleViewReport}
               className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium text-lg"
             >
-              📊 보고서 보기
+              🚀 새로운 중대성 평가 시작
             </button>
           </div>
 
