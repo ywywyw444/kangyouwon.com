@@ -16,8 +16,44 @@ from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 import httpx
 import pandas as pd
+from app.domain.media.repository import MediaRepository
 
 logger = logging.getLogger("materiality.service")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 카테고리 처리 및 검색 키워드 생성
+# ──────────────────────────────────────────────────────────────────────────────
+
+def process_materiality_categories(categories: List[Any]) -> Tuple[List[str], Dict[str, str]]:
+    """materiality_category 데이터를 처리하여 슬래시로 분리하고 원본 카테고리와 매핑"""
+    try:
+        # 카테고리를 슬래시로 분리하여 개별 이슈로 만들기
+        all_issues = []
+        issue_to_category = {}  # 이슈 -> 원본 카테고리 매핑
+        
+        for category in categories:
+            if hasattr(category, 'category_name') and category.category_name:
+                # 슬래시(/)로 구분된 카테고리를 개별 이슈로 분리
+                issues = [issue.strip() for issue in category.category_name.split('/') if issue.strip()]
+                for issue in issues:
+                    all_issues.append(issue)
+                    issue_to_category[issue] = category.category_name  # 각 이슈를 원본 카테고리와 매핑
+        
+        # 중복 제거 및 정렬
+        unique_issues = sorted(list(set(all_issues)))
+        
+        logger.info(f"✅ materiality_category에서 {len(categories)}개 카테고리를 가져와서 {len(unique_issues)}개 이슈로 분리했습니다.")
+        logger.info(f"📋 이슈 목록: {unique_issues}")
+        
+        return unique_issues, issue_to_category
+        
+    except Exception as e:
+        logger.error(f"❌ materiality_category 처리 실패: {str(e)}")
+        logger.error(f"상세 오류: {traceback.format_exc()}")
+        # 기본 이슈 반환
+        default_issues = ["ESG", "지속가능성", "중대성"]
+        default_mapping = {issue: issue for issue in default_issues}
+        return default_issues, default_mapping
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 네이버 뉴스 API 클라이언트 (동기)  — service에서 to_thread로 실행
@@ -302,7 +338,7 @@ def _make_excel_bytes(items: List[Dict[str, Any]], company_id: str) -> Tuple[str
         
         # 컬럼 순서 정리
         columns_order = [
-            'company', 'issue', 'query_kind', 'keyword',
+            'company', 'issue', 'original_category', 'query_kind', 'keyword',
             'title', 'description', 'pubDate', 'originallink', '네이버링크'
         ]
         
@@ -390,8 +426,24 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     logger.info("🔍 매체검색: company_id=%s, start=%s, end=%s, type=%s", company_id, start_date, end_date, search_type)
 
-    # 간단한 토큰 생성 (실제로는 DB에서 가져와야 함)
-    tokens: List[str] = ["ESG", "지속가능성", "중대성"]
+    # materiality_category 테이블에서 카테고리 가져오기 (리포지토리 사용)
+    try:
+        repository = MediaRepository()
+        # 동기 함수에서 비동기 리포지토리 호출을 위해 간단한 처리
+        # 실제로는 이 함수를 비동기로 만들어야 하지만, 현재 구조 유지
+        import asyncio
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            categories = loop.run_until_complete(repository.get_all_materiality_categories())
+            tokens, issue_to_category = process_materiality_categories(categories)
+        finally:
+            loop.close()
+    except Exception as e:
+        logger.error(f"❌ materiality_category 조회 실패: {str(e)}")
+        # 기본 토큰 사용
+        tokens = ["ESG", "지속가능성", "중대성"]
+        issue_to_category = {token: token for token in tokens}
 
     # 토큰이 없으면 회사명 단독 검색만 수행
     if not tokens:
@@ -446,6 +498,11 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
                 it["issue"] = issue
                 it["keyword"] = kw
                 it["query_kind"] = query_kind
+                # 원본 카테고리 정보 추가
+                if issue in issue_to_category:
+                    it["original_category"] = issue_to_category[issue]
+                else:
+                    it["original_category"] = issue
                 all_items.append(it)
             # 키워드 간 간격 (지터 포함)
             time.sleep(max(0.0, client.per_keyword_pause) + random.uniform(*JITTER_RANGE))
