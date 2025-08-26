@@ -22,6 +22,10 @@ export default function MaterialityHomePage() {
   const [isFullResultCollapsed, setIsFullResultCollapsed] = useState(true); // 전체 검색 결과 접기/펼치기 상태 (기본값: 접힘)
   const [isMediaSearching, setIsMediaSearching] = useState(false); // 미디어 검색 중 상태
 
+  // 지난 중대성 평가 목록 상태
+  const [issuepoolData, setIssuepoolData] = useState<any>(null);
+  const [isIssuepoolLoading, setIsIssuepoolLoading] = useState(false);
+
   // 로그인한 사용자의 기업 정보 가져오기 및 기업 목록 API 호출
   React.useEffect(() => {
     const getUserCompany = () => {
@@ -111,92 +115,40 @@ export default function MaterialityHomePage() {
     // 여기에 새로운 평가 시작 로직 추가
   };
 
+  // 지난 중대성 평가 목록 조회
   const handleViewReport = async () => {
+    if (!searchResult?.data) {
+      alert('먼저 미디어 검색을 완료해주세요.');
+      return;
+    }
+
     try {
-      // 기존 검색 결과가 있는지 확인
-      if (!searchResult) {
-        alert('먼저 미디어 검색을 수행해주세요.\n\n기업 선택과 보고기간 설정 후 미디어 검색을 먼저 실행해주세요.');
-        return;
-      }
-
-      // 입력값 검증
-      if (!selectedCompany) {
-        alert('기업을 선택해주세요.');
-        return;
-      }
+      setIsIssuepoolLoading(true);
       
-      if (!reportPeriod.startDate || !reportPeriod.endDate) {
-        alert('보고기간을 설정해주세요.');
-        return;
-      }
-
-      // 시작일이 종료일보다 늦은 경우 검증
-      if (new Date(reportPeriod.startDate) > new Date(reportPeriod.endDate)) {
-        alert('시작일은 종료일보다 빨라야 합니다.');
-        return;
-      }
-
-      console.log('📊 지난 중대성 평가 목록 요청:', {
-        company_id: selectedCompany,
-        report_period: reportPeriod
-      });
-
-      // 기존 검색 결과의 데이터를 재사용하여 JSON 구성
       const requestData = {
-        company_id: selectedCompany,
+        company_id: searchResult.data.company_id,
         report_period: {
-          start_date: reportPeriod.startDate,
-          end_date: reportPeriod.endDate
+          start_date: searchResult.data.report_period.start_date,
+          end_date: searchResult.data.report_period.end_date
         },
-        request_type: 'issuepool_list',
-        timestamp: new Date().toISOString(),
-        // 기존 검색 결과에서 추가 정보 활용
-        search_context: {
-          total_articles: searchResult.data?.total_results || 0,
-          search_period: searchResult.data?.search_period,
-          company_id: searchResult.data?.company_id
-        }
+        search_context: searchResult.data.search_context
       };
 
-      // Gateway를 통해 materiality-service의 issuepool 엔드포인트 호출
-      const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
-      const response = await axios.post(
-        `${gatewayUrl}/api/v1/materiality-service/issuepool/list`, 
-        requestData,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
+      console.log('지난 중대성 평가 목록 요청 데이터:', requestData);
 
-      console.log('✅ Gateway 응답:', response.data);
-
-      if (response.data.success) {
-        alert(`✅ 지난 중대성 평가 목록을 성공적으로 가져왔습니다!\n\n기업: ${selectedCompany}\n기간: ${reportPeriod.startDate} ~ ${reportPeriod.endDate}\n\n총 ${response.data.data?.total_count || 0}개의 평가 데이터를 찾았습니다.`);
-        
-        // 여기에 응답 데이터 처리 로직 추가 가능
-        // 예: 상태 업데이트, UI 렌더링 등
-        
-      } else {
-        alert(`❌ 중대성 평가 목록 요청 실패: ${response.data.message || '알 수 없는 오류'}`);
-      }
-
-    } catch (error: unknown) {
-      console.error('❌ 중대성 평가 목록 요청 실패:', error);
+      const response = await axios.post('/api/v1/materiality-service/issuepool/list', requestData);
       
-      // 에러 응답 처리
-      if (error && typeof error === 'object' && 'response' in error) {
-        const axiosError = error as { response?: { data?: { message?: string; detail?: string } } };
-        if (axiosError.response?.data) {
-          const errorData = axiosError.response.data;
-          alert(`❌ 중대성 평가 목록 요청 실패: ${errorData.message || errorData.detail || '알 수 없는 오류'}`);
-        } else {
-          alert('❌ 중대성 평가 목록 요청에 실패했습니다. Gateway 서버 연결을 확인해주세요.');
-        }
+      if (response.data.success) {
+        setIssuepoolData(response.data.data);
+        console.log('지난 중대성 평가 목록 조회 성공:', response.data);
       } else {
-        alert('❌ 중대성 평가 목록 요청에 실패했습니다. Gateway 서버 연결을 확인해주세요.');
+        alert('지난 중대성 평가 목록 조회에 실패했습니다: ' + response.data.message);
       }
+    } catch (error) {
+      console.error('지난 중대성 평가 목록 조회 오류:', error);
+      alert('지난 중대성 평가 목록 조회 중 오류가 발생했습니다.');
+    } finally {
+      setIsIssuepoolLoading(false);
     }
   };
 
@@ -688,19 +640,144 @@ export default function MaterialityHomePage() {
             </div>
           )}
 
-          {/* 액션 버튼 */}
+          {/* 세 개의 섹션 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* 첫 번째 섹션: year-2년 */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">
+                  {issuepoolData ? `${issuepoolData.year_minus_2?.year}년` : 'year-2년'}
+                </h3>
+              </div>
+              
+              {issuepoolData?.year_minus_2 ? (
+                <div className="space-y-2">
+                  {issuepoolData.year_minus_2.issuepools.slice(0, 5).map((item: any, index: number) => (
+                    <div key={item.id} className="flex items-center text-sm">
+                      <span className="w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">
+                        {item.ranking}
+                      </span>
+                      <span className="text-gray-700 flex-1 truncate">{item.base_issue_pool}</span>
+                    </div>
+                  ))}
+                  {issuepoolData.year_minus_2.issuepools.length > 5 && (
+                    <div className="text-center text-gray-400 text-sm">
+                      ... {issuepoolData.year_minus_2.total_count - 5}개 더
+                    </div>
+                  )}
+                  <div className="text-center text-xs text-gray-500 mt-3">
+                    총 {issuepoolData.year_minus_2.total_count}개 항목
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 text-sm">
+                  여기에 내용을 추가하세요
+                </div>
+              )}
+            </div>
+
+            {/* 두 번째 섹션: year-1년 */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">
+                  {issuepoolData ? `${issuepoolData.year_minus_1?.year}년` : 'year-1년'}
+                </h3>
+              </div>
+              
+              {issuepoolData?.year_minus_1 ? (
+                <div className="space-y-2">
+                  {issuepoolData.year_minus_1.issuepools.slice(0, 5).map((item: any, index: number) => (
+                    <div key={item.id} className="flex items-center text-sm">
+                      <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">
+                        {item.ranking}
+                      </span>
+                      <span className="text-gray-700 flex-1 truncate">{item.base_issue_pool}</span>
+                    </div>
+                  ))}
+                  {issuepoolData.year_minus_1.issuepools.length > 5 && (
+                    <div className="text-center text-gray-400 text-sm">
+                      ... {issuepoolData.year_minus_1.total_count - 5}개 더
+                    </div>
+                  )}
+                  <div className="text-center text-xs text-gray-500 mt-3">
+                    총 {issuepoolData.year_minus_1.total_count}개 항목
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 text-sm">
+                  여기에 내용을 추가하세요
+                </div>
+              )}
+            </div>
+
+            {/* 세 번째 섹션: 새로운 중대성 평가 시작 */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">새로운 섹션</h3>
+              </div>
+              
+              <div className="text-center">
+                <button
+                  onClick={() => {
+                    // 새로운 중대성 평가 시작 로직
+                    alert('새로운 중대성 평가를 시작합니다.');
+                  }}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 mb-3"
+                >
+                  새로운 중대성 평가 시작
+                </button>
+                <p className="text-gray-500 text-sm">새로운 평가를 시작하거나 기존 평가를 수정할 수 있습니다.</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 액션 버튼들 */}
           <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                         <button
-               onClick={handleViewReport}
-               className="flex-1 bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium text-lg"
-             >
-               📊 지난 중대성 평가 목록 보기
-             </button>
             <button
               onClick={handleViewReport}
-              className="flex-1 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium text-lg"
+              disabled={!searchResult?.data || isIssuepoolLoading}
+              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                !searchResult?.data || isIssuepoolLoading
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
+              }`}
             >
-              🚀 새로운 중대성 평가 시작
+              {isIssuepoolLoading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  조회 중...
+                </span>
+              ) : (
+                '📊 지난 중대성 평가 목록 보기'
+              )}
+            </button>
+            
+            <button
+              onClick={() => {
+                // 보고서 보기 로직
+                alert('보고서 보기 기능을 구현합니다.');
+              }}
+              className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              📋 보고서 보기
             </button>
           </div>
 
