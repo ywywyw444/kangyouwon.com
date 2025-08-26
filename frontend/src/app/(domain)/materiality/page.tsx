@@ -974,30 +974,7 @@ export default function MaterialityHomePage() {
 
 
 
-          {/* 3개 빈 박스 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors duration-200">
-              <div className="text-center">
-                <div className="text-4xl text-gray-300 mb-3">📋</div>
-                <h3 className="text-lg font-medium text-gray-600 mb-2">새로운 섹션</h3>
-                <p className="text-sm text-gray-500">여기에 내용을 추가하세요</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors duration-200">
-              <div className="text-center">
-                <div className="text-4xl text-gray-300 mb-3">📊</div>
-                <h3 className="text-lg font-medium text-gray-600 mb-2">새로운 섹션</h3>
-                <p className="text-sm text-gray-500">여기에 내용을 추가하세요</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors duration-200">
-              <div className="text-center">
-                <div className="text-4xl text-gray-300 mb-3">🔍</div>
-                <h3 className="text-lg font-medium text-gray-600 mb-2">새로운 섹션</h3>
-                <p className="text-sm text-gray-500">여기에 내용을 추가하세요</p>
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
