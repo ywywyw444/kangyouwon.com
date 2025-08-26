@@ -319,15 +319,16 @@ export default function MaterialityHomePage() {
     setIsCompanyDropdownOpen(false);
   };
 
+  // 검색어 초기화 (검색 필드 클리어)
+  const handleClearSearch = () => {
+    setCompanySearchTerm('');
+    setIsCompanyDropdownOpen(false);
+  };
+
   // 기업 검색어 변경 처리
   const handleCompanySearchChange = (value: string) => {
     setCompanySearchTerm(value);
     setIsCompanyDropdownOpen(true);
-    
-    // 검색어가 비어있으면 선택된 기업을 유지
-    if (!value) {
-      setCompanySearchTerm(selectedCompany);
-    }
   };
 
   const downloadExcelFromBase64 = (base64Data: string, filename: string) => {
@@ -386,26 +387,38 @@ export default function MaterialityHomePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   기업 선택
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={companySearchTerm}
-                    onChange={(e) => handleCompanySearchChange(e.target.value)}
-                    onFocus={() => setIsCompanyDropdownOpen(true)}
-                    placeholder={loading ? "🔄 기업 목록을 불러오는 중..." : "기업명을 입력하거나 선택하세요"}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                      selectedCompany ? 'text-gray-900 font-medium' : 'text-gray-500'
-                    }`}
-                    disabled={loading}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsCompanyDropdownOpen(!isCompanyDropdownOpen)}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {isCompanyDropdownOpen ? '▲' : '▼'}
-                  </button>
-                </div>
+                                 <div className="relative">
+                   <input
+                     type="text"
+                     value={companySearchTerm}
+                     onChange={(e) => handleCompanySearchChange(e.target.value)}
+                     onFocus={() => setIsCompanyDropdownOpen(true)}
+                     placeholder={loading ? "🔄 기업 목록을 불러오는 중..." : "기업명을 입력하거나 선택하세요"}
+                     className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                       selectedCompany ? 'text-gray-900 font-medium' : 'text-gray-500'
+                     }`}
+                     disabled={loading}
+                   />
+                   <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                     {companySearchTerm && (
+                       <button
+                         type="button"
+                         onClick={handleClearSearch}
+                         className="text-gray-400 hover:text-gray-600 p-1"
+                         title="검색어 지우기"
+                       >
+                         ✕
+                       </button>
+                     )}
+                     <button
+                       type="button"
+                       onClick={() => setIsCompanyDropdownOpen(!isCompanyDropdownOpen)}
+                       className="text-gray-400 hover:text-gray-600"
+                     >
+                       {isCompanyDropdownOpen ? '▲' : '▼'}
+                     </button>
+                   </div>
+                 </div>
                 
                 {/* 드롭다운 목록 */}
                 {isCompanyDropdownOpen && !loading && companies.length > 0 && (
