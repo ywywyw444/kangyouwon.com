@@ -18,7 +18,8 @@ export default function MaterialityHomePage() {
   const [excelBase64, setExcelBase64] = useState<string | null>(null); // 엑셀 Base64 데이터
   const [companySearchTerm, setCompanySearchTerm] = useState(''); // 기업 검색어
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false); // 기업 드롭다운 열림 상태
-  const [isSearchResultCollapsed, setIsSearchResultCollapsed] = useState(false); // 검색 결과 접기/펼치기 상태
+  const [isSearchResultCollapsed, setIsSearchResultCollapsed] = useState(false); // 미디어 검색 결과 접기/펼치기 상태
+  const [isFullResultCollapsed, setIsFullResultCollapsed] = useState(true); // 전체 검색 결과 접기/펼치기 상태 (기본값: 접힘)
   const [isMediaSearching, setIsMediaSearching] = useState(false); // 미디어 검색 중 상태
 
   // 로그인한 사용자의 기업 정보 가져오기 및 기업 목록 API 호출
@@ -536,17 +537,17 @@ export default function MaterialityHomePage() {
                                        {/* 전체 검색 결과 표시 */}
                     {searchResult.data?.articles && searchResult.data.articles.length > 8 && (
                       <div className="mt-8">
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="font-semibold text-gray-800">📰 전체 검색 결과 ({searchResult.data.articles.length}개)</h3>
-                          <button
-                            onClick={() => setIsSearchResultCollapsed(!isSearchResultCollapsed)}
-                            className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                          >
-                            <span>{isSearchResultCollapsed ? '펼치기' : '접기'}</span>
-                            <span className="text-lg">{isSearchResultCollapsed ? '▼' : '▲'}</span>
-                          </button>
-                        </div>
-                        {!isSearchResultCollapsed && (
+                                                 <div className="flex items-center justify-between mb-4">
+                           <h3 className="font-semibold text-gray-800">📰 전체 검색 결과 ({searchResult.data.articles.length}개)</h3>
+                           <button
+                             onClick={() => setIsFullResultCollapsed(!isFullResultCollapsed)}
+                             className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                           >
+                             <span>{isFullResultCollapsed ? '펼치기' : '접기'}</span>
+                             <span className="text-lg">{isFullResultCollapsed ? '▼' : '▲'}</span>
+                           </button>
+                         </div>
+                         {!isFullResultCollapsed && (
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto">
                            {searchResult.data.articles.map((article: any, index: number) => (
                           <div 
