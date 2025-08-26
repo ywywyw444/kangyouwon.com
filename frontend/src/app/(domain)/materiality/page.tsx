@@ -19,6 +19,7 @@ export default function MaterialityHomePage() {
   const [companySearchTerm, setCompanySearchTerm] = useState(''); // 기업 검색어
   const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false); // 기업 드롭다운 열림 상태
   const [isSearchResultCollapsed, setIsSearchResultCollapsed] = useState(false); // 검색 결과 접기/펼치기 상태
+  const [isMediaSearching, setIsMediaSearching] = useState(false); // 미디어 검색 중 상태
 
   // 로그인한 사용자의 기업 정보 가져오기 및 기업 목록 API 호출
   React.useEffect(() => {
@@ -217,6 +218,9 @@ export default function MaterialityHomePage() {
         return;
       }
 
+      // 로딩 상태 시작
+      setIsMediaSearching(true);
+
       // JSON 데이터 구성
       const searchData = {
         company_id: selectedCompany,
@@ -278,6 +282,9 @@ export default function MaterialityHomePage() {
       } else {
         alert('❌ 미디어 검색 요청에 실패했습니다. Gateway 서버 연결을 확인해주세요.');
       }
+    } finally {
+      // 로딩 상태 종료
+      setIsMediaSearching(false);
     }
   };
 
@@ -364,6 +371,18 @@ export default function MaterialityHomePage() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* 미디어 검색 중 로딩 오버레이 */}
+      {isMediaSearching && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">미디어 검색 중...</h3>
+            <p className="text-gray-600">네이버 뉴스 API를 통해 기사를 수집하고 있습니다.</p>
+            <p className="text-gray-500 text-sm mt-2">잠시만 기다려주세요.</p>
+          </div>
+        </div>
+      )}
+      
       {/* 상단 내비게이션 바 */}
       <NavigationTabs />
       
@@ -397,7 +416,7 @@ export default function MaterialityHomePage() {
                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                        selectedCompany ? 'text-gray-900 font-medium' : 'text-gray-500'
                      }`}
-                     disabled={loading}
+                     disabled={loading || isMediaSearching}
                    />
                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
                      {companySearchTerm && (
@@ -413,7 +432,10 @@ export default function MaterialityHomePage() {
                      <button
                        type="button"
                        onClick={() => setIsCompanyDropdownOpen(!isCompanyDropdownOpen)}
-                       className="text-gray-400 hover:text-gray-600"
+                       disabled={isMediaSearching}
+                       className={`text-gray-400 hover:text-gray-600 ${
+                         isMediaSearching ? 'cursor-not-allowed opacity-50' : ''
+                       }`}
                      >
                        {isCompanyDropdownOpen ? '▲' : '▼'}
                      </button>
@@ -451,25 +473,27 @@ export default function MaterialityHomePage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">시작일</label>
-                    <input
-                      type="date"
-                      value={reportPeriod.startDate}
-                      onChange={(e) => setReportPeriod(prev => ({ ...prev, startDate: e.target.value }))}
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                        reportPeriod.startDate ? 'text-gray-900 font-medium' : 'text-gray-500'
-                      }`}
-                    />
+                                         <input
+                       type="date"
+                       value={reportPeriod.startDate}
+                       onChange={(e) => setReportPeriod(prev => ({ ...prev, startDate: e.target.value }))}
+                       disabled={isMediaSearching}
+                       className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                         reportPeriod.startDate ? 'text-gray-900 font-medium' : 'text-gray-500'
+                       } ${isMediaSearching ? 'cursor-not-allowed opacity-50' : ''}`}
+                     />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">종료일</label>
-                    <input
-                      type="date"
-                      value={reportPeriod.endDate}
-                      onChange={(e) => setReportPeriod(prev => ({ ...prev, endDate: e.target.value }))}
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                        reportPeriod.endDate ? 'text-gray-900 font-medium' : 'text-gray-500'
-                      }`}
-                    />
+                                         <input
+                       type="date"
+                       value={reportPeriod.endDate}
+                       onChange={(e) => setReportPeriod(prev => ({ ...prev, endDate: e.target.value }))}
+                       disabled={isMediaSearching}
+                       className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                         reportPeriod.endDate ? 'text-gray-900 font-medium' : 'text-gray-500'
+                       } ${isMediaSearching ? 'cursor-not-allowed opacity-50' : ''}`}
+                     />
                   </div>
                 </div>
               </div>
@@ -479,10 +503,24 @@ export default function MaterialityHomePage() {
             <div className="mt-6">
               <button
                 onClick={handleMediaSearch}
-                className="w-full bg-purple-600 text-white py-3 px-6 rounded-lg hover:bg-purple-700 transition-colors duration-200 font-medium text-lg flex items-center justify-center space-x-2"
+                disabled={isMediaSearching}
+                className={`w-full py-3 px-6 rounded-lg transition-colors duration-200 font-medium text-lg flex items-center justify-center space-x-2 ${
+                  isMediaSearching 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                }`}
               >
-                <span>🔍</span>
-                <span>미디어 검색 시작</span>
+                {isMediaSearching ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>미디어 검색 중...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔍</span>
+                    <span>미디어 검색 시작</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -563,6 +601,89 @@ export default function MaterialityHomePage() {
                                <span>📅 {article.pubDate}</span>
                                <span>🏢 {article.company}</span>
                                {article.issue && <span>🏷️ {article.issue}</span>}
+                             </div>
+                             {/* 원문 링크 */}
+                             {article.originallink && (
+                               <div className="mt-2 pt-2 border-t border-gray-200">
+                                 <a
+                                   href={article.originallink}
+                                   target="_blank"
+                                   rel="noopener noreferrer"
+                                   className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors duration-200"
+                                 >
+                                   <span className="mr-1">🔗</span>
+                                   <span className="truncate max-w-xs">원문 보기</span>
+                                   <span className="ml-1">↗</span>
+                                 </a>
+                               </div>
+                             )}
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+                   
+                   {/* 전체 검색 결과 표시 */}
+                   {searchResult.data?.articles && searchResult.data.articles.length > 5 && (
+                     <div className="mt-8">
+                       <h3 className="font-semibold text-gray-800 mb-4">📰 전체 검색 결과 ({searchResult.data.articles.length}개)</h3>
+                       <div className="space-y-4 max-h-96 overflow-y-auto">
+                         {searchResult.data.articles.map((article: any, index: number) => (
+                           <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
+                             <div className="flex items-start justify-between">
+                               <div className="flex-1">
+                                 <h4 className="font-medium text-gray-800 mb-2" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{article.title}</h4>
+                                 <p className="text-sm text-gray-600 mb-3" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{article.description}</p>
+                                 <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mb-3">
+                                   <span className="flex items-center">
+                                     <span className="mr-1">📅</span>
+                                     {article.pubDate}
+                                   </span>
+                                   <span className="flex items-center">
+                                     <span className="mr-1">🏢</span>
+                                     {article.company}
+                                   </span>
+                                   {article.issue && (
+                                     <span className="flex items-center">
+                                       <span className="mr-1">🏷️</span>
+                                       {article.issue}
+                                     </span>
+                                   )}
+                                   {article.original_category && (
+                                     <span className="flex items-center">
+                                       <span className="mr-1">📂</span>
+                                       {article.original_category}
+                                     </span>
+                                   )}
+                                 </div>
+                                 {/* 원문 링크 */}
+                                 {article.originallink && (
+                                   <div className="flex items-center justify-between">
+                                     <a
+                                       href={article.originallink}
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors duration-200 font-medium"
+                                     >
+                                       <span className="mr-2">🔗</span>
+                                       <span>원문 기사 보기</span>
+                                       <span className="ml-2">↗</span>
+                                     </a>
+                                     {/* 네이버 링크도 표시 */}
+                                     {article.네이버링크 && (
+                                       <a
+                                         href={article.네이버링크}
+                                         target="_blank"
+                                         rel="noopener noreferrer"
+                                         className="inline-flex items-center text-sm text-green-600 hover:text-green-800 hover:underline transition-colors duration-200"
+                                       >
+                                         <span className="mr-1">📰</span>
+                                         <span>네이버 뉴스</span>
+                                       </a>
+                                     )}
+                                   </div>
+                                 )}
+                               </div>
                              </div>
                            </div>
                          ))}

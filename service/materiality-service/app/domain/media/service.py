@@ -79,9 +79,9 @@ def process_materiality_categories(categories: List[Any]) -> Tuple[List[str], Di
 # ──────────────────────────────────────────────────────────────────────────────
 
 BASE_URL = "https://openapi.naver.com/v1/search/news.json"
-MAX_DISPLAY = 100
+MAX_DISPLAY = 100  # 네이버 API 최대값 유지
 MAX_START_LIMIT = 1000
-JITTER_RANGE = (0.05, 0.25)
+JITTER_RANGE = (0.02, 0.08)  # 지터 범위를 줄여서 더 빠르게
 
 
 class NaverNewsClient:
@@ -97,8 +97,8 @@ class NaverNewsClient:
         if not self.client_id or not self.client_secret:
             raise ValueError("NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 환경변수가 필요합니다.")
 
-        self.min_interval = float(os.getenv("NAVER_API_MIN_INTERVAL", "1.2") if min_interval is None else min_interval)
-        self.per_keyword_pause = float(os.getenv("NAVER_API_PER_KEYWORD_PAUSE", "2.0") if per_keyword_pause is None else per_keyword_pause)
+        self.min_interval = float(os.getenv("NAVER_API_MIN_INTERVAL", "0.8") if min_interval is None else min_interval)  # 1.2 → 0.8초로 단축
+        self.per_keyword_pause = float(os.getenv("NAVER_API_PER_KEYWORD_PAUSE", "1.0") if per_keyword_pause is None else per_keyword_pause)  # 2.0 → 1.0초로 단축
         self.max_retries = int(os.getenv("NAVER_API_MAX_RETRIES", "3") if max_retries is None else max_retries)
 
         self._last_request_ts = 0.0
@@ -408,7 +408,7 @@ def _make_excel_bytes(items: List[Dict[str, Any]], company_id: str) -> Tuple[str
 # 서비스 엔트리포인트 (비동기)
 # ──────────────────────────────────────────────────────────────────────────────
 
-def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
+async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
     프론트에서 전달한 JSON(payload)을 받아, 회사×이슈 조합으로
     네이버 뉴스 API를 검색한 뒤 JSON 결과를 반환한다.
@@ -482,7 +482,16 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
         logger.warning("카테고리 토큰이 없어 회사명 단독 검색만 수행합니다. company=%s", company_id)
 
     # 네이버 API 클라이언트
-    client = NaverNewsClient()
+    try:
+        # 동기 클라이언트 초기화를 비동기로 실행
+        import asyncio
+        loop = asyncio.get_event_loop()
+        client = await loop.run_in_executor(None, NaverNewsClient)
+        logger.info("✅ NaverNewsClient 초기화 성공")
+    except Exception as e:
+        logger.error(f"❌ NaverNewsClient 초기화 실패: {str(e)}")
+        logger.error(f"상세 오류: {traceback.format_exc()}")
+        raise ValueError(f"네이버 API 클라이언트 초기화 실패: {str(e)}")
 
     # 질의 목록 구성: (회사명 + 토큰) + 회사명 단독
     queries: List[Dict[str, Any]] = []
@@ -522,8 +531,13 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
         per_kw_limit = int(q["max_results"])
         logger.info("▶︎ 네이버 검색 시작 [%s]: %s (%s~%s, limit=%d)", query_kind, kw, start_date, end_date, per_kw_limit)
         try:
-            result = client.search_by_date_range(
-                keyword=kw, start_date=start_date, end_date=end_date, max_results=per_kw_limit
+            # 동기 함수를 비동기로 실행
+            import asyncio
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None, 
+                client.search_by_date_range,
+                kw, start_date, end_date, per_kw_limit
             )
             for it in result.get("items", []):
                 it["company"] = company
@@ -536,8 +550,8 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
                 else:
                     it["original_category"] = issue
                 all_items.append(it)
-            # 키워드 간 간격 (지터 포함)
-            time.sleep(max(0.0, client.per_keyword_pause) + random.uniform(*JITTER_RANGE))
+            # 키워드 간 간격 (지터 포함) - 비동기로 대기
+            await asyncio.sleep(max(0.0, client.per_keyword_pause) + random.uniform(*JITTER_RANGE))
         except Exception as e:
             logger.error("검색 실패 [%s] %s: %s", query_kind, kw, e)
 
@@ -565,7 +579,15 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
     excel_base64 = None
     if all_items:
         try:
-            filename, excel_bytes = _make_excel_bytes(all_items, company_id)
+            # 동기 엑셀 생성 함수를 비동기로 실행
+            import asyncio
+            loop = asyncio.get_event_loop()
+            filename, excel_bytes = await loop.run_in_executor(
+                None, 
+                _make_excel_bytes, 
+                all_items, 
+                company_id
+            )
             excel_filename = filename
             excel_base64 = base64.b64encode(excel_bytes).decode("ascii")
             logger.info(f"✅ 엑셀 생성 완료: {filename} (Base64 길이: {len(excel_base64)})")
