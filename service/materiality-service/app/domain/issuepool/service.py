@@ -67,6 +67,11 @@ class IssuePoolService:
                 
                 for issuepool in issuepools:
                     esg_name = issuepool.esg_classification_name or "미분류"
+                    
+                    # 지배구조와 지배구조/경제를 통합
+                    if esg_name == "지배구조":
+                        esg_name = "지배구조/경제"
+                    
                     esg_counts[esg_name] = esg_counts.get(esg_name, 0) + 1
                 
                 # 비율(%)로 변환
