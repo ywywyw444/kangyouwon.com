@@ -4,14 +4,7 @@ Issue Pool Repository - BaseModel을 받아서 데이터베이스 작업을 수�
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.domain.issuepool.schema import (
-    IssuePoolBase, 
-    IssuePoolCreate, 
-    IssuePoolUpdate, 
-    IssuePoolResponse, 
-    IssuePoolListResponse,
-    IssuePoolFilterRequest
-)
+from app.domain.issuepool.schema import IssuePoolResponse
 from app.domain.issuepool.entity import IssuePoolEntity
 from app.common.database.issuepool_db import get_db
 import logging

@@ -36,6 +36,8 @@ class IssuePoolListRequest(BaseModel):
 class IssuePoolResponse(BaseModel):
     """이슈풀 응답 스키마"""
     id: int = Field(..., description="이슈풀 ID")
+    corporation_id: int = Field(..., description="기업 ID")
+    publish_year: int = Field(..., description="발행년도")
     ranking: int = Field(..., description="순위")
     base_issue_pool: str = Field(..., description="기본 이슈풀")
     issue_pool: str = Field(..., description="이슈풀")
