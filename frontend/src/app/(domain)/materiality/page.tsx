@@ -37,11 +37,10 @@ export default function MaterialityHomePage() {
         setLoading(true);
         console.log('🔍 기업 목록을 Gateway를 통해 가져오는 중...');
         
-       // Gateway를 통해 materiality-service 호출 (POST 방식)
+        // Gateway를 통해 materiality-service 호출 (GET 방식)
         const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
-        const response = await axios.post(
+        const response = await axios.get(
           `${gatewayUrl}/api/v1/search/companies`,
-          {}, // 빈 body 전송
           {
             headers: {
               'Content-Type': 'application/json',
