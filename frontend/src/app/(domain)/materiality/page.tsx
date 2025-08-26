@@ -695,12 +695,12 @@ export default function MaterialityHomePage() {
             
             <button
               onClick={() => {
-                // 보고서 보기 로직
-                alert('보고서 보기 기능을 구현합니다.');
+                // 새로운 중대성 평가 시작 로직
+                alert('새로운 중대성 평가를 시작합니다.');
               }}
-              className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
             >
-              📋 보고서 보기
+              🚀 새로운 중대성 평가 시작
             </button>
           </div>
 
@@ -774,7 +774,7 @@ export default function MaterialityHomePage() {
               )}
             </div>
 
-            {/* 세 번째 섹션: 새로운 중대성 평가 시작 */}
+            {/* 세 번째 섹션: 새로운 섹션 */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
               <div className="text-center mb-4">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -785,17 +785,8 @@ export default function MaterialityHomePage() {
                 <h3 className="text-lg font-semibold text-gray-800">새로운 섹션</h3>
               </div>
               
-              <div className="text-center">
-                <button
-                  onClick={() => {
-                    // 새로운 중대성 평가 시작 로직
-                    alert('새로운 중대성 평가를 시작합니다.');
-                  }}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 mb-3"
-                >
-                  새로운 중대성 평가 시작
-                </button>
-                <p className="text-gray-500 text-sm">새로운 평가를 시작하거나 기존 평가를 수정할 수 있습니다.</p>
+              <div className="text-center text-gray-500 text-sm">
+                여기에 내용을 추가하세요
               </div>
             </div>
           </div>
