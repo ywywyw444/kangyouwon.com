@@ -24,8 +24,14 @@ SERVICE_URLS: Dict[str, str] = {
 }
 
 # '/search' → materiality 별칭 라우팅
-ALIAS_TO_SERVICE = {
+ALIAS_TO_SERVICE: Dict[str, str] = {
     "search": "materiality-service",
+}
+
+# 🔥 별칭 전용 추가 프리픽스 (서비스 프리픽스 뒤에 붙일 경로)
+# 예) /api/v1/search/companies  ->  /materiality-service/**search**/companies
+ALIAS_EXTRA_PREFIX: Dict[str, str] = {
+    "search": "/search",
 }
 
 # 각 서비스가 **백엔드에서 기대하는 프리픽스** (auth처럼 모두 동일 규칙으로 강제)
@@ -142,6 +148,14 @@ def ensure_required_prefix(service_name: str, path: str) -> str:
     # path가 이미 '/'로 시작하므로 required + path
     return f"{required}{path}"
 
+def prepend_path(prefix: str, path: str) -> str:
+    """prefix와 path를 안전하게 이어붙임 (중복 슬래시 방지)"""
+    if not prefix:
+        return path
+    p1 = prefix.rstrip("/")
+    p2 = path if path.startswith("/") else f"/{path}"
+    return f"{p1}{p2}"
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ServiceProxyFactory: 직접 서비스명 알고 있을 때 쓰는 경량 프록시
 # ─────────────────────────────────────────────────────────────────────────────
@@ -205,6 +219,9 @@ class SimpleServiceFactory:
             if service_name in ALIAS_TO_SERVICE:
                 mapped = ALIAS_TO_SERVICE[service_name]
                 logger.info(f"🔁 Alias mapping: '{service_name}' → '{mapped}'")
+                # ✅ 별칭 전용 추가 프리픽스 적용 (예: '/search')
+                extra = ALIAS_EXTRA_PREFIX.get(service_name, "")
+                actual_path = prepend_path(extra, actual_path)  # '/companies' -> '/search/companies'
                 service_name = mapped
 
             # 서비스별 전용/제너릭 분기 (모두 동일 규칙: 서비스 프리픽스 보장)
@@ -212,9 +229,7 @@ class SimpleServiceFactory:
                 return await self._handle_known_service("auth-service", method, actual_path, headers, body)
             elif service_name == "materiality-service":
                 return await self._handle_known_service("materiality-service", method, actual_path, headers, body)
-            elif service_name in {
-                "chatbot-service", "gri-service", "report-service", "tcfd-service", "survey-service"
-            }:
+            elif service_name in {"chatbot-service", "gri-service", "report-service", "tcfd-service", "survey-service"}:
                 return await self._handle_known_service(service_name, method, actual_path, headers, body)
             else:
                 # 미등록 서비스명일 경우도 동일 로직으로 시도 (URL이 있으면 진행)
@@ -264,5 +279,3 @@ class SimpleServiceFactory:
                 return {"status_code": resp.status_code, "data": resp.text}
         else:
             return {"error": True, "status_code": resp.status_code, "detail": resp.text}
-
-
