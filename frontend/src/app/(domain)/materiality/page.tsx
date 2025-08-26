@@ -14,7 +14,11 @@ export default function MaterialityHomePage() {
     endDate: ''
   });
   const [searchResult, setSearchResult] = useState<any>(null); // 검색 결과 저장
-  const [excelFile, setExcelFile] = useState<string | null>(null); // 엑셀 파일 정보 저장
+  const [excelFilename, setExcelFilename] = useState<string | null>(null); // 엑셀 파일명
+  const [excelBase64, setExcelBase64] = useState<string | null>(null); // 엑셀 Base64 데이터
+  const [companySearchTerm, setCompanySearchTerm] = useState(''); // 기업 검색어
+  const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false); // 기업 드롭다운 열림 상태
+  const [isSearchResultCollapsed, setIsSearchResultCollapsed] = useState(false); // 검색 결과 접기/펼치기 상태
 
   // 로그인한 사용자의 기업 정보 가져오기 및 기업 목록 API 호출
   React.useEffect(() => {
@@ -23,11 +27,12 @@ export default function MaterialityHomePage() {
         const userData = localStorage.getItem('user');
         if (userData) {
           const user = JSON.parse(userData);
-          if (user.company_id) {
-            // 사용자의 기업명을 기본값으로 설정
-            setSelectedCompany(user.company_id);
-            console.log('✅ 로그인된 사용자의 기업명 설정:', user.company_id);
-          }
+                     if (user.company_id) {
+             // 사용자의 기업명을 기본값으로 설정
+             setSelectedCompany(user.company_id);
+             setCompanySearchTerm(user.company_id);
+             console.log('✅ 로그인된 사용자의 기업명 설정:', user.company_id);
+           }
         }
       } catch (error) {
         console.error('사용자 정보를 가져오는데 실패했습니다:', error);
@@ -82,6 +87,21 @@ export default function MaterialityHomePage() {
 
     getUserCompany();
     fetchCompanies();
+  }, []);
+
+  // 드롭다운 외부 클릭 시 닫기
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.company-dropdown-container')) {
+        setIsCompanyDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const mediaItems: MediaItem[] = [
@@ -225,12 +245,13 @@ export default function MaterialityHomePage() {
       console.log('✅ Gateway 응답:', response.data);
 
       if (response.data.success) {
-        // 검색 결과 저장
+                // 검색 결과 저장
         setSearchResult(response.data);
         
         // 엑셀 파일 정보 추출
-        if (response.data.excel_file) {
-          setExcelFile(response.data.excel_file);
+        if (response.data.excel_filename && response.data.excel_base64) {
+            setExcelFilename(response.data.excel_filename);
+            setExcelBase64(response.data.excel_base64);
         }
         
         alert(`✅ 미디어 검색 요청이 성공적으로 전송되었습니다!\n\n기업: ${selectedCompany}\n기간: ${reportPeriod.startDate} ~ ${reportPeriod.endDate}\n\n총 ${response.data.data?.total_results || 0}개의 뉴스 기사를 찾았습니다.`);
@@ -286,21 +307,45 @@ export default function MaterialityHomePage() {
     }
   };
 
-  const downloadExcel = async (filename: string) => {
-    try {
-      const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
-      const response = await axios.get(
-        `${gatewayUrl}/api/v1/materiality-service/download-excel/${filename}`,
-        {
-          responseType: 'blob',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
+  // 검색어에 따라 기업 목록 필터링
+  const filteredCompanies = companies.filter(company =>
+    company.toLowerCase().includes(companySearchTerm.toLowerCase())
+  );
 
-      // 파일 다운로드
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+  // 기업 선택 처리
+  const handleCompanySelect = (company: string) => {
+    setSelectedCompany(company);
+    setCompanySearchTerm(company);
+    setIsCompanyDropdownOpen(false);
+  };
+
+  // 기업 검색어 변경 처리
+  const handleCompanySearchChange = (value: string) => {
+    setCompanySearchTerm(value);
+    setIsCompanyDropdownOpen(true);
+    
+    // 검색어가 비어있으면 선택된 기업을 유지
+    if (!value) {
+      setCompanySearchTerm(selectedCompany);
+    }
+  };
+
+  const downloadExcelFromBase64 = (base64Data: string, filename: string) => {
+    try {
+      // Base64를 Blob으로 변환
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      
+      // Blob 생성 및 다운로드
+      const blob = new Blob([byteArray], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', filename);
@@ -337,36 +382,54 @@ export default function MaterialityHomePage() {
           {/* 선택 옵션 */}
           <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
+              <div className="relative company-dropdown-container">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   기업 선택
                 </label>
-                <select
-                  value={selectedCompany}
-                  onChange={(e) => setSelectedCompany(e.target.value)}
-                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    selectedCompany ? 'text-gray-900 font-medium' : 'text-gray-500'
-                  }`}
-                >
-                  {loading ? (
-                    <option value="">🔄 기업 목록을 불러오는 중...</option>
-                  ) : companies.length === 0 ? (
-                    <option value="">❌ 기업 목록을 불러올 수 없습니다</option>
-                  ) : (
-                    <>
-                      <option value="">기업을 선택하세요</option>
-                      {companies.map((company) => (
-                        <option 
-                          key={company} 
-                          value={company}
-                          className={company === selectedCompany ? "font-bold text-blue-600" : ""}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={companySearchTerm}
+                    onChange={(e) => handleCompanySearchChange(e.target.value)}
+                    onFocus={() => setIsCompanyDropdownOpen(true)}
+                    placeholder={loading ? "🔄 기업 목록을 불러오는 중..." : "기업명을 입력하거나 선택하세요"}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      selectedCompany ? 'text-gray-900 font-medium' : 'text-gray-500'
+                    }`}
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsCompanyDropdownOpen(!isCompanyDropdownOpen)}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {isCompanyDropdownOpen ? '▲' : '▼'}
+                  </button>
+                </div>
+                
+                {/* 드롭다운 목록 */}
+                {isCompanyDropdownOpen && !loading && companies.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {filteredCompanies.length === 0 ? (
+                      <div className="px-4 py-2 text-gray-500 text-sm">
+                        검색 결과가 없습니다
+                      </div>
+                    ) : (
+                      filteredCompanies.map((company) => (
+                        <button
+                          key={company}
+                          type="button"
+                          onClick={() => handleCompanySelect(company)}
+                          className={`w-full text-left px-4 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none ${
+                            company === selectedCompany ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'
+                          }`}
                         >
-                          {company === selectedCompany ? `${company}` : company}
-                        </option>
-                      ))}
-                    </>
-                  )}
-                </select>
+                          {company}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -411,60 +474,92 @@ export default function MaterialityHomePage() {
             </div>
           </div>
 
-          {/* 미디어 검색 결과 */}
-          {searchResult && (
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-              <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-                🔍 미디어 검색 결과
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-blue-800 mb-2">검색 정보</h3>
-                  <p className="text-blue-700">
-                    <strong>기업:</strong> {searchResult.data?.company_id}<br/>
-                    <strong>검색 기간:</strong> {searchResult.data?.search_period?.start_date} ~ {searchResult.data?.search_period?.end_date}<br/>
-                    <strong>총 결과:</strong> {searchResult.data?.total_results || 0}개 기사
-                  </p>
-                </div>
-                
-                {excelFile && (
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <h3 className="font-semibold text-green-800 mb-2">📊 엑셀 파일</h3>
-                    <p className="text-green-700 mb-3">
-                      검색 결과가 엑셀 파일로 생성되었습니다.
-                    </p>
-                    <button
-                      onClick={() => downloadExcel(excelFile.split('/').pop() || '')}
-                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
-                    >
-                      📥 엑셀 다운로드
-                    </button>
-                  </div>
-                )}
-              </div>
-              
-              {/* 검색된 기사 미리보기 */}
-              {searchResult.data?.articles && searchResult.data.articles.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-gray-800 mb-4">📰 검색된 기사 미리보기 (최대 5개)</h3>
-                  <div className="space-y-3">
-                    {searchResult.data.articles.slice(0, 5).map((article: any, index: number) => (
-                      <div key={index} className="border-l-4 border-blue-500 pl-4 py-2 bg-gray-50 rounded-r-lg">
-                        <h4 className="font-medium text-gray-800 mb-1">{article.title}</h4>
-                        <p className="text-sm text-gray-600 mb-2">{article.description}</p>
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>📅 {article.pubDate}</span>
-                          <span>🏢 {article.company}</span>
-                          {article.issue && <span>🏷️ {article.issue}</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+                     {/* 미디어 검색 결과 */}
+           {searchResult && (
+             <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+               <div className="flex items-center justify-between mb-6">
+                 <h2 className="text-2xl font-semibold text-gray-800">
+                   🔍 미디어 검색 결과
+                 </h2>
+                 <button
+                   onClick={() => setIsSearchResultCollapsed(!isSearchResultCollapsed)}
+                   className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                 >
+                   <span>{isSearchResultCollapsed ? '펼치기' : '접기'}</span>
+                   <span className="text-lg">{isSearchResultCollapsed ? '▼' : '▲'}</span>
+                 </button>
+               </div>
+               
+               {/* 접힌 상태일 때 간단한 요약만 표시 */}
+               {isSearchResultCollapsed ? (
+                 <div className="bg-gray-50 p-4 rounded-lg">
+                   <div className="flex items-center justify-between">
+                     <div className="text-gray-700">
+                       <strong>기업:</strong> {searchResult.data?.company_id} | 
+                       <strong>기간:</strong> {searchResult.data?.search_period?.start_date} ~ {searchResult.data?.search_period?.end_date} | 
+                       <strong>결과:</strong> {searchResult.data?.total_results || 0}개 기사
+                     </div>
+                     {excelFilename && excelBase64 && (
+                       <button
+                         onClick={() => downloadExcelFromBase64(excelBase64, excelFilename)}
+                         className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors duration-200"
+                       >
+                         📥 엑셀 다운로드
+                       </button>
+                     )}
+                   </div>
+                 </div>
+               ) : (
+                 <>
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                     <div className="bg-blue-50 p-4 rounded-lg">
+                       <h3 className="font-semibold text-blue-800 mb-2">검색 정보</h3>
+                       <p className="text-blue-700">
+                         <strong>기업:</strong> {searchResult.data?.company_id}<br/>
+                         <strong>검색 기간:</strong> {searchResult.data?.search_period?.start_date} ~ {searchResult.data?.search_period?.end_date}<br/>
+                         <strong>총 결과:</strong> {searchResult.data?.total_results || 0}개 기사
+                       </p>
+                     </div>
+                     
+                     {excelFilename && excelBase64 && (
+                       <div className="bg-green-50 p-4 rounded-lg">
+                         <h3 className="font-semibold text-green-800 mb-2">📊 엑셀 파일</h3>
+                         <p className="text-green-700 mb-3">
+                           검색 결과가 엑셀 파일로 생성되었습니다.
+                         </p>
+                         <button
+                           onClick={() => downloadExcelFromBase64(excelBase64, excelFilename)}
+                           className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
+                         >
+                           📥 엑셀 다운로드
+                         </button>
+                       </div>
+                     )}
+                   </div>
+                   
+                   {/* 검색된 기사 미리보기 */}
+                   {searchResult.data?.articles && searchResult.data.articles.length > 0 && (
+                     <div>
+                       <h3 className="font-semibold text-gray-800 mb-4">📰 검색된 기사 미리보기 (최대 5개)</h3>
+                       <div className="space-y-3">
+                         {searchResult.data.articles.slice(0, 5).map((article: any, index: number) => (
+                           <div key={index} className="border-l-4 border-blue-500 pl-4 py-2 bg-gray-50 rounded-r-lg">
+                             <h4 className="font-medium text-gray-800 mb-1">{article.title}</h4>
+                             <p className="text-sm text-gray-600 mb-2">{article.description}</p>
+                             <div className="flex items-center justify-between text-xs text-gray-500">
+                               <span>📅 {article.pubDate}</span>
+                               <span>🏢 {article.company}</span>
+                               {article.issue && <span>🏷️ {article.issue}</span>}
+                             </div>
+                           </div>
+                         ))}
+                       </div>
+                     </div>
+                   )}
+                 </>
+               )}
+             </div>
+           )}
 
           {/* 미디어 카드 */}
           <div className="mb-8">

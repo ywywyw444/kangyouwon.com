@@ -6,6 +6,10 @@ import random
 import logging
 import email.utils
 import traceback
+import re
+import html
+import io
+import base64
 from datetime import datetime, timezone, date
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
@@ -179,6 +183,173 @@ def _dedupe_by_url(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# 데이터 정제 함수들 (tuning.py 기반)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def strip_html(text: str) -> str:
+    """HTML 태그 제거 및 엔티티 해제"""
+    if not text or pd.isna(text):
+        return ""
+    s = str(text)
+    s = re.sub(r'<\s*br\s*/?>', ' ', s, flags=re.I)  # <br> → 공백
+    s = re.sub(r'<[^>]+>', '', s)   # 모든 태그 제거
+    s = html.unescape(s)             # &quot; 등 엔티티 해제
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s
+
+
+def clean_pubdate(pubdate_str: str) -> str:
+    """pubDate를 'Thu, 14 Aug 2025' 형태로 정제"""
+    if not pubdate_str:
+        return ""
+    
+    try:
+        # RFC 2822 형식 파싱 (Thu, 14 Aug 2025 07:08:00 +0900)
+        dt = email.utils.parsedate_to_datetime(pubdate_str)
+        if dt:
+            # 요일, 일, 월, 년도만 추출
+            return dt.strftime("%a, %d %b %Y")
+    except Exception:
+        pass
+    
+    # 파싱 실패 시 원본 반환
+    return str(pubdate_str)
+
+
+def norm_plain(text: str) -> str:
+    """일반 정규화(영문+한글)"""
+    s = strip_html(text).lower()
+    s = re.sub(r'[^가-힣a-z0-9]', '', s)
+    return s
+
+
+def has_triangle_then_company(desc: str, company: str) -> bool:
+    """△/▲ 뒤에 회사명이 나오면 True (혼합표기 시 한글만 일치도 허용)"""
+    if not desc or not company:
+        return False
+    
+    d = strip_html(desc).lower()
+    comp_norm = norm_plain(company)
+    
+    if not comp_norm:
+        return False
+    
+    # △/▲ 이후 회사명이 나오는지 확인
+    pattern = rf'[△▲][^△▲]*{re.escape(comp_norm)}'
+    return bool(re.search(pattern, d))
+
+
+def filter_news_items(items: List[Dict[str, Any]], company: str) -> List[Dict[str, Any]]:
+    """뉴스 아이템 필터링 및 정제"""
+    if not items:
+        return []
+    
+    filtered_items = []
+    
+    for item in items:
+        # HTML 태그 제거
+        if "title" in item:
+            item["title"] = strip_html(item["title"])
+        if "description" in item:
+            item["description"] = strip_html(item["description"])
+        
+        # pubDate 정제
+        if "pubDate" in item:
+            item["pubDate"] = clean_pubdate(item["pubDate"])
+        
+        # △/▲ 뒤에 회사명이 나오는 기사 제외
+        if has_triangle_then_company(item.get("description", ""), company):
+            continue
+        
+        # 불용 키워드 기사 제외
+        keywords = ["주식", "주가", "매수", "매매", "테마주", "관련주", "주식시장", "인사", "부고", "기고", "상장", "부동산", "시세", "매도", "증자", "증시"]
+        pattern = "|".join(keywords)
+        
+        title = item.get("title", "").lower()
+        description = item.get("description", "").lower()
+        
+        if re.search(pattern, title) or re.search(pattern, description):
+            continue
+        
+        filtered_items.append(item)
+    
+    return filtered_items
+
+
+def _make_excel_bytes(items: List[Dict[str, Any]], company_id: str) -> Tuple[str, bytes]:
+    """엑셀을 메모리에서 생성하여 바이트와 파일명 반환"""
+    if not items:
+        raise ValueError("엑셀 생성할 데이터가 없습니다")
+    
+    try:
+        # DataFrame 생성 전 데이터 정리
+        cleaned_items = []
+        for item in items:
+            cleaned_item = {}
+            for key, value in item.items():
+                # None 값과 빈 문자열 처리
+                if value is None:
+                    cleaned_item[key] = ""
+                elif isinstance(value, (dict, list)):
+                    cleaned_item[key] = str(value)
+                else:
+                    cleaned_item[key] = str(value).strip() if isinstance(value, str) else value
+            cleaned_items.append(cleaned_item)
+        
+        # DataFrame 생성
+        df = pd.DataFrame(cleaned_items)
+        logger.info(f"📊 DataFrame 생성 완료: {df.shape[0]}행 x {df.shape[1]}열")
+        
+        # 컬럼 순서 정리
+        columns_order = [
+            'company', 'issue', 'query_kind', 'keyword',
+            'title', 'description', 'pubDate', 'originallink', '네이버링크'
+        ]
+        
+        # 존재하는 컬럼만 선택
+        existing_columns = [col for col in columns_order if col in df.columns]
+        df_ordered = df[existing_columns]
+        
+        # NaN 값 처리
+        df_ordered = df_ordered.fillna("")
+        
+        # 메모리에서 엑셀 생성
+        buf = io.BytesIO()
+        with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+            df_ordered.to_excel(writer, sheet_name="검색결과", index=False)
+            
+            # 워크시트 스타일링
+            worksheet = writer.sheets["검색결과"]
+            for column in worksheet.columns:
+                max_length = 0
+                column_letter = column[0].column_letter
+                for cell in column:
+                    try:
+                        if len(str(cell.value)) > max_length:
+                            max_length = len(str(cell.value))
+                    except:
+                        pass
+                adjusted_width = min(max_length + 2, 50)
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        buf.seek(0)
+        excel_bytes = buf.getvalue()
+        
+        # 파일명 생성
+        timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"media_search_{company_id}_{timestamp_str}.xlsx"
+        
+        logger.info(f"✅ 메모리에서 엑셀 생성 완료: {filename} (크기: {len(excel_bytes)} bytes)")
+        
+        return filename, excel_bytes
+        
+    except Exception as e:
+        logger.error(f"❌ 엑셀 생성 중 오류: {str(e)}")
+        logger.error(f"상세 오류: {traceback.format_exc()}")
+        raise
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # 서비스 엔트리포인트 (비동기)
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -287,81 +458,33 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
     # URL 기준 중복 제거(기업 범위 내)
     try:
         all_items = _dedupe_by_url(all_items)
+        logger.info(f"✅ 중복 제거 완료: {len(all_items)}개 기사")
     except Exception as e:
         logger.warning("중복 제거 중 오류(무시하고 계속): %s", e)
 
-    # 엑셀 파일 생성
-    excel_file_path = None
+    # 데이터 정제
+    try:
+        original_count = len(all_items)
+        all_items = filter_news_items(all_items, company_id)
+        filtered_count = len(all_items)
+        logger.info(f"✅ 데이터 정제 완료: {original_count}개 → {filtered_count}개 기사")
+    except Exception as e:
+        logger.warning("데이터 정제 중 오류(무시하고 계속): %s", e)
+
+    # 엑셀 생성 (메모리에서)
+    excel_filename = None
+    excel_base64 = None
     if all_items:
         try:
-            # 현재 시간을 파일명에 포함
-            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-            excel_filename = f"media_search_{company_id}_{timestamp_str}.xlsx"
-            excel_file_path = f"/tmp/{excel_filename}"  # Railway에서는 /tmp 디렉토리 사용
-            
-            # DataFrame 생성 전 데이터 정리
-            cleaned_items = []
-            for item in all_items:
-                cleaned_item = {}
-                for key, value in item.items():
-                    # None 값과 빈 문자열 처리
-                    if value is None:
-                        cleaned_item[key] = ""
-                    elif isinstance(value, (dict, list)):
-                        cleaned_item[key] = str(value)
-                    else:
-                        cleaned_item[key] = str(value).strip() if isinstance(value, str) else value
-                cleaned_items.append(cleaned_item)
-            
-            # DataFrame 생성
-            df = pd.DataFrame(cleaned_items)
-            logger.info(f"📊 DataFrame 생성 완료: {df.shape[0]}행 x {df.shape[1]}열")
-            
-            # 컬럼 순서 정리
-            columns_order = [
-                'company', 'issue', 'query_kind', 'keyword',
-                'title', 'description', 'pubDate', 'originallink', '네이버링크'
-            ]
-            
-            # 존재하는 컬럼만 선택
-            existing_columns = [col for col in columns_order if col in df.columns]
-            df_ordered = df[existing_columns]
-            
-            # NaN 값 처리
-            df_ordered = df_ordered.fillna("")
-            
-            # 엑셀 파일로 저장 (openpyxl 엔진 사용)
-            with pd.ExcelWriter(excel_file_path, engine='openpyxl') as writer:
-                df_ordered.to_excel(writer, sheet_name='검색결과', index=False)
-                
-                # 워크시트 스타일링
-                worksheet = writer.sheets['검색결과']
-                for column in worksheet.columns:
-                    max_length = 0
-                    column_letter = column[0].column_letter
-                    for cell in column:
-                        try:
-                            if len(str(cell.value)) > max_length:
-                                max_length = len(str(cell.value))
-                        except:
-                            pass
-                    adjusted_width = min(max_length + 2, 50)
-                    worksheet.column_dimensions[column_letter].width = adjusted_width
-            
-            logger.info(f"✅ 엑셀 파일 생성 완료: {excel_file_path}")
-            
-            # 파일 생성 확인
-            if os.path.exists(excel_file_path):
-                file_size = os.path.getsize(excel_file_path)
-                logger.info(f"✅ 엑셀 파일 생성 완료: {excel_file_path} (크기: {file_size} bytes)")
-            else:
-                logger.error(f"❌ 엑셀 파일이 생성되지 않음: {excel_file_path}")
-                excel_file_path = None
-
+            filename, excel_bytes = _make_excel_bytes(all_items, company_id)
+            excel_filename = filename
+            excel_base64 = base64.b64encode(excel_bytes).decode("ascii")
+            logger.info(f"✅ 엑셀 생성 완료: {filename} (Base64 길이: {len(excel_base64)})")
         except Exception as e:
-            logger.error(f"❌ 엑셀 파일 생성 중 오류: {str(e)}")
+            logger.error(f"❌ 엑셀 생성 중 오류: {str(e)}")
             logger.error(f"상세 오류: {traceback.format_exc()}")
-            excel_file_path = None
+            excel_filename = None
+            excel_base64 = None
 
     response = {
         "success": True,
@@ -374,6 +497,7 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
             "articles": all_items,  # 그대로 반환 (title/description/pubDate/originallink/네이버링크 등 포함)
         },
         "timestamp": timestamp,
-        "excel_file": excel_file_path if excel_file_path else None
+        "excel_filename": excel_filename,
+        "excel_base64": excel_base64
     }
     return response
