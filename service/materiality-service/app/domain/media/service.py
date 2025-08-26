@@ -316,14 +316,16 @@ def filter_news_items(items: List[Dict[str, Any]], company: str) -> List[Dict[st
         if has_triangle_then_company(item.get("description", ""), company):
             continue
         
-        # 불용 키워드 기사 제외
-        keywords = ["주식", "주가", "매수", "매매", "테마주", "관련주", "주식시장", "인사", "부고", "기고", "상장", "부동산", "시세", "매도", "증자", "증시"]
+        # 불용 키워드 기사 제외 (완화된 버전)
+        # 너무 엄격한 필터링으로 인해 기사가 모두 제거되는 것을 방지
+        keywords = ["부고", "기고"]  # 정말 불필요한 것만 제외
         pattern = "|".join(keywords)
         
         title = item.get("title", "").lower()
         description = item.get("description", "").lower()
         
-        if re.search(pattern, title) or re.search(pattern, description):
+        # 제목과 내용 모두에 불용 키워드가 있는 경우만 제외
+        if re.search(pattern, title) and re.search(pattern, description):
             continue
         
         filtered_items.append(item)
@@ -495,10 +497,11 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     # 질의 목록 구성: (회사명 + 토큰) + 회사명 단독
     queries: List[Dict[str, Any]] = []
-    max_results_per_keyword = int(os.getenv("NAVER_MAX_RESULTS_PER_KEYWORD", "300"))
-    unique_company_max_results = int(os.getenv("NAVER_UNIQUE_COMPANY_MAX_RESULTS", "150"))
+    max_results_per_keyword = int(os.getenv("NAVER_MAX_RESULTS_PER_KEYWORD", "500"))  # 300 → 500으로 증가
+    unique_company_max_results = int(os.getenv("NAVER_UNIQUE_COMPANY_MAX_RESULTS", "300"))  # 150 → 300으로 증가
 
     for tok in tokens:
+        # 검색 키워드를 더 단순하게 구성
         keyword = f"{company_id} {tok}"
         queries.append(
             {
@@ -509,6 +512,18 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
                 "max_results": max_results_per_keyword,
             }
         )
+        
+        # 회사명만으로도 검색 추가 (더 많은 결과를 위해)
+        if tok:  # 빈 토큰이 아닌 경우에만
+            queries.append(
+                {
+                    "keyword": company_id,  # 회사명만
+                    "company": company_id,
+                    "issue": tok,
+                    "query_kind": "company_only_issue",
+                    "max_results": max_results_per_keyword // 2,  # 절반만
+                }
+            )
 
     # 회사명 단독 검색도 추가
     queries.append(
@@ -557,6 +572,12 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     if not all_items:
         logger.warning("수집된 뉴스가 없습니다. company=%s", company_id)
+        logger.warning("🔍 검색된 기사가 0건입니다. 다음을 확인해보세요:")
+        logger.warning("  1. 검색 키워드: %s", [q["keyword"] for q in queries])
+        logger.warning("  2. 검색 기간: %s ~ %s", start_date, end_date)
+        logger.warning("  3. 네이버 API 응답 확인 필요")
+    else:
+        logger.info(f"✅ 네이버 API에서 총 {len(all_items)}건의 기사를 수집했습니다.")
 
     # URL 기준 중복 제거(기업 범위 내)
     try:
