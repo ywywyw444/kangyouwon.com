@@ -37,10 +37,11 @@ export default function MaterialityHomePage() {
         setLoading(true);
         console.log('🔍 기업 목록을 Gateway를 통해 가져오는 중...');
         
-        // Gateway를 통해 materiality-service 호출
+        // Gateway를 통해 materiality-service 호출 (POST 방식)
         const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
-        const response = await axios.get(
+        const response = await axios.post(
           `${gatewayUrl}/api/v1/search/companies`,
+          {}, // 빈 body 전송
           {
             headers: {
               'Content-Type': 'application/json',
@@ -65,35 +66,13 @@ export default function MaterialityHomePage() {
             }
           }
         } else {
-          console.warn('⚠️ 기업 목록을 가져올 수 없습니다:', response.data.message);
-          // API 실패 시 사용자 기업만 표시
-          const userData = localStorage.getItem('user');
-          if (userData) {
-            const user = JSON.parse(userData);
-            if (user.company_id) {
-              setCompanies([user.company_id]);
-              console.log('✅ API 실패 시 사용자 기업만 표시:', user.company_id);
-            } else {
-              setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
-            }
-          } else {
-            setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
-          }
+          console.warn('⚠️ 기업 목록을 가져올 수 없습니다:', response.data);
         }
-      } catch (error) {
-        console.error('❌ Gateway를 통한 기업 목록 API 호출 실패:', error);
-        // API 실패 시 사용자 기업만 표시
-        const userData = localStorage.getItem('user');
-        if (userData) {
-          const user = JSON.parse(userData);
-          if (user.company_id) {
-            setCompanies([user.company_id]);
-            console.log('✅ API 오류 시 사용자 기업만 표시:', user.company_id);
-          } else {
-            setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
-          }
-        } else {
-          setCompanies(['ABC 기업', 'XYZ 그룹', 'DEF 주식회사', 'GHI 산업', 'JKL 전자']);
+      } catch (error: any) {
+        console.error('❌ Gateway를 통한 기업 목록 API 호출 실패 :', error);
+        if (error.response) {
+          console.error('응답 상태:', error.response.status);
+          console.error('응답 데이터:', error.response.data);
         }
       } finally {
         setLoading(false);

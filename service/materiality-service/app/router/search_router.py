@@ -29,6 +29,23 @@ async def get_companies():
         logger.error(f"상세 오류: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"기업 목록 조회 중 오류가 발생했습니다: {str(e)}")
 
+@search_router.post("/companies", summary="기업 목록 조회 (POST)")
+async def post_companies():
+    """corporation 테이블에서 모든 기업 목록을 가져옴 (POST 방식)"""
+    try:
+        logger.info("🔍 라우터: 기업 목록 조회 요청 (POST)")
+        
+        # Controller를 통해 Service 호출
+        result = await search_controller.get_all_companies()
+        
+        logger.info(f"✅ 라우터: 기업 목록 조회 완료 (POST) - {len(result.get('companies', []))}개 기업")
+        return result
+        
+    except Exception as e:
+        logger.error(f"❌ 라우터: 기업 목록 조회 중 오류 (POST) - {str(e)}")
+        logger.error(f"상세 오류: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"기업 목록 조회 중 오류가 발생했습니다: {str(e)}")
+
 @search_router.post("/company", summary="기업명으로 기업 검색")
 async def search_company(search_data: CompanySearchRequest):
     """기업명으로 기업 검색"""
