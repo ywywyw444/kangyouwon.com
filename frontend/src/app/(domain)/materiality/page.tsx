@@ -545,31 +545,47 @@ export default function MaterialityHomePage() {
                    {searchResult.data?.articles && searchResult.data.articles.length > 0 && (
                      <div>
                        <h3 className="font-semibold text-gray-800 mb-4">📰 검색된 기사 미리보기 (최대 5개)</h3>
-                       <div className="space-y-3">
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                          {searchResult.data.articles.slice(0, 5).map((article: any, index: number) => (
-                           <div key={index} className="border-l-4 border-blue-500 pl-4 py-2 bg-gray-50 rounded-r-lg">
-                             <h4 className="font-medium text-gray-800 mb-1">{article.title}</h4>
-                             <p className="text-sm text-gray-600 mb-2">{article.description}</p>
-                             <div className="flex items-center justify-between text-xs text-gray-500">
-                               <span>📅 {article.pubDate}</span>
-                               <span>🏢 {article.company}</span>
-                               {article.issue && <span>🏷️ {article.issue}</span>}
+                           <div 
+                             key={index} 
+                             className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                             onClick={() => {
+                               if (article.originallink) {
+                                 window.open(article.originallink, '_blank', 'noopener,noreferrer');
+                               }
+                             }}
+                           >
+                             <div className="text-xs text-gray-500 mb-2">
+                               {article.pubDate ? new Date(article.pubDate).toLocaleDateString('ko-KR', {
+                                 year: 'numeric',
+                                 month: '2-digit',
+                                 day: '2-digit'
+                               }).replace(/\. /g, '. ').replace(/\.$/, '.') : '날짜 없음'}
                              </div>
-                             {/* 원문 링크 */}
-                             {article.originallink && (
-                               <div className="mt-2 pt-2 border-t border-gray-200">
-                                 <a
-                                   href={article.originallink}
-                                   target="_blank"
-                                   rel="noopener noreferrer"
-                                   className="inline-flex items-center text-xs text-blue-600 hover:text-blue-800 hover:underline transition-colors duration-200"
-                                 >
-                                   <span className="mr-1">🔗</span>
-                                   <span className="truncate max-w-xs">원문 보기</span>
-                                   <span className="ml-1">↗</span>
-                                 </a>
-                               </div>
-                             )}
+                             <h4 className="font-medium text-gray-800 mb-2 text-sm leading-tight" style={{ 
+                               display: '-webkit-box', 
+                               WebkitLineClamp: 3, 
+                               WebkitBoxOrient: 'vertical', 
+                               overflow: 'hidden' 
+                             }}>
+                               {article.title}
+                             </h4>
+                             <div className="text-xs text-gray-600 mb-3">
+                               <span className="font-medium">검색 키워드:</span> {article.issue || '일반'}
+                             </div>
+                             <div className="flex items-center justify-between text-xs text-gray-500">
+                               <span className="flex items-center">
+                                 <span className="mr-1">🏢</span>
+                                 {article.company || '기업명 없음'}
+                               </span>
+                               {article.original_category && (
+                                 <span className="flex items-center">
+                                   <span className="mr-1">📂</span>
+                                   {article.original_category}
+                                 </span>
+                               )}
+                             </div>
                            </div>
                          ))}
                        </div>
@@ -580,63 +596,46 @@ export default function MaterialityHomePage() {
                    {searchResult.data?.articles && searchResult.data.articles.length > 5 && (
                      <div className="mt-8">
                        <h3 className="font-semibold text-gray-800 mb-4">📰 전체 검색 결과 ({searchResult.data.articles.length}개)</h3>
-                       <div className="space-y-4 max-h-96 overflow-y-auto">
+                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-h-96 overflow-y-auto">
                          {searchResult.data.articles.map((article: any, index: number) => (
-                           <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
-                             <div className="flex items-start justify-between">
-                               <div className="flex-1">
-                                 <h4 className="font-medium text-gray-800 mb-2" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{article.title}</h4>
-                                 <p className="text-sm text-gray-600 mb-3" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{article.description}</p>
-                                 <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mb-3">
-                                   <span className="flex items-center">
-                                     <span className="mr-1">📅</span>
-                                     {article.pubDate}
-                                   </span>
-                                   <span className="flex items-center">
-                                     <span className="mr-1">🏢</span>
-                                     {article.company}
-                                   </span>
-                                   {article.issue && (
-                                     <span className="flex items-center">
-                                       <span className="mr-1">🏷️</span>
-                                       {article.issue}
-                                     </span>
-                                   )}
-                                   {article.original_category && (
-                                     <span className="flex items-center">
-                                       <span className="mr-1">📂</span>
-                                       {article.original_category}
-                                     </span>
-                                   )}
-                                 </div>
-                                 {/* 원문 링크 */}
-                                 {article.originallink && (
-                                   <div className="flex items-center justify-between">
-                                     <a
-                                       href={article.originallink}
-                                       target="_blank"
-                                       rel="noopener noreferrer"
-                                       className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 hover:underline transition-colors duration-200 font-medium"
-                                     >
-                                       <span className="mr-2">🔗</span>
-                                       <span>원문 기사 보기</span>
-                                       <span className="ml-2">↗</span>
-                                     </a>
-                                     {/* 네이버 링크도 표시 */}
-                                     {article.네이버링크 && (
-                                       <a
-                                         href={article.네이버링크}
-                                         target="_blank"
-                                         rel="noopener noreferrer"
-                                         className="inline-flex items-center text-sm text-green-600 hover:text-green-800 hover:underline transition-colors duration-200"
-                                       >
-                                         <span className="mr-1">📰</span>
-                                         <span>네이버 뉴스</span>
-                                       </a>
-                                     )}
-                                   </div>
-                                 )}
-                               </div>
+                           <div 
+                             key={index} 
+                             className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200 cursor-pointer"
+                             onClick={() => {
+                               if (article.originallink) {
+                                 window.open(article.originallink, '_blank', 'noopener,noreferrer');
+                               }
+                             }}
+                           >
+                             <div className="text-xs text-gray-500 mb-2">
+                               {article.pubDate ? new Date(article.pubDate).toLocaleDateString('ko-KR', {
+                                 year: 'numeric',
+                                 month: '2-digit',
+                                 day: '2-digit'
+                               }).replace(/\. /g, '. ').replace(/\.$/, '.') : '날짜 없음'}
+                             </div>
+                             <h4 className="font-medium text-gray-800 mb-2 text-sm leading-tight" style={{ 
+                               display: '-webkit-box', 
+                               WebkitLineClamp: 3, 
+                               WebkitBoxOrient: 'vertical', 
+                               overflow: 'hidden' 
+                             }}>
+                               {article.title}
+                             </h4>
+                             <div className="text-xs text-gray-600 mb-3">
+                               <span className="font-medium">검색 키워드:</span> {article.issue || '일반'}
+                             </div>
+                             <div className="flex items-center justify-between text-xs text-gray-500">
+                               <span className="flex items-center">
+                                 <span className="mr-1">🏢</span>
+                                 {article.company || '기업명 없음'}
+                               </span>
+                               {article.original_category && (
+                                 <span className="flex items-center">
+                                   <span className="mr-1">📂</span>
+                                   {article.original_category}
+                                 </span>
+                               )}
                              </div>
                            </div>
                          ))}
