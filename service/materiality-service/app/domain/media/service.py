@@ -148,7 +148,7 @@ def process_materiality_categories(categories: List[Any]) -> Tuple[List[str], Di
 
 BASE_URL = "https://openapi.naver.com/v1/search/news.json"
 MAX_DISPLAY = 100  # 네이버 API 최대값 유지
-MAX_START_LIMIT = 1000
+MAX_START_LIMIT = 500
 JITTER_RANGE = (0.0001, 0.0002)  # 지터 범위를 줄여서 더 빠르게
 
 
@@ -165,9 +165,9 @@ class NaverNewsClient:
         if not self.client_id or not self.client_secret:
             raise ValueError("NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 환경변수가 필요합니다.")
 
-        self.min_interval = float(os.getenv("NAVER_API_MIN_INTERVAL", "0.8") if min_interval is None else min_interval)  # 1.2 → 0.8초로 단축
-        self.per_keyword_pause = float(os.getenv("NAVER_API_PER_KEYWORD_PAUSE", "1.0") if per_keyword_pause is None else per_keyword_pause)  # 2.0 → 1.0초로 단축
-        self.max_retries = int(os.getenv("NAVER_API_MAX_RETRIES", "3") if max_retries is None else max_retries)
+        self.min_interval = float(os.getenv("NAVER_API_MIN_INTERVAL", "0.4") if min_interval is None else min_interval)  # 0.8 → 0.4초로 단축
+        self.per_keyword_pause = float(os.getenv("NAVER_API_PER_KEYWORD_PAUSE", "0.0") if per_keyword_pause is None else per_keyword_pause)  # 1.0 → 0.0초로 단축 (키워드 간 대기 제거)
+        self.max_retries = int(os.getenv("NAVER_API_MAX_RETRIES", "3") if per_keyword_pause is None else per_keyword_pause)
 
         self._last_request_ts = 0.0
 
@@ -194,7 +194,16 @@ class NaverNewsClient:
             try:
                 self._throttle()
                 resp = self.session.get(BASE_URL, params=params, timeout=10)
-                if resp.status_code == 429 or 500 <= resp.status_code < 600:
+                
+                # 429 처리: Retry-After 헤더 존중
+                if resp.status_code == 429:
+                    ra = resp.headers.get("Retry-After")
+                    wait = float(ra) if ra and ra.isdigit() else (self.min_interval * (2 ** (attempt - 1)))
+                    logger.warning("429 Too Many Requests → %.2fs 대기 후 재시도", wait)
+                    time.sleep(wait + random.uniform(*JITTER_RANGE))
+                    continue
+                
+                if 500 <= resp.status_code < 600:
                     raise httpx.HTTPStatusError(f"HTTP {resp.status_code}: {resp.text[:160]}")
                 resp.raise_for_status()
                 return resp.json()
@@ -587,16 +596,19 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
     # 실행
     all_items: List[Dict[str, Any]] = []
     
-    # 카테고리 기반 검색 실행
-    for q in queries:
+    # 병렬 처리를 위한 함수 정의
+    async def run_one_search(q: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """단일 검색 실행"""
         kw = q["keyword"]
         company = q["company"]
         issue = q["issue"]
         query_kind = q["query_kind"]
         per_kw_limit = int(q["max_results"])
+        
         logger.info("▶︎ 네이버 검색 시작 [%s]: %s (%s~%s, limit=%d)", query_kind, kw, start_date, end_date, per_kw_limit)
+        
         try:
-            # 동기 함수를 비동기로 실행 (partial 사용하여 키워드 인자 문제 해결)
+            # 동기 함수를 비동기로 실행
             result = await loop.run_in_executor(
                 None,
                 partial(
@@ -607,6 +619,8 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
                     max_results=per_kw_limit,
                 ),
             )
+            
+            items = []
             for it in result.get("items", []):
                 it["company"] = company
                 it["issue"] = issue
@@ -617,11 +631,33 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
                     it["original_category"] = issue_to_category[issue]
                 else:
                     it["original_category"] = issue
-                all_items.append(it)
-            # 키워드 간 간격 (지터 포함) - 비동기로 대기
-            await asyncio.sleep(max(0.0, client.per_keyword_pause) + random.uniform(*JITTER_RANGE))
+                items.append(it)
+            
+            return items
+            
         except Exception as e:
             logger.error("검색 실패 [%s] %s: %s", query_kind, kw, e)
+            return []
+    
+    # 동시 실행 개수 제한 (과도한 메모리/후처리 겹침 방지)
+    max_concurrency = int(os.getenv("NAVER_KEYWORD_CONCURRENCY", "4"))
+    semaphore = asyncio.Semaphore(max_concurrency)
+    
+    async def guarded_search(q: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """세마포어로 보호된 검색"""
+        async with semaphore:
+            return await run_one_search(q)
+    
+    # 모든 검색을 동시에 시작
+    tasks = [asyncio.create_task(guarded_search(q)) for q in queries]
+    
+    # 완료된 순서대로 결과 수집
+    for completed_task in asyncio.as_completed(tasks):
+        try:
+            items = await completed_task
+            all_items.extend(items)
+        except Exception as e:
+            logger.error(f"검색 작업 실행 중 오류: {e}")
 
     if not all_items:
         logger.warning("수집된 뉴스가 없습니다. company=%s", company_id)
