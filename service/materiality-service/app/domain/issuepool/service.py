@@ -29,7 +29,7 @@ class IssuePoolService:
         try:
             logger.info(f"📊 서비스: 이슈풀 목록 조회 시작 - 기업: {request.company_id}")
             
-            # 연도 추출 (YYYY-MM-DD 형식에서 YYYY 추출)
+            # 연도 추출 (YYYY-MM-DD 형식에서 YYYY 추출) 및 정수 변환
             try:
                 base_year = int(request.report_period.start_date.split('-')[0])
                 year_minus_2 = base_year - 2  # year-2년

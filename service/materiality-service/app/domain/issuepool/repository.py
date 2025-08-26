@@ -3,7 +3,7 @@ Issue Pool Repository - BaseModel을 받아서 데이터베이스 작업을 수�
 데이터베이스 연결을 담당하며, BaseModel과 Entity 간의 변환을 처리
 """
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text
+from sqlalchemy import select, text, bindparam, Integer
 from app.domain.issuepool.schema import IssuePoolResponse
 from app.domain.issuepool.entity import IssuePoolEntity
 from app.common.database.issuepool_db import get_db
@@ -16,6 +16,13 @@ class IssuePoolRepository:
     
     def __init__(self):
         pass
+    
+    def _to_int(self, name: str, value) -> int:
+        """값을 정수로 강제 캐스팅"""
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{name} must be an integer, got: {type(value).__name__} = {value}")
     
     async def get_all_issuepools(self):
         """모든 이슈풀 조회 - BaseModel 리스트 반환"""
@@ -71,8 +78,12 @@ class IssuePoolRepository:
                 corporation_id = corp_row[0]
                 logger.info(f"🔍 리포지토리: 기업 ID 조회 성공 - {corporation_name} -> ID: {corporation_id}")
                 
-                # 2단계: corporation_id와 publish_year로 issuepool 조회 (raw SQL 사용)
-                if publish_year:
+                # 2단계: corporation_id와 publish_year를 정수로 강제 캐스팅
+                corp_id_int = self._to_int("corporation_id", corporation_id)
+                pub_year_int = self._to_int("publish_year", publish_year) if publish_year else None
+                
+                # 3단계: corporation_id와 publish_year로 issuepool 조회 (바인드 타입 명시)
+                if pub_year_int is not None:
                     issuepool_query = text("""
                         SELECT id, corporation_id, publish_year, ranking, 
                                base_issue_pool, issue_pool, category_id, esg_classification_id
@@ -80,8 +91,11 @@ class IssuePoolRepository:
                         WHERE corporation_id = :corp_id
                         AND publish_year = :pub_year
                         ORDER BY ranking
-                    """)
-                    params = {"corp_id": str(corporation_id), "pub_year": publish_year}
+                    """).bindparams(
+                        bindparam("corp_id", type_=Integer),
+                        bindparam("pub_year", type_=Integer)
+                    )
+                    params = {"corp_id": corp_id_int, "pub_year": pub_year_int}
                 else:
                     issuepool_query = text("""
                         SELECT id, corporation_id, publish_year, ranking, 
@@ -89,8 +103,10 @@ class IssuePoolRepository:
                         FROM issuepool 
                         WHERE corporation_id = :corp_id
                         ORDER BY ranking
-                    """)
-                    params = {"corp_id": str(corporation_id)}
+                    """).bindparams(
+                        bindparam("corp_id", type_=Integer)
+                    )
+                    params = {"corp_id": corp_id_int}
                 
                 result = await db.execute(issuepool_query, params)
                 rows = result.fetchall()
@@ -124,6 +140,9 @@ class IssuePoolRepository:
         try:
             logger.info(f"🔍 리포지토리: 연도별 이슈풀 조회 - publish_year: {publish_year}")
             
+            # publish_year를 정수로 강제 캐스팅
+            pub_year_int = self._to_int("publish_year", publish_year)
+            
             # 데이터베이스 연결
             async for db in get_db():
                 query = text("""
@@ -132,8 +151,10 @@ class IssuePoolRepository:
                     FROM issuepool 
                     WHERE publish_year = :pub_year
                     ORDER BY ranking
-                """)
-                result = await db.execute(query, {"pub_year": publish_year})
+                """).bindparams(
+                    bindparam("pub_year", type_=Integer)
+                )
+                result = await db.execute(query, {"pub_year": pub_year_int})
                 rows = result.fetchall()
                 
                 logger.info(f"🔍 DB에서 가져온 raw 데이터: {len(rows)}개")
@@ -165,6 +186,9 @@ class IssuePoolRepository:
         try:
             logger.info(f"🔍 리포지토리: ID로 이슈풀 조회 - issuepool_id: {issuepool_id}")
             
+            # issuepool_id를 정수로 강제 캐스팅
+            id_int = self._to_int("issuepool_id", issuepool_id)
+            
             # 데이터베이스 연결
             async for db in get_db():
                 query = text("""
@@ -172,8 +196,10 @@ class IssuePoolRepository:
                            base_issue_pool, issue_pool, category_id, esg_classification_id
                     FROM issuepool 
                     WHERE id = :issuepool_id
-                """)
-                result = await db.execute(query, {"issuepool_id": issuepool_id})
+                """).bindparams(
+                    bindparam("issuepool_id", type_=Integer)
+                )
+                result = await db.execute(query, {"issuepool_id": id_int})
                 row = result.fetchone()
                 
                 if row:
