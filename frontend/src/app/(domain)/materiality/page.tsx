@@ -373,7 +373,7 @@ export default function MaterialityHomePage() {
     <div className="min-h-screen bg-white">
       {/* 미디어 검색 중 로딩 오버레이 */}
       {isMediaSearching && (
-        <div className="fixed inset-0 bg-white bg-opacity-80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-100 bg-opacity-30 backdrop-blur-[1px] flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl p-8 text-center border border-gray-200">
             <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
             <h3 className="text-xl font-semibold text-gray-800 mb-2">미디어 검색 중...</h3>

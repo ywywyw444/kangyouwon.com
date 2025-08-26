@@ -34,35 +34,27 @@ def process_materiality_categories(categories: List[Any]) -> Tuple[List[str], Di
         issue_to_category = {}  # 이슈 -> 원본 카테고리 매핑
         
         for i, category in enumerate(categories):
-            logger.info(f"  처리 중 [{i+1}]: {type(category)} - {category}")
-            
             # Pydantic BaseModel의 경우 getattr을 사용하거나 직접 속성에 접근
             try:
                 category_name = getattr(category, 'category_name', None)
                 if category_name:
-                    logger.info(f"    category_name: '{category_name}'")
                     # 슬래시(/)로 구분된 카테고리를 개별 이슈로 분리
                     issues = [issue.strip() for issue in category_name.split('/') if issue.strip()]
-                    logger.info(f"    분리된 이슈: {issues}")
                     
                     for issue in issues:
                         all_issues.append(issue)
                         issue_to_category[issue] = category_name  # 각 이슈를 원본 카테고리와 매핑
-                        logger.info(f"    이슈 추가: '{issue}' → '{category_name}'")
                 else:
                     logger.warning(f"    category_name이 비어있음: {category}")
             except Exception as attr_error:
                 logger.error(f"    category_name 속성 접근 오류: {attr_error}")
                 logger.error(f"    category 객체: {category}")
-                logger.error(f"    category 타입: {type(category)}")
-                logger.error(f"    category dir: {dir(category)}")
         
         # 중복 제거 및 정렬
         unique_issues = sorted(list(set(all_issues)))
         
         logger.info(f"✅ materiality_category에서 {len(categories)}개 카테고리를 가져와서 {len(unique_issues)}개 이슈로 분리했습니다.")
         logger.info(f"📋 이슈 목록: {unique_issues}")
-        logger.info(f"📋 이슈→카테고리 매핑: {issue_to_category}")
         
         return unique_issues, issue_to_category
         
@@ -459,18 +451,9 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
             future = executor.submit(asyncio.run, repository.get_all_materiality_categories())
             categories = future.result()
         
-        # 디버깅: 실제로 어떤 데이터가 들어오는지 로그 출력
+        # 카테고리 데이터 처리
         logger.info(f"🔍 DB에서 가져온 카테고리 데이터: {len(categories)}개")
-        for i, cat in enumerate(categories):
-            logger.info(f"  [{i+1}] category_name: '{cat.category_name}', esg_classification_id: {cat.esg_classification_id}")
-            logger.info(f"      타입: {type(cat)}, dir: {dir(cat)}")
-        
         tokens, issue_to_category = process_materiality_categories(categories)
-        
-        # 디버깅: 처리된 결과도 로그 출력
-        logger.info(f"🔍 처리된 이슈와 카테고리 매핑:")
-        for issue, category in issue_to_category.items():
-            logger.info(f"  이슈: '{issue}' → 원본카테고리: '{category}'")
             
     except Exception as e:
         logger.error(f"❌ materiality_category 조회 실패: {str(e)}")
@@ -536,48 +519,76 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
         }
     )
 
-    # 실행
-    all_items: List[Dict[str, Any]] = []
-    for q in queries:
-        kw = q["keyword"]
-        company = q["company"]
-        issue = q["issue"]
-        query_kind = q["query_kind"]
-        per_kw_limit = int(q["max_results"])
-        logger.info("▶︎ 네이버 검색 시작 [%s]: %s (%s~%s, limit=%d)", query_kind, kw, start_date, end_date, per_kw_limit)
-        try:
-            # 동기 함수를 비동기로 실행
-            import asyncio
-            loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(
-                None, 
-                client.search_by_date_range,
-                kw, start_date, end_date, per_kw_limit
-            )
-            for it in result.get("items", []):
-                it["company"] = company
-                it["issue"] = issue
-                it["keyword"] = kw
-                it["query_kind"] = query_kind
-                # 원본 카테고리 정보 추가
-                if issue in issue_to_category:
-                    it["original_category"] = issue_to_category[issue]
-                else:
-                    it["original_category"] = issue
-                all_items.append(it)
-            # 키워드 간 간격 (지터 포함) - 비동기로 대기
-            await asyncio.sleep(max(0.0, client.per_keyword_pause) + random.uniform(*JITTER_RANGE))
-        except Exception as e:
-            logger.error("검색 실패 [%s] %s: %s", query_kind, kw, e)
+                   # 실행
+               all_items: List[Dict[str, Any]] = []
+               
+               # 간단한 테스트 검색 먼저 시도
+               try:
+                   logger.info("🔍 간단한 테스트 검색 시작: '세방'")
+                   test_result = await loop.run_in_executor(
+                       None, 
+                       client.search, 
+                       "세방"
+                   )
+                   logger.info(f"✅ 테스트 검색 결과: {len(test_result.get('items', []))}개 기사")
+                   
+                   # 테스트 결과를 all_items에 추가
+                   for it in test_result.get("items", []):
+                       it["company"] = company_id
+                       it["issue"] = "테스트"
+                       it["keyword"] = "세방"
+                       it["query_kind"] = "test_search"
+                       it["original_category"] = "테스트"
+                       all_items.append(it)
+                       
+               except Exception as e:
+                   logger.error(f"❌ 테스트 검색 실패: {str(e)}")
+                   logger.error(f"상세 오류: {traceback.format_exc()}")
+               
+               # 기존 검색 로직
+               for q in queries:
+                   kw = q["keyword"]
+                   company = q["company"]
+                   issue = q["issue"]
+                   query_kind = q["query_kind"]
+                   per_kw_limit = int(q["max_results"])
+                   logger.info("▶︎ 네이버 검색 시작 [%s]: %s (%s~%s, limit=%d)", query_kind, kw, start_date, end_date, per_kw_limit)
+                   try:
+                       # 동기 함수를 비동기로 실행
+                       import asyncio
+                       loop = asyncio.get_event_loop()
+                       result = await loop.run_in_executor(
+                           None, 
+                           client.search_by_date_range,
+                           kw, start_date, end_date, per_kw_limit
+                       )
+                       for it in result.get("items", []):
+                           it["company"] = company
+                           it["issue"] = issue
+                           it["keyword"] = kw
+                           it["query_kind"] = query_kind
+                           # 원본 카테고리 정보 추가
+                           if issue in issue_to_category:
+                               it["original_category"] = issue_to_category[issue]
+                           else:
+                               it["original_category"] = issue
+                           all_items.append(it)
+                       # 키워드 간 간격 (지터 포함) - 비동기로 대기
+                       await asyncio.sleep(max(0.0, client.per_keyword_pause) + random.uniform(*JITTER_RANGE))
+                   except Exception as e:
+                       logger.error("검색 실패 [%s] %s: %s", query_kind, kw, e)
 
-    if not all_items:
-        logger.warning("수집된 뉴스가 없습니다. company=%s", company_id)
-        logger.warning("🔍 검색된 기사가 0건입니다. 다음을 확인해보세요:")
-        logger.warning("  1. 검색 키워드: %s", [q["keyword"] for q in queries])
-        logger.warning("  2. 검색 기간: %s ~ %s", start_date, end_date)
-        logger.warning("  3. 네이버 API 응답 확인 필요")
-    else:
-        logger.info(f"✅ 네이버 API에서 총 {len(all_items)}건의 기사를 수집했습니다.")
+                   if not all_items:
+                   logger.warning("수집된 뉴스가 없습니다. company=%s", company_id)
+                   logger.warning("🔍 검색된 기사가 0건입니다. 다음을 확인해보세요:")
+                   logger.warning("  1. 검색 키워드: %s", [q["keyword"] for q in queries])
+                   logger.warning("  2. 검색 기간: %s ~ %s", start_date, end_date)
+                   logger.warning("  3. 네이버 API 응답 확인 필요")
+                   logger.warning("  4. 네이버 API 키 설정 확인 필요")
+                   logger.warning("  5. 네이버 API 할당량 확인 필요")
+               else:
+                   logger.info(f"✅ 네이버 API에서 총 {len(all_items)}건의 기사를 수집했습니다.")
+                   logger.info(f"📊 기사 샘플: {[item.get('title', '제목없음')[:30] for item in all_items[:3]]}")
 
     # URL 기준 중복 제거(기업 범위 내)
     try:
