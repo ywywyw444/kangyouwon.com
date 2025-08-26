@@ -27,23 +27,42 @@ logger = logging.getLogger("materiality.service")
 def process_materiality_categories(categories: List[Any]) -> Tuple[List[str], Dict[str, str]]:
     """materiality_category 데이터를 처리하여 슬래시로 분리하고 원본 카테고리와 매핑"""
     try:
+        logger.info(f"🔍 process_materiality_categories 시작: {len(categories)}개 카테고리 입력")
+        
         # 카테고리를 슬래시로 분리하여 개별 이슈로 만들기
         all_issues = []
         issue_to_category = {}  # 이슈 -> 원본 카테고리 매핑
         
-        for category in categories:
-            if hasattr(category, 'category_name') and category.category_name:
-                # 슬래시(/)로 구분된 카테고리를 개별 이슈로 분리
-                issues = [issue.strip() for issue in category.category_name.split('/') if issue.strip()]
-                for issue in issues:
-                    all_issues.append(issue)
-                    issue_to_category[issue] = category.category_name  # 각 이슈를 원본 카테고리와 매핑
+        for i, category in enumerate(categories):
+            logger.info(f"  처리 중 [{i+1}]: {type(category)} - {category}")
+            
+            # Pydantic BaseModel의 경우 getattr을 사용하거나 직접 속성에 접근
+            try:
+                category_name = getattr(category, 'category_name', None)
+                if category_name:
+                    logger.info(f"    category_name: '{category_name}'")
+                    # 슬래시(/)로 구분된 카테고리를 개별 이슈로 분리
+                    issues = [issue.strip() for issue in category_name.split('/') if issue.strip()]
+                    logger.info(f"    분리된 이슈: {issues}")
+                    
+                    for issue in issues:
+                        all_issues.append(issue)
+                        issue_to_category[issue] = category_name  # 각 이슈를 원본 카테고리와 매핑
+                        logger.info(f"    이슈 추가: '{issue}' → '{category_name}'")
+                else:
+                    logger.warning(f"    category_name이 비어있음: {category}")
+            except Exception as attr_error:
+                logger.error(f"    category_name 속성 접근 오류: {attr_error}")
+                logger.error(f"    category 객체: {category}")
+                logger.error(f"    category 타입: {type(category)}")
+                logger.error(f"    category dir: {dir(category)}")
         
         # 중복 제거 및 정렬
         unique_issues = sorted(list(set(all_issues)))
         
         logger.info(f"✅ materiality_category에서 {len(categories)}개 카테고리를 가져와서 {len(unique_issues)}개 이슈로 분리했습니다.")
         logger.info(f"📋 이슈 목록: {unique_issues}")
+        logger.info(f"📋 이슈→카테고리 매핑: {issue_to_category}")
         
         return unique_issues, issue_to_category
         
@@ -436,11 +455,25 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
         asyncio.set_event_loop(loop)
         try:
             categories = loop.run_until_complete(repository.get_all_materiality_categories())
+            
+            # 디버깅: 실제로 어떤 데이터가 들어오는지 로그 출력
+            logger.info(f"🔍 DB에서 가져온 카테고리 데이터: {len(categories)}개")
+            for i, cat in enumerate(categories):
+                logger.info(f"  [{i+1}] category_name: '{cat.category_name}', esg_classification_id: {cat.esg_classification_id}")
+                logger.info(f"      타입: {type(cat)}, dir: {dir(cat)}")
+            
             tokens, issue_to_category = process_materiality_categories(categories)
+            
+            # 디버깅: 처리된 결과도 로그 출력
+            logger.info(f"🔍 처리된 이슈와 카테고리 매핑:")
+            for issue, category in issue_to_category.items():
+                logger.info(f"  이슈: '{issue}' → 원본카테고리: '{category}'")
+                
         finally:
             loop.close()
     except Exception as e:
         logger.error(f"❌ materiality_category 조회 실패: {str(e)}")
+        logger.error(f"상세 오류: {traceback.format_exc()}")
         # 기본 토큰 사용
         tokens = ["ESG", "지속가능성", "중대성"]
         issue_to_category = {token: token for token in tokens}
