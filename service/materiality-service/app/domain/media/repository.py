@@ -30,7 +30,7 @@ class MediaRepository:
                 
                 logger.info(f"🔍 DB에서 가져온 Entity 데이터: {len(category_entities)}개")
                 for i, entity in enumerate(category_entities):
-                    logger.info(f"  [{i+1}] Entity - category_name: '{entity.category_name}', esg_classification_id: {entity.esg_classification_id}")
+                    # logger.info(f"  [{i+1}] Entity - category_name: '{entity.category_name}', esg_classification_id: {entity.esg_classification_id}")
                 
                 # Entity들을 BaseModel로 변환하여 반환
                 category_models = []
@@ -40,7 +40,7 @@ class MediaRepository:
                         esg_classification_id=category_entity.esg_classification_id
                     )
                     category_models.append(category_model)
-                    logger.info(f"  [{i+1}] BaseModel 변환 - category_name: '{category_model.category_name}', esg_classification_id: {category_model.esg_classification_id}")
+                    # logger.info(f"  [{i+1}] BaseModel 변환 - category_name: '{category_model.category_name}', esg_classification_id: {category_model.esg_classification_id}")
                 
                 logger.info(f"✅ 리포지토리: 모든 중대성 카테고리 조회 완료 - {len(category_models)}개 카테고리")
                 return category_models

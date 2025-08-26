@@ -10,9 +10,10 @@ import re
 import html
 import io
 import base64
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, date, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
+from functools import partial
 
 import httpx
 import pandas as pd
@@ -144,7 +145,7 @@ class NaverNewsClient:
     ) -> Dict[str, Any]:
         """pubDate가 start_date~end_date 내인 기사만 수집 (동기)"""
         start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1)
         if start_dt > end_dt:
             raise ValueError("시작 날짜가 종료 날짜보다 늦습니다.")
 
@@ -165,7 +166,8 @@ class NaverNewsClient:
                     continue
                 if not pub_dt:
                     continue
-                if start_dt <= pub_dt <= end_dt:
+                # 포함 범위: start <= pub_dt < end (종료일 하루 전체 포함)
+                if start_dt <= pub_dt < end_dt:
                     origin = (item.get("originallink") or "").strip()
                     link = (item.get("link") or "").strip()
                     item["네이버링크"] = link if ("n.news.naver.com" in link) else ""
@@ -431,8 +433,8 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not start_date:
         raise ValueError("report_period.start_date 가 필요합니다.")
 
-    # end_date는 '검색 당일'로 유동 적용
-    end_date: str = date.today().isoformat()
+    # end_date는 프론트엔드에서 전달받은 값 우선, 없으면 '검색 당일'로 유동 적용
+    end_date: str = rp.get("end_date") or date.today().isoformat()
 
     search_type: str = payload.get("search_type", "materiality_assessment")
     timestamp: Optional[str] = payload.get("timestamp")
@@ -531,11 +533,16 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
         per_kw_limit = int(q["max_results"])
         logger.info("▶︎ 네이버 검색 시작 [%s]: %s (%s~%s, limit=%d)", query_kind, kw, start_date, end_date, per_kw_limit)
         try:
-            # 동기 함수를 비동기로 실행
+            # 동기 함수를 비동기로 실행 (partial 사용하여 키워드 인자 문제 해결)
             result = await loop.run_in_executor(
-                None, 
-                client.search_by_date_range,
-                kw, start_date, end_date, per_kw_limit
+                None,
+                partial(
+                    client.search_by_date_range,
+                    keyword=kw,
+                    start_date=start_date,
+                    end_date=end_date,
+                    max_results=per_kw_limit,
+                ),
             )
             for it in result.get("items", []):
                 it["company"] = company
