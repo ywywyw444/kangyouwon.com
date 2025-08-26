@@ -122,16 +122,33 @@ export default function MaterialityHomePage() {
       return;
     }
 
+    // 디버깅: searchResult 구조 확인
+    console.log('🔍 searchResult 전체 구조:', searchResult);
+    console.log('🔍 searchResult.data 구조:', searchResult.data);
+
+    // 데이터 구조 안전하게 확인
+    const companyId = searchResult.data.company_id || searchResult.data.company_name;
+    const startDate = searchResult.data.report_period?.start_date || searchResult.data.search_period?.start_date;
+    const endDate = searchResult.data.report_period?.end_date || searchResult.data.search_period?.end_date;
+
+    console.log('🔍 추출된 데이터:', { companyId, startDate, endDate });
+
+    if (!companyId || !startDate || !endDate) {
+      console.error('필수 데이터 누락:', { companyId, startDate, endDate, searchResult });
+      alert('검색 결과에서 필요한 데이터를 찾을 수 없습니다. 미디어 검색을 다시 실행해주세요.');
+      return;
+    }
+
     try {
       setIsIssuepoolLoading(true);
       
       const requestData = {
-        company_id: searchResult.data.company_id,
+        company_id: companyId,
         report_period: {
-          start_date: searchResult.data.report_period.start_date,
-          end_date: searchResult.data.report_period.end_date
+          start_date: startDate,
+          end_date: endDate
         },
-        search_context: searchResult.data.search_context
+        search_context: searchResult.data.search_context || {}
       };
 
       console.log('지난 중대성 평가 목록 요청 데이터:', requestData);
