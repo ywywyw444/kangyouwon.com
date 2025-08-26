@@ -148,7 +148,9 @@ export default function MaterialityHomePage() {
           start_date: startDate,
           end_date: endDate
         },
-        search_context: searchResult.data.search_context || {}
+        search_context: searchResult.data.search_context || {},
+        request_type: 'issuepool_list',  // 필수 필드 추가
+        timestamp: new Date().toISOString()  // 필수 필드 추가
       };
 
       console.log('지난 중대성 평가 목록 요청 데이터:', requestData);
