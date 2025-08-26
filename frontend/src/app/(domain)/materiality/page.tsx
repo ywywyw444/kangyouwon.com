@@ -721,7 +721,7 @@ export default function MaterialityHomePage() {
               
               {issuepoolData?.year_minus_2 ? (
                 <div className="space-y-2">
-                  {issuepoolData.year_minus_2.issuepools.slice(0, 5).map((item: any, index: number) => (
+                  {issuepoolData.year_minus_2.issuepools.map((item: any, index: number) => (
                     <div key={item.id} className="flex items-center text-sm">
                       <span className="w-6 h-6 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                         {item.ranking}
@@ -729,11 +729,6 @@ export default function MaterialityHomePage() {
                       <span className="text-gray-700 flex-1 truncate">{item.base_issue_pool}</span>
                     </div>
                   ))}
-                  {issuepoolData.year_minus_2.issuepools.length > 5 && (
-                    <div className="text-center text-gray-400 text-sm">
-                      ... {issuepoolData.year_minus_2.total_count - 5}개 더
-                    </div>
-                  )}
                   <div className="text-center text-xs text-gray-500 mt-3">
                     총 {issuepoolData.year_minus_2.total_count}개 항목
                   </div>
@@ -760,7 +755,7 @@ export default function MaterialityHomePage() {
               
               {issuepoolData?.year_minus_1 ? (
                 <div className="space-y-2">
-                  {issuepoolData.year_minus_1.issuepools.slice(0, 5).map((item: any, index: number) => (
+                  {issuepoolData.year_minus_1.issuepools.map((item: any, index: number) => (
                     <div key={item.id} className="flex items-center text-sm">
                       <span className="w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                         {item.ranking}
@@ -768,11 +763,6 @@ export default function MaterialityHomePage() {
                       <span className="text-gray-700 flex-1 truncate">{item.base_issue_pool}</span>
                     </div>
                   ))}
-                  {issuepoolData.year_minus_1.issuepools.length > 5 && (
-                    <div className="text-center text-gray-400 text-sm">
-                      ... {issuepoolData.year_minus_1.total_count - 5}개 더
-                    </div>
-                  )}
                   <div className="text-center text-xs text-gray-500 mt-3">
                     총 {issuepoolData.year_minus_1.total_count}개 항목
                   </div>
