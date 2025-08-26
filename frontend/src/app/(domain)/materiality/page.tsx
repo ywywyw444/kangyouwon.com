@@ -750,20 +750,32 @@ export default function MaterialityHomePage() {
                         }
                         
                         // ESG 분류별로 막대그래프 렌더링
-                        return Object.entries(esgDistribution).map(([esgName, data]: [string, any]) => (
-                          <div key={esgName} className="mb-2">
-                            <div className="flex justify-between text-xs text-gray-600 mb-1">
-                              <span>{esgName} ({data.count}개)</span>
-                              <span>{data.percentage}%</span>
+                        return Object.entries(esgDistribution).map(([esgName, data]: [string, any]) => {
+                          // ESG 분류에 따른 색상 결정
+                          let barColor = 'bg-gray-500'; // 기본 색상
+                          if (esgName.includes('환경')) {
+                            barColor = 'bg-green-500';
+                          } else if (esgName.includes('사회')) {
+                            barColor = 'bg-orange-500';
+                          } else if (esgName.includes('지배구조') || esgName.includes('경제')) {
+                            barColor = 'bg-blue-500';
+                          }
+                          
+                          return (
+                            <div key={esgName} className="mb-2">
+                              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>{esgName} ({data.count}개)</span>
+                                <span>{data.percentage}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div
+                                  className={`${barColor} h-2.5 rounded-full`}
+                                  style={{ width: `${data.percentage}%` }}
+                                ></div>
+                              </div>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2.5">
-                              <div
-                                className="bg-orange-500 h-2.5 rounded-full"
-                                style={{ width: `${data.percentage}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        ));
+                          );
+                        });
                       })()}
                     </div>
                   )}
@@ -819,20 +831,32 @@ export default function MaterialityHomePage() {
                         }
                         
                         // ESG 분류별로 막대그래프 렌더링
-                        return Object.entries(esgDistribution).map(([esgName, data]: [string, any]) => (
-                          <div key={esgName} className="mb-2">
-                            <div className="flex justify-between text-xs text-gray-600 mb-1">
-                              <span>{esgName} ({data.count}개)</span>
-                              <span>{data.percentage}%</span>
+                        return Object.entries(esgDistribution).map(([esgName, data]: [string, any]) => {
+                          // ESG 분류에 따른 색상 결정
+                          let barColor = 'bg-gray-500'; // 기본 색상
+                          if (esgName.includes('환경')) {
+                            barColor = 'bg-green-500';
+                          } else if (esgName.includes('사회')) {
+                            barColor = 'bg-orange-500';
+                          } else if (esgName.includes('지배구조') || esgName.includes('경제')) {
+                            barColor = 'bg-blue-500';
+                          }
+                          
+                          return (
+                            <div key={esgName} className="mb-2">
+                              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>{esgName} ({data.count}개)</span>
+                                <span>{data.percentage}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div
+                                  className={`${barColor} h-2.5 rounded-full`}
+                                  style={{ width: `${data.percentage}%` }}
+                                ></div>
+                              </div>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2.5">
-                              <div
-                                className="bg-blue-500 h-2.5 rounded-full"
-                                style={{ width: `${data.percentage}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                        ));
+                          );
+                        });
                       })()}
                     </div>
                   )}
@@ -852,7 +876,7 @@ export default function MaterialityHomePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-800">새로운 섹션</h3>
+                <h3 className="text-lg font-semibold text-gray-800">1차 중대성 평가 결과</h3>
               </div>
               
               <div className="text-center text-gray-500 text-sm">
