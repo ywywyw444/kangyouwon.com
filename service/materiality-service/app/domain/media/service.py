@@ -522,30 +522,7 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
     # 실행
     all_items: List[Dict[str, Any]] = []
     
-    # 간단한 테스트 검색 먼저 시도
-    try:
-        logger.info("🔍 간단한 테스트 검색 시작: '세방'")
-        test_result = await loop.run_in_executor(
-            None, 
-            client.search, 
-            "세방"
-        )
-        logger.info(f"✅ 테스트 검색 결과: {len(test_result.get('items', []))}개 기사")
-        
-        # 테스트 결과를 all_items에 추가
-        for it in test_result.get("items", []):
-            it["company"] = company_id
-            it["issue"] = "테스트"
-            it["keyword"] = "세방"
-            it["query_kind"] = "test_search"
-            it["original_category"] = "테스트"
-            all_items.append(it)
-            
-    except Exception as e:
-        logger.error(f"❌ 테스트 검색 실패: {str(e)}")
-        logger.error(f"상세 오류: {traceback.format_exc()}")
-    
-    # 기존 검색 로직
+    # 카테고리 기반 검색 실행
     for q in queries:
         kw = q["keyword"]
         company = q["company"]
