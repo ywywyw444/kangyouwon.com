@@ -5,6 +5,7 @@ import time
 import random
 import logging
 import email.utils
+import traceback
 from datetime import datetime, timezone, date
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
@@ -298,8 +299,23 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
             excel_filename = f"media_search_{company_id}_{timestamp_str}.xlsx"
             excel_file_path = f"/tmp/{excel_filename}"  # Railway에서는 /tmp 디렉토리 사용
             
-            # DataFrame 생성 및 엑셀 저장
-            df = pd.DataFrame(all_items)
+            # DataFrame 생성 전 데이터 정리
+            cleaned_items = []
+            for item in all_items:
+                cleaned_item = {}
+                for key, value in item.items():
+                    # None 값과 빈 문자열 처리
+                    if value is None:
+                        cleaned_item[key] = ""
+                    elif isinstance(value, (dict, list)):
+                        cleaned_item[key] = str(value)
+                    else:
+                        cleaned_item[key] = str(value).strip() if isinstance(value, str) else value
+                cleaned_items.append(cleaned_item)
+            
+            # DataFrame 생성
+            df = pd.DataFrame(cleaned_items)
+            logger.info(f"📊 DataFrame 생성 완료: {df.shape[0]}행 x {df.shape[1]}열")
             
             # 컬럼 순서 정리
             columns_order = [
@@ -311,12 +327,40 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
             existing_columns = [col for col in columns_order if col in df.columns]
             df_ordered = df[existing_columns]
             
-            # 엑셀 파일로 저장
-            df_ordered.to_excel(excel_file_path, index=False, engine='openpyxl')
+            # NaN 값 처리
+            df_ordered = df_ordered.fillna("")
+            
+            # 엑셀 파일로 저장 (openpyxl 엔진 사용)
+            with pd.ExcelWriter(excel_file_path, engine='openpyxl') as writer:
+                df_ordered.to_excel(writer, sheet_name='검색결과', index=False)
+                
+                # 워크시트 스타일링
+                worksheet = writer.sheets['검색결과']
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+            
             logger.info(f"✅ 엑셀 파일 생성 완료: {excel_file_path}")
             
+            # 파일 생성 확인
+            if os.path.exists(excel_file_path):
+                file_size = os.path.getsize(excel_file_path)
+                logger.info(f"✅ 엑셀 파일 생성 완료: {excel_file_path} (크기: {file_size} bytes)")
+            else:
+                logger.error(f"❌ 엑셀 파일이 생성되지 않음: {excel_file_path}")
+                excel_file_path = None
+
         except Exception as e:
             logger.error(f"❌ 엑셀 파일 생성 중 오류: {str(e)}")
+            logger.error(f"상세 오류: {traceback.format_exc()}")
             excel_file_path = None
 
     response = {
