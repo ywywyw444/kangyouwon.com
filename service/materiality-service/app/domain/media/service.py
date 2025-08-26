@@ -149,7 +149,7 @@ def process_materiality_categories(categories: List[Any]) -> Tuple[List[str], Di
 BASE_URL = "https://openapi.naver.com/v1/search/news.json"
 MAX_DISPLAY = 100  # 네이버 API 최대값 유지
 MAX_START_LIMIT = 1000
-JITTER_RANGE = (0.01, 0.03)  # 지터 범위를 줄여서 더 빠르게
+JITTER_RANGE = (0.0001, 0.0002)  # 지터 범위를 줄여서 더 빠르게
 
 
 class NaverNewsClient:
