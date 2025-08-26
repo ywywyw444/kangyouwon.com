@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 import httpx
+import pandas as pd
 
 logger = logging.getLogger("materiality.service")
 
@@ -288,6 +289,36 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         logger.warning("중복 제거 중 오류(무시하고 계속): %s", e)
 
+    # 엑셀 파일 생성
+    excel_file_path = None
+    if all_items:
+        try:
+            # 현재 시간을 파일명에 포함
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            excel_filename = f"media_search_{company_id}_{timestamp_str}.xlsx"
+            excel_file_path = f"/tmp/{excel_filename}"  # Railway에서는 /tmp 디렉토리 사용
+            
+            # DataFrame 생성 및 엑셀 저장
+            df = pd.DataFrame(all_items)
+            
+            # 컬럼 순서 정리
+            columns_order = [
+                'company', 'issue', 'query_kind', 'keyword',
+                'title', 'description', 'pubDate', 'originallink', '네이버링크'
+            ]
+            
+            # 존재하는 컬럼만 선택
+            existing_columns = [col for col in columns_order if col in df.columns]
+            df_ordered = df[existing_columns]
+            
+            # 엑셀 파일로 저장
+            df_ordered.to_excel(excel_file_path, index=False, engine='openpyxl')
+            logger.info(f"✅ 엑셀 파일 생성 완료: {excel_file_path}")
+            
+        except Exception as e:
+            logger.error(f"❌ 엑셀 파일 생성 중 오류: {str(e)}")
+            excel_file_path = None
+
     response = {
         "success": True,
         "message": "미디어 검색 요청이 성공적으로 처리되었습니다",
@@ -299,5 +330,6 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
             "articles": all_items,  # 그대로 반환 (title/description/pubDate/originallink/네이버링크 등 포함)
         },
         "timestamp": timestamp,
+        "excel_file": excel_file_path if excel_file_path else None
     }
     return response

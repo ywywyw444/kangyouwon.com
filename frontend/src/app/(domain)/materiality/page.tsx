@@ -13,6 +13,8 @@ export default function MaterialityHomePage() {
     startDate: '',
     endDate: ''
   });
+  const [searchResult, setSearchResult] = useState<any>(null); // 검색 결과 저장
+  const [excelFile, setExcelFile] = useState<string | null>(null); // 엑셀 파일 정보 저장
 
   // 로그인한 사용자의 기업 정보 가져오기 및 기업 목록 API 호출
   React.useEffect(() => {
@@ -223,7 +225,15 @@ export default function MaterialityHomePage() {
       console.log('✅ Gateway 응답:', response.data);
 
       if (response.data.success) {
-        alert(`✅ 미디어 검색 요청이 성공적으로 전송되었습니다!\n\n기업: ${selectedCompany}\n기간: ${reportPeriod.startDate} ~ ${reportPeriod.endDate}`);
+        // 검색 결과 저장
+        setSearchResult(response.data);
+        
+        // 엑셀 파일 정보 추출
+        if (response.data.excel_file) {
+          setExcelFile(response.data.excel_file);
+        }
+        
+        alert(`✅ 미디어 검색 요청이 성공적으로 전송되었습니다!\n\n기업: ${selectedCompany}\n기간: ${reportPeriod.startDate} ~ ${reportPeriod.endDate}\n\n총 ${response.data.data?.total_results || 0}개의 뉴스 기사를 찾았습니다.`);
         
         // 성공 후 추가 처리 로직 (예: 검색 결과 표시, 로딩 상태 관리 등)
         // 여기에 실제 검색 결과를 받아와서 mediaItems를 업데이트하는 로직 추가 가능
@@ -273,6 +283,36 @@ export default function MaterialityHomePage() {
         return '대기 중';
       default:
         return '알 수 없음';
+    }
+  };
+
+  const downloadExcel = async (filename: string) => {
+    try {
+      const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
+      const response = await axios.get(
+        `${gatewayUrl}/api/v1/materiality-service/download-excel/${filename}`,
+        {
+          responseType: 'blob',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      // 파일 다운로드
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ 엑셀 파일 다운로드 완료:', filename);
+    } catch (error) {
+      console.error('❌ 엑셀 파일 다운로드 실패:', error);
+      alert('엑셀 파일 다운로드에 실패했습니다.');
     }
   };
 
@@ -370,6 +410,61 @@ export default function MaterialityHomePage() {
               </button>
             </div>
           </div>
+
+          {/* 미디어 검색 결과 */}
+          {searchResult && (
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+                🔍 미디어 검색 결과
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-blue-800 mb-2">검색 정보</h3>
+                  <p className="text-blue-700">
+                    <strong>기업:</strong> {searchResult.data?.company_id}<br/>
+                    <strong>검색 기간:</strong> {searchResult.data?.search_period?.start_date} ~ {searchResult.data?.search_period?.end_date}<br/>
+                    <strong>총 결과:</strong> {searchResult.data?.total_results || 0}개 기사
+                  </p>
+                </div>
+                
+                {excelFile && (
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-green-800 mb-2">📊 엑셀 파일</h3>
+                    <p className="text-green-700 mb-3">
+                      검색 결과가 엑셀 파일로 생성되었습니다.
+                    </p>
+                    <button
+                      onClick={() => downloadExcel(excelFile.split('/').pop() || '')}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
+                    >
+                      📥 엑셀 다운로드
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* 검색된 기사 미리보기 */}
+              {searchResult.data?.articles && searchResult.data.articles.length > 0 && (
+                <div>
+                  <h3 className="font-semibold text-gray-800 mb-4">📰 검색된 기사 미리보기 (최대 5개)</h3>
+                  <div className="space-y-3">
+                    {searchResult.data.articles.slice(0, 5).map((article: any, index: number) => (
+                      <div key={index} className="border-l-4 border-blue-500 pl-4 py-2 bg-gray-50 rounded-r-lg">
+                        <h4 className="font-medium text-gray-800 mb-1">{article.title}</h4>
+                        <p className="text-sm text-gray-600 mb-2">{article.description}</p>
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span>📅 {article.pubDate}</span>
+                          <span>🏢 {article.company}</span>
+                          {article.issue && <span>🏷️ {article.issue}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 미디어 카드 */}
           <div className="mb-8">
