@@ -77,20 +77,20 @@ class IssuePoolRepository:
                         SELECT id, corporation_id, publish_year, ranking, 
                                base_issue_pool, issue_pool, category_id, esg_classification_id
                         FROM issuepool 
-                        WHERE corporation_id = CAST(:corp_id AS INTEGER) 
-                        AND publish_year = CAST(:pub_year AS INTEGER)
+                        WHERE corporation_id = :corp_id
+                        AND publish_year = :pub_year
                         ORDER BY ranking
                     """)
-                    params = {"corp_id": corporation_id, "pub_year": publish_year}
+                    params = {"corp_id": str(corporation_id), "pub_year": publish_year}
                 else:
                     issuepool_query = text("""
                         SELECT id, corporation_id, publish_year, ranking, 
                                base_issue_pool, issue_pool, category_id, esg_classification_id
                         FROM issuepool 
-                        WHERE corporation_id = CAST(:corp_id AS INTEGER)
+                        WHERE corporation_id = :corp_id
                         ORDER BY ranking
                     """)
-                    params = {"corp_id": corporation_id}
+                    params = {"corp_id": str(corporation_id)}
                 
                 result = await db.execute(issuepool_query, params)
                 rows = result.fetchall()
@@ -130,7 +130,7 @@ class IssuePoolRepository:
                     SELECT id, corporation_id, publish_year, ranking, 
                            base_issue_pool, issue_pool, category_id, esg_classification_id
                     FROM issuepool 
-                    WHERE publish_year = CAST(:pub_year AS INTEGER)
+                    WHERE publish_year = :pub_year
                     ORDER BY ranking
                 """)
                 result = await db.execute(query, {"pub_year": publish_year})
@@ -171,7 +171,7 @@ class IssuePoolRepository:
                     SELECT id, corporation_id, publish_year, ranking, 
                            base_issue_pool, issue_pool, category_id, esg_classification_id
                     FROM issuepool 
-                    WHERE id = CAST(:issuepool_id AS INTEGER)
+                    WHERE id = :issuepool_id
                 """)
                 result = await db.execute(query, {"issuepool_id": issuepool_id})
                 row = result.fetchone()
