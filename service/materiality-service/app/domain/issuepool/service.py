@@ -80,7 +80,8 @@ class IssuePoolService:
                                 "base_issue_pool": issuepool.base_issue_pool,
                                 "issue_pool": issuepool.issue_pool,
                                 "category_id": issuepool.category_id,
-                                "esg_classification_id": issuepool.esg_classification_id
+                                "esg_classification_id": issuepool.esg_classification_id,
+                                "esg_classification_name": issuepool.esg_classification_name
                             } for issuepool in sorted_issuepools_year_minus_2
                         ]
                     },
@@ -94,7 +95,8 @@ class IssuePoolService:
                                 "base_issue_pool": issuepool.base_issue_pool,
                                 "issue_pool": issuepool.issue_pool,
                                 "category_id": issuepool.category_id,
-                                "esg_classification_id": issuepool.esg_classification_id
+                                "esg_classification_id": issuepool.esg_classification_id,
+                                "esg_classification_name": issuepool.esg_classification_name
                             } for issuepool in sorted_issuepools_year_minus_1
                         ]
                     },
@@ -148,7 +150,8 @@ class IssuePoolService:
                     "base_issue_pool": issuepool.base_issue_pool,
                     "issue_pool": issuepool.issue_pool,
                     "category_id": issuepool.category_id,
-                    "esg_classification_id": issuepool.esg_classification_id
+                    "esg_classification_id": issuepool.esg_classification_id,
+                    "esg_classification_name": issuepool.esg_classification_name
                 }
             }
             
@@ -200,7 +203,8 @@ class IssuePoolService:
                             "base_issue_pool": issuepool.base_issue_pool,
                             "issue_pool": issuepool.issue_pool,
                             "category_id": issuepool.category_id,
-                            "esg_classification_id": issuepool.esg_classification_id
+                            "esg_classification_id": issuepool.esg_classification_id,
+                            "esg_classification_name": issuepool.esg_classification_name
                         } for issuepool in sorted_issuepools
                     ],
                     "corporation_name": corporation_name,

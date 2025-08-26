@@ -43,6 +43,7 @@ class IssuePoolResponse(BaseModel):
     issue_pool: str = Field(..., description="이슈풀")
     category_id: int = Field(..., description="카테고리 ID")
     esg_classification_id: int = Field(..., description="ESG 분류 ID")
+    esg_classification_name: str = Field(None, description="ESG 분류명")
 
 class IssuePoolListResponse(BaseModel):
     """이슈풀 목록 응답 스키마"""

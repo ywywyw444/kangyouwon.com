@@ -5,6 +5,58 @@ import NavigationTabs from '@/component/NavigationTabs';
 import { MediaCard, MediaItem } from '@/component/MediaCard';
 import axios from 'axios';
 
+// ESG 분류 타입 정의
+type IssuePoolItem = {
+  id: number;
+  publish_year: number | string;
+  ranking: number | string;
+  issue_pool: string;
+  base_issue_pool: string;
+  esg_classification_id?: number | null;
+  esg_classification_name?: string | null;
+};
+
+// ESG 분포 데이터 타입
+type DistRow = { 
+  year: string; 
+  [clsName: string]: number | string 
+};
+
+// ESG 분포 계산 함수
+function buildEsgDistribution(items: IssuePoolItem[]): DistRow[] {
+  // 연도 → 분류명 → count 집계
+  const byYear = new Map<string, Map<string, number>>();
+
+  for (const it of items) {
+    const year = String(it.publish_year);
+    const cls = it.esg_classification_name ?? "미분류";
+    if (!byYear.has(year)) byYear.set(year, new Map());
+    const m = byYear.get(year)!;
+    m.set(cls, (m.get(cls) ?? 0) + 1);
+  }
+
+  // 분류명 전체 키 수집(스택 막대용 컬럼 정렬 고정)
+  const allClasses = Array.from(
+    new Set(Array.from(byYear.values()).flatMap(m => Array.from(m.keys())))
+  );
+
+  // 비율(%)로 변환
+  const rows: DistRow[] = [];
+  for (const [year, m] of byYear.entries()) {
+    const total = Array.from(m.values()).reduce((a, b) => a + b, 0) || 1;
+    const row: DistRow = { year };
+    for (const cls of allClasses) {
+      const cnt = m.get(cls) ?? 0;
+      row[cls] = Math.round((cnt / total) * 100); // 정수 %
+    }
+    rows.push(row);
+  }
+
+  // 연도 정렬(오름차순)
+  rows.sort((a, b) => Number(a.year) - Number(b.year));
+  return rows;
+}
+
 export default function MaterialityHomePage() {
   const [selectedCompany, setSelectedCompany] = useState('');
   const [companies, setCompanies] = useState<string[]>([]);
@@ -814,11 +866,50 @@ export default function MaterialityHomePage() {
                         {item.ranking}
                       </span>
                       <span className="text-gray-700 flex-1 truncate">{item.base_issue_pool}</span>
+                      {/* ESG Classification 라벨 추가 */}
+                      <span className="ml-2 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">
+                        {item.esg_classification_name ?? "미분류"}
+                      </span>
                     </div>
                   ))}
                   <div className="text-center text-xs text-gray-500 mt-3">
                     총 {issuepoolData.year_minus_2.total_count}개 항목
                   </div>
+
+                  {/* ESG 분류 막대그래프 추가 */}
+                  {issuepoolData.year_minus_2.issuepools.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <h4 className="text-md font-semibold text-gray-700 mb-3">ESG 분류 비율</h4>
+                      {(() => {
+                        const distribution = buildEsgDistribution(issuepoolData.year_minus_2.issuepools);
+                        const yearData = distribution.find(d => d.year === String(issuepoolData.year_minus_2.year));
+                        if (!yearData) return null;
+                        
+                        const classKeys = Object.keys(yearData).filter(k => k !== "year");
+                        return classKeys.map((key) => {
+                          const percentage = yearData[key] as number;
+                          const count = issuepoolData.year_minus_2.issuepools.filter(
+                            (item: any) => (item.esg_classification_name ?? "미분류") === key
+                          ).length;
+                          
+                          return (
+                            <div key={key} className="mb-2">
+                              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>{key} ({count}개)</span>
+                                <span>{percentage}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div
+                                  className="bg-orange-500 h-2.5 rounded-full"
+                                  style={{ width: `${percentage}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center text-gray-500 text-sm">
@@ -848,11 +939,50 @@ export default function MaterialityHomePage() {
                         {item.ranking}
                       </span>
                       <span className="text-gray-700 flex-1 truncate">{item.base_issue_pool}</span>
+                      {/* ESG Classification 라벨 추가 */}
+                      <span className="ml-2 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">
+                        {item.esg_classification_name ?? "미분류"}
+                      </span>
                     </div>
                   ))}
                   <div className="text-center text-xs text-gray-500 mt-3">
                     총 {issuepoolData.year_minus_1.total_count}개 항목
                   </div>
+
+                  {/* ESG 분류 막대그래프 추가 */}
+                  {issuepoolData.year_minus_1.issuepools.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <h4 className="text-md font-semibold text-gray-700 mb-3">ESG 분류 비율</h4>
+                      {(() => {
+                        const distribution = buildEsgDistribution(issuepoolData.year_minus_1.issuepools);
+                        const yearData = distribution.find(d => d.year === String(issuepoolData.year_minus_1.year));
+                        if (!yearData) return null;
+                        
+                        const classKeys = Object.keys(yearData).filter(k => k !== "year");
+                        return classKeys.map((key) => {
+                          const percentage = yearData[key] as number;
+                          const count = issuepoolData.year_minus_1.issuepools.filter(
+                            (item: any) => (item.esg_classification_name ?? "미분류") === key
+                          ).length;
+                          
+                          return (
+                            <div key={key} className="mb-2">
+                              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>{key} ({count}개)</span>
+                                <span>{percentage}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div
+                                  className="bg-blue-500 h-2.5 rounded-full"
+                                  style={{ width: `${percentage}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center text-gray-500 text-sm">

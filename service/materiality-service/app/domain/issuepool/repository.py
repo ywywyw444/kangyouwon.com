@@ -11,6 +11,18 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# ESG 분류 매핑 (임시)
+ESG_MAP = {
+    1: "사회",
+    2: "지배구조", 
+    3: "지배구조/경제",
+    4: "환경"
+}
+
+def get_esg_classification_name(esg_id: int) -> str:
+    """ESG 분류 ID를 이름으로 변환"""
+    return ESG_MAP.get(esg_id, "미분류")
+
 class IssuePoolRepository:
     """이슈풀 리포지토리 - 이슈풀 관련 데이터베이스 작업"""
     
@@ -53,7 +65,8 @@ class IssuePoolRepository:
                         base_issue_pool=row[4],
                         issue_pool=row[5],
                         category_id=row[6],
-                        esg_classification_id=row[7]
+                        esg_classification_id=row[7],
+                        esg_classification_name=get_esg_classification_name(row[7])
                     )
                     issuepool_models.append(issuepool_model)
                 
@@ -129,7 +142,8 @@ class IssuePoolRepository:
                         base_issue_pool=row[4],
                         issue_pool=row[5],
                         category_id=row[6],
-                        esg_classification_id=row[7]
+                        esg_classification_id=row[7],
+                        esg_classification_name=get_esg_classification_name(row[7])
                     )
                     issuepool_models.append(issuepool_model)
                 
@@ -175,7 +189,8 @@ class IssuePoolRepository:
                         base_issue_pool=row[4],
                         issue_pool=row[5],
                         category_id=row[6],
-                        esg_classification_id=row[7]
+                        esg_classification_id=row[7],
+                        esg_classification_name=get_esg_classification_name(row[7])
                     )
                     issuepool_models.append(issuepool_model)
                 
@@ -217,7 +232,8 @@ class IssuePoolRepository:
                         base_issue_pool=row[4],
                         issue_pool=row[5],
                         category_id=row[6],
-                        esg_classification_id=row[7]
+                        esg_classification_id=row[7],
+                        esg_classification_name=get_esg_classification_name(row[7])
                     )
                     logger.info(f"✅ 리포지토리: 이슈풀 조회 성공 - ID: {issuepool_id}")
                     return issuepool_model
