@@ -56,8 +56,8 @@ app.add_middleware(
 )
 
 # 라우터 등록
-app.include_router(media_router, prefix="", tags=["materiality"])
-app.include_router(search_router, prefix="", tags=["search"])
+app.include_router(media_router, prefix="/materiality-service", tags=["materiality"])
+app.include_router(search_router, prefix="/materiality-service", tags=["search"])
 
 @app.get("/")
 async def root():
