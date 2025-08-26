@@ -153,8 +153,17 @@ export default function MaterialityHomePage() {
 
       console.log('지난 중대성 평가 목록 요청 데이터:', requestData);
 
-      // 상대 경로로 POST 요청 (같은 오리진이므로 CORS 프리플라이트 없음)
-      const response = await axios.post('/api/v1/materiality-service/issuepool/list', requestData);
+      // Gateway를 통해 materiality-service 호출
+      const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
+      const response = await axios.post(
+        `${gatewayUrl}/api/v1/materiality-service/issuepool/list`,
+        requestData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
       
       if (response.data.success) {
         setIssuepoolData(response.data.data);
