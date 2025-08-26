@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy import text
 
-logger = logging.getLogger("materiality_service_db")
+logger = logging.getLogger("materiality_service_corporation_db")
 
 # Railway PostgreSQL 연결 설정 (필수)
 DATABASE_URL = os.getenv("DATABASE_URL")
