@@ -31,6 +31,7 @@ class MediaRepository:
                 logger.info(f"🔍 DB에서 가져온 Entity 데이터: {len(category_entities)}개")
                 for i, entity in enumerate(category_entities):
                     # logger.info(f"  [{i+1}] Entity - category_name: '{entity.category_name}', esg_classification_id: {entity.esg_classification_id}")
+                    pass
                 
                 # Entity들을 BaseModel로 변환하여 반환
                 category_models = []

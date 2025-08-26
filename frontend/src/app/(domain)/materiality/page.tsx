@@ -371,10 +371,13 @@ export default function MaterialityHomePage() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* 미디어 검색 중 로딩 오버레이 */}
+      {/* 미디어 검색 중 로딩 팝업 */}
       {isMediaSearching && (
-        <div className="fixed inset-0 bg-gray-100 bg-opacity-30 backdrop-blur-[1px] flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-8 text-center border border-gray-200">
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* 배경은 완전 투명하게 */}
+          <div className="absolute inset-0 bg-transparent"></div>
+          {/* 로딩 팝업만 표시 */}
+          <div className="relative bg-white rounded-xl shadow-2xl p-8 text-center border border-gray-200">
             <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
             <h3 className="text-xl font-semibold text-gray-800 mb-2">미디어 검색 중...</h3>
             <p className="text-gray-600">네이버 뉴스 API를 통해 기사를 수집하고 있습니다.</p>
