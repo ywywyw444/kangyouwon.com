@@ -131,7 +131,12 @@ def ensure_required_prefix(service_name: str, path: str) -> str:
     """
     각 서비스가 **백엔드에서 기대하는 고정 프리픽스**(REQUIRED_PREFIX)를 보장.
     auth-service 방식과 동일: 없으면 붙여준다.
+    단, 별칭 서비스(ALIAS_NO_PREFIX)는 프리픽스를 제거한다.
     """
+    # 별칭 서비스는 프리픽스 제거
+    if service_name in ALIAS_NO_PREFIX:
+        return path
+    
     required = REQUIRED_PREFIX.get(service_name)
     if not required:
         # 혹시 딕셔너리에 없으면 기본 규칙(/service-name)을 사용
