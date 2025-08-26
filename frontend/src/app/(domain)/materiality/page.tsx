@@ -954,16 +954,31 @@ export default function MaterialityHomePage() {
                     <div className="mt-6 pt-4 border-t border-gray-200">
                       <h4 className="text-md font-semibold text-gray-700 mb-3">ESG 분류 비율</h4>
                       {(() => {
+                        // 디버깅: 데이터 구조 확인
+                        console.log('🔍 year_minus_1 데이터:', issuepoolData.year_minus_1);
+                        console.log('🔍 issuepools 배열:', issuepoolData.year_minus_1.issuepools);
+                        
                         const distribution = buildEsgDistribution(issuepoolData.year_minus_1.issuepools);
+                        console.log('🔍 계산된 분포:', distribution);
+                        
                         const yearData = distribution.find(d => d.year === String(issuepoolData.year_minus_1.year));
-                        if (!yearData) return null;
+                        console.log('🔍 찾은 연도 데이터:', yearData);
+                        
+                        if (!yearData) {
+                          console.log('❌ 연도 데이터를 찾을 수 없음');
+                          return <div className="text-sm text-gray-500">데이터를 불러올 수 없습니다.</div>;
+                        }
                         
                         const classKeys = Object.keys(yearData).filter(k => k !== "year");
+                        console.log('🔍 분류 키들:', classKeys);
+                        
                         return classKeys.map((key) => {
                           const percentage = yearData[key] as number;
                           const count = issuepoolData.year_minus_1.issuepools.filter(
                             (item: any) => (item.esg_classification_name ?? "미분류") === key
                           ).length;
+                          
+                          console.log(`🔍 ${key}: ${count}개, ${percentage}%`);
                           
                           return (
                             <div key={key} className="mb-2">
