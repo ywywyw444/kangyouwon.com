@@ -305,7 +305,9 @@ export default function MaterialityHomePage() {
                 <select
                   value={selectedCompany}
                   onChange={(e) => setSelectedCompany(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    selectedCompany ? 'text-gray-900 font-medium' : 'text-gray-500'
+                  }`}
                 >
                   {loading ? (
                     <option value="">🔄 기업 목록을 불러오는 중...</option>
@@ -320,7 +322,7 @@ export default function MaterialityHomePage() {
                           value={company}
                           className={company === selectedCompany ? "font-bold text-blue-600" : ""}
                         >
-                          {company === selectedCompany ? `${company} (현재 로그인)` : company}
+                          {company === selectedCompany ? `${company}` : company}
                         </option>
                       ))}
                     </>
@@ -338,7 +340,9 @@ export default function MaterialityHomePage() {
                       type="date"
                       value={reportPeriod.startDate}
                       onChange={(e) => setReportPeriod(prev => ({ ...prev, startDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                        reportPeriod.startDate ? 'text-gray-900 font-medium' : 'text-gray-500'
+                      }`}
                     />
                   </div>
                   <div>
@@ -347,7 +351,9 @@ export default function MaterialityHomePage() {
                       type="date"
                       value={reportPeriod.endDate}
                       onChange={(e) => setReportPeriod(prev => ({ ...prev, endDate: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
+                        reportPeriod.endDate ? 'text-gray-900 font-medium' : 'text-gray-500'
+                      }`}
                     />
                   </div>
                 </div>
