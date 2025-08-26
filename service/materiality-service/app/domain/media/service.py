@@ -448,29 +448,28 @@ def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
     # materiality_category 테이블에서 카테고리 가져오기 (리포지토리 사용)
     try:
         repository = MediaRepository()
-        # 동기 함수에서 비동기 리포지토리 호출을 위해 간단한 처리
-        # 실제로는 이 함수를 비동기로 만들어야 하지만, 현재 구조 유지
+        # 동기 함수에서 비동기 리포지토리 호출을 위해 더 안전한 방식 사용
         import asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            categories = loop.run_until_complete(repository.get_all_materiality_categories())
+        import concurrent.futures
+        
+        # 새 스레드에서 비동기 함수 실행
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(asyncio.run, repository.get_all_materiality_categories())
+            categories = future.result()
+        
+        # 디버깅: 실제로 어떤 데이터가 들어오는지 로그 출력
+        logger.info(f"🔍 DB에서 가져온 카테고리 데이터: {len(categories)}개")
+        for i, cat in enumerate(categories):
+            logger.info(f"  [{i+1}] category_name: '{cat.category_name}', esg_classification_id: {cat.esg_classification_id}")
+            logger.info(f"      타입: {type(cat)}, dir: {dir(cat)}")
+        
+        tokens, issue_to_category = process_materiality_categories(categories)
+        
+        # 디버깅: 처리된 결과도 로그 출력
+        logger.info(f"🔍 처리된 이슈와 카테고리 매핑:")
+        for issue, category in issue_to_category.items():
+            logger.info(f"  이슈: '{issue}' → 원본카테고리: '{category}'")
             
-            # 디버깅: 실제로 어떤 데이터가 들어오는지 로그 출력
-            logger.info(f"🔍 DB에서 가져온 카테고리 데이터: {len(categories)}개")
-            for i, cat in enumerate(categories):
-                logger.info(f"  [{i+1}] category_name: '{cat.category_name}', esg_classification_id: {cat.esg_classification_id}")
-                logger.info(f"      타입: {type(cat)}, dir: {dir(cat)}")
-            
-            tokens, issue_to_category = process_materiality_categories(categories)
-            
-            # 디버깅: 처리된 결과도 로그 출력
-            logger.info(f"🔍 처리된 이슈와 카테고리 매핑:")
-            for issue, category in issue_to_category.items():
-                logger.info(f"  이슈: '{issue}' → 원본카테고리: '{category}'")
-                
-        finally:
-            loop.close()
     except Exception as e:
         logger.error(f"❌ materiality_category 조회 실패: {str(e)}")
         logger.error(f"상세 오류: {traceback.format_exc()}")
