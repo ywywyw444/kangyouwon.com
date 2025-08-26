@@ -3,7 +3,7 @@ Issue Pool Repository - BaseModel을 받아서 데이터베이스 작업을 수�
 데이터베이스 연결을 담당하며, BaseModel과 Entity 간의 변환을 처리
 """
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, text
 from app.domain.issuepool.schema import IssuePoolResponse
 from app.domain.issuepool.entity import IssuePoolEntity
 from app.common.database.issuepool_db import get_db
@@ -52,16 +52,35 @@ class IssuePoolRepository:
             logger.error(f"❌ 리포지토리: 이슈풀 조회 중 오류 - {str(e)}")
             raise
     
-    async def get_issuepools_by_corporation(self, corporation_id: int, publish_year: int = None):
-        """기업별 이슈풀 조회 - BaseModel 리스트 반환"""
+    async def get_issuepools_by_corporation(self, corporation_name: str, publish_year: int = None):
+        """기업명으로 이슈풀 조회 - BaseModel 리스트 반환"""
         try:
-            logger.info(f"🔍 리포지토리: 기업별 이슈풀 조회 - corporation_id: {corporation_id}, publish_year: {publish_year}")
+            logger.info(f"🔍 리포지토리: 기업명으로 이슈풀 조회 - corporation_name: {corporation_name}, publish_year: {publish_year}")
             
             # 데이터베이스 연결
             async for db in get_db():
-                query = select(IssuePoolEntity).where(IssuePoolEntity.corporation_id == corporation_id)
+                # 1단계: 기업명으로 corporation_id 조회
+                corp_query = text("SELECT id FROM corporation WHERE companyname = :companyname")
+                corp_result = await db.execute(corp_query, {"companyname": corporation_name})
+                corp_row = corp_result.fetchone()
+                
+                if not corp_row:
+                    logger.warning(f"⚠️ 리포지토리: 기업을 찾을 수 없음 - {corporation_name}")
+                    return []
+                
+                corporation_id = corp_row[0]
+                logger.info(f"🔍 리포지토리: 기업 ID 조회 성공 - {corporation_name} -> ID: {corporation_id}")
+                
+                # 2단계: corporation_id와 publish_year로 issuepool 조회
                 if publish_year:
-                    query = query.where(IssuePoolEntity.publish_year == publish_year)
+                    query = select(IssuePoolEntity).where(
+                        IssuePoolEntity.corporation_id == corporation_id,
+                        IssuePoolEntity.publish_year == publish_year
+                    )
+                else:
+                    query = select(IssuePoolEntity).where(
+                        IssuePoolEntity.corporation_id == corporation_id
+                    )
                 
                 result = await db.execute(query)
                 issuepool_entities = result.scalars().all()

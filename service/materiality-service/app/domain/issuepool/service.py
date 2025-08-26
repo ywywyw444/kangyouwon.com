@@ -45,13 +45,13 @@ class IssuePoolService:
             
             # year-2년 데이터 조회 (첫 번째 섹션)
             issuepools_year_minus_2 = await self.repository.get_issuepools_by_corporation(
-                corporation_id=request.company_id,
+                corporation_name=request.company_id,  # 기업명으로 검색
                 publish_year=year_minus_2
             )
             
             # year-1년 데이터 조회 (두 번째 섹션)
             issuepools_year_minus_1 = await self.repository.get_issuepools_by_corporation(
-                corporation_id=request.company_id,
+                corporation_name=request.company_id,  # 기업명으로 검색
                 publish_year=year_minus_1
             )
             
