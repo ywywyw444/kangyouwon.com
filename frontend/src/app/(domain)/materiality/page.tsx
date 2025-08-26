@@ -153,6 +153,7 @@ export default function MaterialityHomePage() {
 
       console.log('지난 중대성 평가 목록 요청 데이터:', requestData);
 
+      // 상대 경로로 POST 요청 (같은 오리진이므로 CORS 프리플라이트 없음)
       const response = await axios.post('/api/v1/materiality-service/issuepool/list', requestData);
       
       if (response.data.success) {
@@ -657,6 +658,41 @@ export default function MaterialityHomePage() {
             </div>
           )}
 
+          {/* 액션 버튼들 */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-8">
+            <button
+              onClick={handleViewReport}
+              disabled={!searchResult?.data || isIssuepoolLoading}
+              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                !searchResult?.data || isIssuepoolLoading
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
+              }`}
+            >
+              {isIssuepoolLoading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  조회 중...
+                </span>
+              ) : (
+                '📊 지난 중대성 평가 목록 보기'
+              )}
+            </button>
+            
+            <button
+              onClick={() => {
+                // 보고서 보기 로직
+                alert('보고서 보기 기능을 구현합니다.');
+              }}
+              className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              📋 보고서 보기
+            </button>
+          </div>
+
           {/* 세 개의 섹션 */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             {/* 첫 번째 섹션: year-2년 */}
@@ -761,41 +797,6 @@ export default function MaterialityHomePage() {
                 <p className="text-gray-500 text-sm">새로운 평가를 시작하거나 기존 평가를 수정할 수 있습니다.</p>
               </div>
             </div>
-          </div>
-
-          {/* 액션 버튼들 */}
-          <div className="flex flex-col sm:flex-row gap-4 mb-8">
-            <button
-              onClick={handleViewReport}
-              disabled={!searchResult?.data || isIssuepoolLoading}
-              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                !searchResult?.data || isIssuepoolLoading
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
-              }`}
-            >
-              {isIssuepoolLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  조회 중...
-                </span>
-              ) : (
-                '📊 지난 중대성 평가 목록 보기'
-              )}
-            </button>
-            
-            <button
-              onClick={() => {
-                // 보고서 보기 로직
-                alert('보고서 보기 기능을 구현합니다.');
-              }}
-              className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
-            >
-              📋 보고서 보기
-            </button>
           </div>
 
           {/* 3개 빈 박스 */}
