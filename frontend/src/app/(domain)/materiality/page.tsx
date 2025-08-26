@@ -366,7 +366,7 @@ export default function MaterialityHomePage() {
       <NavigationTabs />
       
       {/* 메인 콘텐츠 */}
-      <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-6">
+      <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-6 pt-20">
         <div className="max-w-7xl mx-auto">
           {/* 헤더 */}
           <div className="mb-8">

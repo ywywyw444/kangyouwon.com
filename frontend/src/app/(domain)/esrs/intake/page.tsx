@@ -13,7 +13,7 @@ export default function GriIntakePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <NavigationTabs />
-      <div className="p-4">
+      <div className="p-4 pt-20">
         <div className="max-w-4xl mx-auto">
           {/* 헤더 */}
           <div className="text-center mb-8">

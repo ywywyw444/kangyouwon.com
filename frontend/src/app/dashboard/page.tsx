@@ -15,7 +15,7 @@ export default function DashboardPage() {
       <NavigationTabs />
 
       {/* 메인 콘텐츠 영역 - 주황색 테두리 */}
-      <div className="max-w-7xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6 pt-20">
         <div className="border-4 border-orange-400 rounded-xl p-8 bg-orange-50">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">

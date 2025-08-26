@@ -3,7 +3,7 @@ Issue Pool Repository - BaseModel을 받아서 데이터베이스 작업을 수�
 데이터베이스 연결을 담당하며, BaseModel과 Entity 간의 변환을 처리
 """
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, text, bindparam, Integer
+from sqlalchemy import select, text, bindparam, Integer, String
 from app.domain.issuepool.schema import IssuePoolResponse
 from app.domain.issuepool.entity import IssuePoolEntity
 from app.common.database.issuepool_db import get_db
@@ -31,24 +31,29 @@ class IssuePoolRepository:
             
             # 데이터베이스 연결
             async for db in get_db():
-                query = select(IssuePoolEntity)
+                query = text("""
+                    SELECT id, corporation_id, publish_year, ranking, 
+                           base_issue_pool, issue_pool, category_id, esg_classification_id
+                    FROM issuepool 
+                    ORDER BY CAST(ranking AS INTEGER)
+                """)
                 result = await db.execute(query)
-                issuepool_entities = result.scalars().all()
+                rows = result.fetchall()
                 
-                logger.info(f"🔍 DB에서 가져온 Entity 데이터: {len(issuepool_entities)}개")
+                logger.info(f"🔍 DB에서 가져온 raw 데이터: {len(rows)}개")
                 
-                # Entity들을 BaseModel로 변환하여 반환
+                # raw 데이터를 BaseModel로 변환하여 반환
                 issuepool_models = []
-                for i, issuepool_entity in enumerate(issuepool_entities):
+                for row in rows:
                     issuepool_model = IssuePoolResponse(
-                        id=issuepool_entity.id,
-                        corporation_id=issuepool_entity.corporation_id,
-                        publish_year=issuepool_entity.publish_year,
-                        ranking=issuepool_entity.ranking,
-                        base_issue_pool=issuepool_entity.base_issue_pool,
-                        issue_pool=issuepool_entity.issue_pool,
-                        category_id=issuepool_entity.category_id,
-                        esg_classification_id=issuepool_entity.esg_classification_id
+                        id=row[0],
+                        corporation_id=row[1],
+                        publish_year=row[2],
+                        ranking=row[3],
+                        base_issue_pool=row[4],
+                        issue_pool=row[5],
+                        category_id=row[6],
+                        esg_classification_id=row[7]
                     )
                     issuepool_models.append(issuepool_model)
                 
@@ -78,31 +83,31 @@ class IssuePoolRepository:
                 corporation_id = corp_row[0]
                 logger.info(f"🔍 리포지토리: 기업 ID 조회 성공 - {corporation_name} -> ID: {corporation_id}")
                 
-                # 2단계: corporation_id와 publish_year를 정수로 강제 캐스팅
+                # 2단계: corporation_id를 정수로, publish_year를 문자열로 처리
                 corp_id_int = self._to_int("corporation_id", corporation_id)
-                pub_year_int = self._to_int("publish_year", publish_year) if publish_year else None
+                pub_year_str = str(self._to_int("publish_year", publish_year)) if publish_year else None
                 
-                # 3단계: corporation_id와 publish_year로 issuepool 조회 (바인드 타입 명시)
-                if pub_year_int is not None:
+                # 3단계: corporation_id와 publish_year로 issuepool 조회 (타입 맞춤)
+                if pub_year_str:
                     issuepool_query = text("""
                         SELECT id, corporation_id, publish_year, ranking, 
                                base_issue_pool, issue_pool, category_id, esg_classification_id
                         FROM issuepool 
                         WHERE corporation_id = :corp_id
                         AND publish_year = :pub_year
-                        ORDER BY ranking
+                        ORDER BY CAST(ranking AS INTEGER)
                     """).bindparams(
                         bindparam("corp_id", type_=Integer),
-                        bindparam("pub_year", type_=Integer)
+                        bindparam("pub_year", type_=String)  # publish_year는 TEXT로 비교
                     )
-                    params = {"corp_id": corp_id_int, "pub_year": pub_year_int}
+                    params = {"corp_id": corp_id_int, "pub_year": pub_year_str}
                 else:
                     issuepool_query = text("""
                         SELECT id, corporation_id, publish_year, ranking, 
                                base_issue_pool, issue_pool, category_id, esg_classification_id
                         FROM issuepool 
                         WHERE corporation_id = :corp_id
-                        ORDER BY ranking
+                        ORDER BY CAST(ranking AS INTEGER)
                     """).bindparams(
                         bindparam("corp_id", type_=Integer)
                     )
@@ -140,8 +145,8 @@ class IssuePoolRepository:
         try:
             logger.info(f"🔍 리포지토리: 연도별 이슈풀 조회 - publish_year: {publish_year}")
             
-            # publish_year를 정수로 강제 캐스팅
-            pub_year_int = self._to_int("publish_year", publish_year)
+            # publish_year를 문자열로 변환 (DB 컬럼이 text 타입이므로)
+            pub_year_str = str(self._to_int("publish_year", publish_year))
             
             # 데이터베이스 연결
             async for db in get_db():
@@ -150,11 +155,11 @@ class IssuePoolRepository:
                            base_issue_pool, issue_pool, category_id, esg_classification_id
                     FROM issuepool 
                     WHERE publish_year = :pub_year
-                    ORDER BY ranking
+                    ORDER BY CAST(ranking AS INTEGER)
                 """).bindparams(
-                    bindparam("pub_year", type_=Integer)
+                    bindparam("pub_year", type_=String)  # publish_year는 TEXT로 비교
                 )
-                result = await db.execute(query, {"pub_year": pub_year_int})
+                result = await db.execute(query, {"pub_year": pub_year_str})
                 rows = result.fetchall()
                 
                 logger.info(f"🔍 DB에서 가져온 raw 데이터: {len(rows)}개")
