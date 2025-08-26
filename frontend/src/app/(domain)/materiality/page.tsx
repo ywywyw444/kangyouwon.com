@@ -164,30 +164,6 @@ export default function MaterialityHomePage() {
     }
   ];
 
-  const recentActivities = [
-    {
-      id: 1,
-      type: '평가 완료',
-      topic: '기후변화 대응',
-      date: '2024-01-15',
-      status: 'completed'
-    },
-    {
-      id: 2,
-      type: '검토 중',
-      topic: '인권 정책',
-      date: '2024-01-12',
-      status: 'reviewing'
-    },
-    {
-      id: 3,
-      type: '대기 중',
-      topic: '공급망 관리',
-      date: '2024-01-10',
-      status: 'pending'
-    }
-  ];
-
   const handleNewAssessment = () => {
     console.log('새로운 중대성 평가 시작');
     // 여기에 새로운 평가 시작 로직 추가
@@ -285,32 +261,6 @@ export default function MaterialityHomePage() {
     } finally {
       // 로딩 상태 종료
       setIsMediaSearching(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'reviewing':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'pending':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return '완료';
-      case 'reviewing':
-        return '검토 중';
-      case 'pending':
-        return '대기 중';
-      default:
-        return '알 수 없음';
     }
   };
 
@@ -726,53 +676,28 @@ export default function MaterialityHomePage() {
             </button>
           </div>
 
-          {/* 최근 활동 */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-              최근 활동
-            </h2>
-            <div className="space-y-4">
-              {recentActivities.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                    <div>
-                      <div className="font-medium text-gray-800">
-                        {activity.topic}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {activity.type} • {activity.date}
-                      </div>
-                    </div>
-                  </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                      activity.status
-                    )}`}
-                  >
-                    {getStatusText(activity.status)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 통계 요약 */}
+          {/* 3개 빈 박스 */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-            <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-              <div className="text-3xl font-bold text-blue-600 mb-2">8</div>
-              <div className="text-gray-600">미디어 기사</div>
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors duration-200">
+              <div className="text-center">
+                <div className="text-4xl text-gray-300 mb-3">📋</div>
+                <h3 className="text-lg font-medium text-gray-600 mb-2">새로운 섹션</h3>
+                <p className="text-sm text-gray-500">여기에 내용을 추가하세요</p>
+              </div>
             </div>
-            <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-              <div className="text-3xl font-bold text-green-600 mb-2">66%</div>
-              <div className="text-gray-600">전체 진행률</div>
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors duration-200">
+              <div className="text-center">
+                <div className="text-4xl text-gray-300 mb-3">📊</div>
+                <h3 className="text-lg font-medium text-gray-600 mb-2">새로운 섹션</h3>
+                <p className="text-sm text-gray-500">여기에 내용을 추가하세요</p>
+              </div>
             </div>
-            <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-              <div className="text-3xl font-bold text-purple-600 mb-2">12</div>
-              <div className="text-gray-600">이번 달 활동</div>
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200 hover:border-gray-300 transition-colors duration-200">
+              <div className="text-center">
+                <div className="text-4xl text-gray-300 mb-3">🔍</div>
+                <h3 className="text-lg font-medium text-gray-600 mb-2">새로운 섹션</h3>
+                <p className="text-sm text-gray-500">여기에 내용을 추가하세요</p>
+              </div>
             </div>
           </div>
         </div>

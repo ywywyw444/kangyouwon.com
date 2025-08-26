@@ -572,20 +572,8 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
                 "max_results": max_results_per_keyword,
             }
         )
-        
-        # 회사명만으로도 검색 추가 (더 많은 결과를 위해)
-        if tok:  # 빈 토큰이 아닌 경우에만
-            queries.append(
-                {
-                    "keyword": company_id,  # 회사명만
-                    "company": company_id,
-                    "issue": tok,
-                    "query_kind": "company_only_issue",
-                    "max_results": max_results_per_keyword // 2,  # 절반만
-                }
-            )
 
-    # 회사명 단독 검색도 추가
+    # 회사명 단독 검색은 한 번만 추가 (이슈별 중복 제거)
     queries.append(
         {
             "keyword": company_id,
