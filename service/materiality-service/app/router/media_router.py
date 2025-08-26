@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request
+from app.domain.media.controller import media_controller
 import logging
 import traceback
 
@@ -37,36 +38,11 @@ async def search_media(request: Request):
             logger.warning("필수 필드 누락: end_date")
             return {"success": False, "message": "end_date가 필요합니다"}
 
-        # 요청 데이터 추출
-        company_id = body["company_id"]
-        start_date = body["report_period"]["start_date"]
-        end_date = body["report_period"]["end_date"]
-        search_type = body.get("search_type", "materiality_assessment")
-        timestamp = body.get("timestamp")
-
-        logger.info(f"🔍 검색 파라미터: 기업={company_id}, 기간={start_date}~{end_date}, 타입={search_type}")
-
-        # TODO: 실제 미디어 검색 로직 구현
-        # 여기에 데이터베이스 조회, 외부 API 호출 등의 로직 추가
-
-        # 임시 응답 데이터 (실제로는 검색 결과를 반환해야 함)
-        search_results = {
-            "company_id": company_id,
-            "search_period": {"start_date": start_date, "end_date": end_date},
-            "search_type": search_type,
-            "total_results": 0,
-            "articles": [],
-            "status": "processing",
-        }
-
-        logger.info(f"✅ 미디어 검색 요청 처리 완료: {company_id}")
-
-        return {
-            "success": True,
-            "message": "미디어 검색 요청이 성공적으로 처리되었습니다",
-            "data": search_results,
-            "timestamp": timestamp,
-        }
+        # Controller를 통해 Service 호출
+        result = await media_controller.search_media(body)
+        
+        logger.info(f"✅ 미디어 검색 요청 처리 완료: {body.get('company_id')}")
+        return result
 
     except Exception as e:
         logger.error(f"❌ 미디어 검색 처리 중 오류: {str(e)}")
