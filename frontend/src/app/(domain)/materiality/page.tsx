@@ -978,6 +978,215 @@ export default function MaterialityHomePage() {
               📝 설문 관리
             </h2>
             
+            {/* 발송 대상 명단 확인 */}
+            <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mr-4">
+                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-purple-800">📋 발송 대상 명단</h3>
+                    <p className="text-purple-600 text-sm">업로드된 Excel 파일의 설문 대상 기업 목록을 확인하세요</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <span className="px-3 py-1 bg-purple-100 text-purple-800 text-sm font-medium rounded-full">
+                    총 {0}개 기업
+                  </span>
+                  <button
+                    onClick={() => {
+                      alert('명단 새로고침 기능을 구현합니다.');
+                    }}
+                    className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors duration-200"
+                    title="명단 새로고침"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              {/* 업로드된 파일 정보 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <div className="flex items-center mb-2">
+                    <svg className="w-5 h-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="font-medium text-gray-800">업로드된 파일</span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {excelFilename ? excelFilename : '파일이 업로드되지 않았습니다'}
+                  </p>
+                </div>
+                
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <div className="flex items-center mb-2">
+                    <svg className="w-5 h-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="font-medium text-gray-800">업로드 시간</span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {excelFilename ? new Date().toLocaleString('ko-KR') : '-'}
+                  </p>
+                </div>
+                
+                <div className="bg-white rounded-lg p-4 border border-purple-200">
+                  <div className="flex items-center mb-2">
+                    <svg className="w-5 h-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <span className="font-medium text-gray-800">데이터 상태</span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {excelFilename ? '✅ 처리 완료' : '❌ 미업로드'}
+                  </p>
+                </div>
+              </div>
+              
+              {/* 대상 기업 목록 테이블 */}
+              <div className="bg-white rounded-lg border border-purple-200 overflow-hidden">
+                <div className="px-6 py-4 bg-purple-50 border-b border-purple-200">
+                  <h4 className="font-medium text-purple-800">🏢 대상 기업 목록</h4>
+                </div>
+                
+                {excelFilename ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            순번
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            기업명
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            담당자
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            연락처
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            상태
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            작업
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {/* 샘플 데이터 - 실제로는 Excel에서 파싱된 데이터를 사용 */}
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">1</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">샘플기업 A</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">김담당</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">kim@sample.com</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                              대기중
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <button className="text-purple-600 hover:text-purple-900 mr-2">수정</button>
+                            <button className="text-red-600 hover:text-red-900">삭제</button>
+                          </td>
+                        </tr>
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">샘플기업 B</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">이담당</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">lee@sample.com</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
+                              대기중
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <button className="text-purple-600 hover:text-purple-900 mr-2">수정</button>
+                            <button className="text-red-600 hover:text-red-900">삭제</button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="px-6 py-12 text-center">
+                    <div className="text-4xl text-gray-300 mb-4">📊</div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">업로드된 파일이 없습니다</h3>
+                    <p className="text-gray-500 mb-4">위의 '설문 대상 업로드' 섹션에서 Excel 파일을 업로드해주세요.</p>
+                    <button
+                      onClick={() => {
+                        // 파일 업로드 섹션으로 스크롤
+                        document.getElementById('excel-upload')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200 transition-colors duration-200"
+                    >
+                      파일 업로드하러 가기
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* 명단 관리 액션 버튼 */}
+              {excelFilename && (
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <button
+                    onClick={() => {
+                      alert('명단 내보내기 기능을 구현합니다.');
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    명단 내보내기
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      alert('명단 편집 기능을 구현합니다.');
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    명단 편집
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      alert('명단 검증 기능을 구현합니다.');
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    명단 검증
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      alert('명단 초기화 기능을 구현합니다.');
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    명단 초기화
+                  </button>
+                </div>
+              )}
+            </div>
+            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* 설문 미리보기 */}
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
@@ -1029,7 +1238,7 @@ export default function MaterialityHomePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
-                    설문 미리보기 보기
+                    설문 미리보기
                   </button>
                 </div>
               </div>
