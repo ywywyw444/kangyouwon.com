@@ -253,8 +253,6 @@ class NaverNewsClient:
                 # 포함 범위: start <= pub_dt < end (종료일 하루 전체 포함)
                 if start_dt <= pub_dt < end_dt:
                     origin = (item.get("originallink") or "").strip()
-                    link = (item.get("link") or "").strip()
-                    item["네이버링크"] = link if ("n.news.naver.com" in link) else ""
                     item["원본링크"] = origin
                     collected.append(item)
 
@@ -300,18 +298,35 @@ def _split_category_tokens(raw: str | None) -> List[str]:
     return [p.strip() for p in s.split("/") if p and p.strip()]
 
 
-def _dedupe_by_url(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """기업 범위에서 URL(정규화) 기준 중복 제거"""
-    seen: set[Tuple[str, str]] = set()
+def _dedupe_by_issue_group_url(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    기존코드와 동일한 철학:
+    - (company, issue_group, canonical_url) 단위로 중복 제거
+    - issue_group 우선순위: issue_original > original_category > issue
+    """
+    seen: set[Tuple[str, str, str]] = set()
     out: List[Dict[str, Any]] = []
+
     for it in items:
-        url_raw = it.get("originallink") or it.get("원본링크") or it.get("link") or it.get("네이버링크") or ""
-        key = NaverNewsClient.canonicalize_url(url_raw)
-        pair = (it.get("company", ""), key)
-        if pair in seen:
+        company = (it.get("company") or "").strip()
+
+        # issue_group 결정: 기존코드의 issue_original이 있으면 그걸 쓰고,
+        # 없으면 신규코드의 original_category, 그것도 없으면 issue를 사용
+        issue_group = (
+            (it.get("issue_original") or "").strip()
+            or (it.get("original_category") or "").strip()
+            or (it.get("issue") or "").strip()
+        )
+
+        url_raw = it.get("originallink") or it.get("원본링크") or ""
+        url_key = NaverNewsClient.canonicalize_url(url_raw)
+
+        key = (company, issue_group, url_key)
+        if key in seen:
             continue
-        seen.add(pair)
+        seen.add(key)
         out.append(it)
+
     return out
 
 
@@ -358,18 +373,23 @@ def norm_plain(text: str) -> str:
 
 def has_triangle_then_company(desc: str, company: str) -> bool:
     """△/▲ 뒤에 회사명이 나오면 True (혼합표기 시 한글만 일치도 허용)"""
-    if not desc or not company:
-        return False
+    # 2024-01-09: 기능 비활성화 (주가/재무 관련 기사 필터링으로 대체)
+    return False
     
-    d = strip_html(desc).lower()
-    comp_norm = norm_plain(company)
-    
-    if not comp_norm:
-        return False
-    
-    # △/▲ 이후 회사명이 나오는지 확인
-    pattern = rf'[△▲][^△▲]*{re.escape(comp_norm)}'
-    return bool(re.search(pattern, d))
+    # # 원본 로직: desc를 일반 문자열로 낮추고, company는 norm_plain 후
+    # # r'[△▲][^△▲]*{회사명}' 매칭 시 제거
+    # if not desc or not company:
+    #     return False
+    # 
+    # d = strip_html(desc).lower()
+    # comp_norm = norm_plain(company)
+    # 
+    # if not comp_norm:
+    #     return False
+    # 
+    # # △/▲ 이후 회사명이 나오는지 확인
+    # pattern = rf'[△▲][^△▲]*{re.escape(comp_norm)}'
+    # return bool(re.search(pattern, d))
 
 
 def filter_news_items(items: List[Dict[str, Any]], company: str) -> List[Dict[str, Any]]:
@@ -396,7 +416,7 @@ def filter_news_items(items: List[Dict[str, Any]], company: str) -> List[Dict[st
         
         # 불용 키워드 기사 제외 (완화된 버전)
         # 너무 엄격한 필터링으로 인해 기사가 모두 제거되는 것을 방지
-        keywords = ["부고", "기고"]  # 정말 불필요한 것만 제외
+        keywords = ["주식", "주가", "매수", "매매", "테마주", "관련주", "주식시장", "인사", "부고", "기고", "주식", "상장", "부동산", "시세", "매도", "증자", "증시"]  # 정말 불필요한 것만 제외
         pattern = "|".join(keywords)
         
         title = item.get("title", "").lower()
@@ -438,7 +458,7 @@ def _make_excel_bytes(items: List[Dict[str, Any]], company_id: str) -> Tuple[str
         # 컬럼 순서 정리
         columns_order = [
             'company', 'issue', 'original_category', 'query_kind', 'keyword',
-            'title', 'description', 'pubDate', 'originallink', '네이버링크'
+            'title', 'description', 'pubDate', 'originallink'
         ]
         
         # 존재하는 컬럼만 선택
@@ -673,7 +693,7 @@ async def search_media(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     # URL 기준 중복 제거(기업 범위 내)
     try:
-        all_items = _dedupe_by_url(all_items)
+        all_items = _dedupe_by_issue_group_url(all_items)
         logger.info(f"✅ 중복 제거 완료: {len(all_items)}개 기사")
     except Exception as e:
         logger.warning("중복 제거 중 오류(무시하고 계속): %s", e)

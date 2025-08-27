@@ -111,7 +111,7 @@ if __name__ == "__main__":
     df = df[~mask_drop].copy()
 
     # 불용 키워드 기사 삭제
-    keywords = ["주식", "주가", "매수", "매매", "테마주", "관련주", "주식시장", "인사", "부고", "기고", "주식", "상장", "부동산", "시세", "매도", "증자", "증시시"]
+    keywords = ["주식", "주가", "매수", "매매", "테마주", "관련주", "주식시장", "인사", "부고", "기고", "주식", "상장", "부동산", "시세", "매도", "증자", "증시"]
     pattern = "|".join(keywords)
     if "description" in df.columns:
         df = df[~df["description"].str.contains(pattern, case=False, na=False)]

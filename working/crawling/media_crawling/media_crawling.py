@@ -147,43 +147,58 @@ class NaverNewsCrawler:
             ws.column_dimensions[col_letter].width = min(max_len + 2, 50)
 
     def save_to_excel(self, data: Dict[str, Any], filename: str = "naver_news_results.xlsx") -> str:
-        """단일 검색결과를 보기 좋게 엑셀로 저장 (한글 컬럼)"""
+        """단일 검색결과를 엑셀로 저장 (신규 스타일)"""
         items = data.get("items", [])
         if not items:
             logger.warning("저장할 뉴스 데이터가 없습니다.")
             return ""
 
         df = pd.DataFrame(items)
-        df["검색_시작일"] = data.get("start_date", "")
-        df["검색_종료일"] = data.get("end_date", "")
-        df["총_검색결과수"] = data.get("total", 0)
 
-        df = df.rename(columns={
-            "title": "제목",
-            "description": "요약",
-            "pubDate": "발행일",
-            "원본링크": "원본링크",
-            "네이버링크": "네이버링크",
-        })
-        display_columns = ["제목", "요약", "발행일", "원본링크", "네이버링크", "검색_시작일", "검색_종료일", "총_검색결과수"]
-        df = df.reindex(columns=display_columns)
+        # 신규코드 스타일 컬럼 정렬
+        export_order = [
+            "company", "issue", "original_category", "query_kind", "keyword",
+            "title", "description", "pubDate", "originallink"
+        ]
+
+        # original_category 없으면 issue_original로 매핑
+        if "original_category" not in df.columns:
+            if "issue_original" in df.columns:
+                def pick_original_category(x):
+                    if not isinstance(x, str) or not x.strip():
+                        return ""
+                    parts = [p.strip() for p in x.split(";") if p.strip()]
+                    return parts[0] if parts else x.strip()
+                df["original_category"] = df["issue_original"].apply(pick_original_category)
+            else:
+                df["original_category"] = ""
+
+        # 누락 컬럼 보정
+        for c in export_order:
+            if c not in df.columns:
+                df[c] = ""
+
+        df = df[export_order + [c for c in df.columns if c not in export_order]]
 
         xlsx_path = Path.cwd() / filename
         with pd.ExcelWriter(xlsx_path, engine="openpyxl") as writer:
-            df.to_excel(writer, sheet_name="뉴스검색결과", index=False)
-            self._auto_fit_columns(writer.sheets["뉴스검색결과"])
+            df.to_excel(writer, sheet_name="검색결과", index=False)
+            self._auto_fit_columns(writer.sheets["검색결과"])
 
-        logger.info("엑셀 저장 완료: %s", xlsx_path)
+        logger.info("엑셀 저장 완료(신규 스타일): %s", xlsx_path)
         return str(xlsx_path)
 
 
     def _canonicalize_url(self, url: str) -> str:
         """URL 비교용 정규화: 호스트 소문자/`www.` 제거, trailing slash 제거,
         utm/gclid/fbclid 등 트래킹 파라미터 제거, fragment 제거."""
-        if not url:
+        if not url or (isinstance(url, float) and pd.isna(url)):
             return ""
         try:
-            p = urlparse(url.strip())
+            s = str(url).strip()
+            if not s:
+                return ""
+            p = urlparse(s)
             netloc = p.netloc.lower()
             if netloc.startswith("www."):
                 netloc = netloc[4:]
@@ -196,7 +211,8 @@ class NaverNewsCrawler:
             path = p.path.rstrip("/")
             return urlunparse((p.scheme, netloc, path, "", urlencode(q, doseq=True), ""))
         except Exception:
-            return url.strip()
+            # URL이 엉망이면 그냥 문자열로 반환
+            return str(url).strip() if isinstance(url, str) else ""
 
 
     def build_training_dataset(
@@ -328,15 +344,13 @@ class NaverNewsCrawler:
         df = pd.DataFrame(all_items)
 
         # 링크 후보 컬럼 보정
-        for c in ["originallink", "원본링크", "link", "네이버링크"]:
+        for c in ["originallink", "원본링크"]:
             if c not in df.columns:
                 df[c] = ""
 
         if deduplicate:
             df["__url_raw"] = df["originallink"]
             df.loc[df["__url_raw"].isna() | (df["__url_raw"] == ""), "__url_raw"] = df["원본링크"]
-            df.loc[df["__url_raw"].isna() | (df["__url_raw"] == ""), "__url_raw"] = df["link"]
-            df.loc[df["__url_raw"].isna() | (df["__url_raw"] == ""), "__url_raw"] = df["네이버링크"]
 
             # 클래스 메서드로 정규화
             df["__url_key"] = df["__url_raw"].astype(str).map(self._canonicalize_url)
@@ -351,15 +365,36 @@ class NaverNewsCrawler:
             df = df.drop(columns=["__url_raw", "__url_key"], errors="ignore")
 
         # ── 5) 컬럼 정리 & 저장 ──────────────────────────────────────────────
-        desired_cols = [
-            "title", "description", "originallink", "pubDate",
-            "company", "issue", "issue_original", "keyword", "query_kind"
+        # 신규코드 컬럼 순서에 맞춰 정렬/매핑
+        export_order = [
+            "company", "issue", "original_category", "query_kind", "keyword",
+            "title", "description", "pubDate", "originallink"
         ]
-        for c in desired_cols:
+
+        # 필요한 원본 컬럼 보정
+        for c in ["title", "description", "originallink", "pubDate", "company", "issue", "keyword", "query_kind"]:
             if c not in df.columns:
                 df[c] = ""
-        df = df[desired_cols]
 
+        # 신규코드엔 original_category가 있고, 기존코드는 issue_original이 있으므로 매핑
+        if "original_category" not in df.columns:
+            # issue_original이 있으면 그중 첫 항목(세미콜론 분리) 또는 전체 문자열을 사용
+            if "issue_original" in df.columns:
+                def pick_original_category(x):
+                    if not isinstance(x, str) or not x.strip():
+                        return ""
+                    parts = [p.strip() for p in x.split(";") if p.strip()]
+                    return parts[0] if parts else x.strip()
+                df["original_category"] = df["issue_original"].apply(pick_original_category)
+            else:
+                df["original_category"] = ""
+
+        # export_order에 없는 컬럼은 뒤에 유지(필요 시 참고용)
+        existing_export = [c for c in export_order if c in df.columns]
+        remaining = [c for c in df.columns if c not in existing_export]
+        df = df[existing_export + remaining]
+
+        # 저장
         save_path = Path.cwd() / output_file
         with pd.ExcelWriter(save_path, engine="openpyxl") as writer:
             df.to_excel(writer, sheet_name="뉴스데이터", index=False)
