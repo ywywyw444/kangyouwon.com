@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import NavigationTabs from '@/component/NavigationTabs';
 import { MediaCard, MediaItem } from '@/component/MediaCard';
+import IndexBar from '@/component/IndexBar';
 import axios from 'axios';
 
 export default function MaterialityHomePage() {
@@ -328,6 +329,9 @@ export default function MaterialityHomePage() {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* 인덱스 바 */}
+      <IndexBar />
+      
       {/* 미디어 검색 중 로딩 팝업 */}
       {isMediaSearching && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
@@ -360,7 +364,7 @@ export default function MaterialityHomePage() {
           </div>
 
           {/* 선택 옵션 */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
+          <div id="media-search" className="bg-white rounded-xl shadow-lg p-6 mb-12">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6">
               🔍 미디어 검색
             </h2>
@@ -674,10 +678,45 @@ export default function MaterialityHomePage() {
           )}
 
           {/* 지난 중대성 평가 목록 */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
+          <div id="first-assessment" className="bg-white rounded-xl shadow-lg p-6 mb-12">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6">
               📑 1차 중대성 평가 결과 보기
             </h2>
+
+            {/* 액션 버튼들 */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-8">
+              <button
+                onClick={handleViewReport}
+                disabled={!searchResult?.data || isIssuepoolLoading}
+                className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                  !searchResult?.data || isIssuepoolLoading
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
+                }`}
+              >
+                {isIssuepoolLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    조회 중...
+                  </span>
+                ) : (
+                  '📊 지난 중대성 평가 목록 보기'
+                )}
+              </button>
+              
+              <button
+                onClick={() => {
+                  // 새로운 중대성 평가 시작 로직
+                  alert('새로운 중대성 평가를 시작합니다.');
+                }}
+                className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                🚀 새로운 중대성 평가 시작
+              </button>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* 첫 번째 섹션: year-2년 */}
@@ -859,44 +898,10 @@ export default function MaterialityHomePage() {
             </div>
           </div>
 
-          {/* 액션 버튼들 */}
-          <div className="flex flex-col sm:flex-row gap-4 mt-8">
-            <button
-              onClick={handleViewReport}
-              disabled={!searchResult?.data || isIssuepoolLoading}
-              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                !searchResult?.data || isIssuepoolLoading
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
-              }`}
-            >
-              {isIssuepoolLoading ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  조회 중...
-                </span>
-              ) : (
-                '📊 지난 중대성 평가 목록 보기'
-              )}
-            </button>
-            
-            <button
-              onClick={() => {
-                // 새로운 중대성 평가 시작 로직
-                alert('새로운 중대성 평가를 시작합니다.');
-              }}
-              className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
-            >
-              🚀 새로운 중대성 평가 시작
-            </button>
-          </div>
           </div>
 
           {/* 설문 대상 업로드 */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
+          <div id="survey-upload" className="bg-white rounded-xl shadow-lg p-6 mb-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Excel 파일 업로드 */}
               <div>
@@ -1192,7 +1197,7 @@ export default function MaterialityHomePage() {
           </div>
 
           {/* 설문 관리 섹션 */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
+          <div id="survey-management" className="bg-white rounded-xl shadow-lg p-6 mb-12">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6">
               📝 설문 관리
             </h2>
@@ -1340,7 +1345,7 @@ export default function MaterialityHomePage() {
           </div>
 
           {/* 설문 결과 확인 */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
+          <div id="survey-results" className="bg-white rounded-xl shadow-lg p-6 mb-12">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6">
               📊 설문 결과 확인
             </h2>
@@ -1353,7 +1358,7 @@ export default function MaterialityHomePage() {
           </div>
 
           {/* 최종 이슈풀 확인하기 */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
+          <div id="final-issuepool" className="bg-white rounded-xl shadow-lg p-6 mb-12">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6">
               📋 최종 이슈풀 확인하기
             </h2>
