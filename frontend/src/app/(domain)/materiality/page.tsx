@@ -360,7 +360,11 @@ export default function MaterialityHomePage() {
           </div>
 
           {/* 선택 옵션 */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+              🔍 미디어 검색
+            </h2>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="relative company-dropdown-container">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -487,7 +491,7 @@ export default function MaterialityHomePage() {
 
           {/* 미디어 검색 결과 */}
           {searchResult && (
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-semibold text-gray-800">
                   🔍 미디어 검색 결과
@@ -886,7 +890,7 @@ export default function MaterialityHomePage() {
           </div>
 
           {/* 설문 대상 업로드 */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Excel 파일 업로드 */}
               <div>
@@ -970,16 +974,9 @@ export default function MaterialityHomePage() {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* 설문 관리 섹션 */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-              📝 설문 관리
-            </h2>
             
             {/* 발송 대상 명단 확인 */}
-            <div className="mb-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+            <div className="mt-8 p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
                   <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mr-4">
@@ -1186,6 +1183,13 @@ export default function MaterialityHomePage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* 설문 관리 섹션 */}
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+              📝 설문 관리
+            </h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* 설문 미리보기 */}
@@ -1330,7 +1334,7 @@ export default function MaterialityHomePage() {
           </div>
 
           {/* 설문 결과 확인 */}
-          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6">
               📊 설문 결과 확인
             </h2>
@@ -1339,6 +1343,19 @@ export default function MaterialityHomePage() {
               <div className="text-4xl text-gray-300 mb-4">📈</div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">설문 결과 확인</h3>
               <p className="text-gray-500">설문 응답 결과를 확인하고 분석할 수 있는 공간입니다.</p>
+            </div>
+          </div>
+
+          {/* 최종 이슈풀 확인하기 */}
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+              📋 최종 이슈풀 확인하기
+            </h2>
+            
+            <div className="bg-gray-50 rounded-lg p-12 text-center border-2 border-dashed border-gray-300">
+              <div className="text-4xl text-gray-300 mb-4">🎯</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">최종 이슈풀 확인</h3>
+              <p className="text-gray-500">미디어 검색과 설문 결과를 종합한 최종 이슈풀을 확인할 수 있는 공간입니다.</p>
             </div>
           </div>
         </div>
