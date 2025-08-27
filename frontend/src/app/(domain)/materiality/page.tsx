@@ -680,7 +680,7 @@ export default function MaterialityHomePage() {
           {/* 지난 중대성 평가 목록 */}
           <div id="first-assessment" className="bg-white rounded-xl shadow-lg p-6 mb-12">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-              📑 1차 중대성 평가 결과 보기
+              📑 중대성 평가 중간 결과 보기
             </h2>
 
             {/* 액션 버튼들 */}
@@ -889,7 +889,7 @@ export default function MaterialityHomePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-800">1차 중대성 평가 결과</h3>
+                <h3 className="text-lg font-semibold text-gray-800">중대성 평가 중간 결과</h3>
               </div>
               
               <div className="text-center text-gray-500 text-sm">

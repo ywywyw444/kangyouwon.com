@@ -23,6 +23,11 @@ export default function IndexBar() {
   // 스크롤 위치에 따라 현재 섹션 업데이트
   useEffect(() => {
     const handleScroll = () => {
+      interface Section {
+        id: string;
+        distance: number;
+      }
+
       const sections = indexItems.map(item => {
         const element = document.getElementById(item.id);
         if (element) {
@@ -30,13 +35,13 @@ export default function IndexBar() {
           return {
             id: item.id,
             distance: Math.abs(rect.top),
-          };
+          } as Section;
         }
         return null;
-      }).filter(Boolean);
+      }).filter((section): section is Section => section !== null);
 
       const closest = sections.reduce((prev, curr) => {
-        return prev?.distance < curr?.distance ? prev : curr;
+        return prev.distance < curr.distance ? prev : curr;
       });
 
       if (closest) {
@@ -65,8 +70,8 @@ export default function IndexBar() {
   };
 
   return (
-    <div className="fixed left-4 top-1/2 transform -translate-y-1/2 z-50">
-      <div className="bg-white rounded-xl shadow-lg p-2">
+    <div className="fixed left-8 top-1/2 transform -translate-y-1/2 z-50">
+      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200 min-w-[200px]">
         <div className="space-y-2">
           {indexItems.map((item) => (
             <button
