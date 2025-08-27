@@ -26,6 +26,9 @@ icecream>=2.1.0
 # 엑셀 파일 처리
 openpyxl>=3.0.0
 
+# 불균형 데이터 처리
+imbalanced-learn>=0.10.1
+
 # 기타 의존성
 lxml>=4.1.0
 pillow>=8.0.0
