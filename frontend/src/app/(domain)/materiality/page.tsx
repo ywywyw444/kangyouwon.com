@@ -708,20 +708,25 @@ export default function MaterialityHomePage() {
             </button>
           </div>
 
-          {/* 세 개의 섹션 */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {/* 첫 번째 섹션: year-2년 */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="text-center mb-4">
-                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+          {/* 지난 중대성 평가 목록 */}
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-12">
+            <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+              📑 지난 중대성 평가 목록
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* 첫 번째 섹션: year-2년 */}
+              <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
+                <div className="text-center mb-4">
+                  <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800">
+                    {issuepoolData ? `${issuepoolData.year_minus_2?.year}년` : 'year-2년'}
+                  </h3>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-800">
-                  {issuepoolData ? `${issuepoolData.year_minus_2?.year}년` : 'year-2년'}
-                </h3>
-              </div>
               
               {issuepoolData?.year_minus_2 ? (
                 <div className="space-y-2">
@@ -792,7 +797,7 @@ export default function MaterialityHomePage() {
             </div>
 
             {/* 두 번째 섹션: year-1년 */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
               <div className="text-center mb-4">
                 <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -872,8 +877,8 @@ export default function MaterialityHomePage() {
               )}
             </div>
 
-            {/* 세 번째 섹션: 새로운 섹션 */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+            {/* 세 번째 섹션: 1차 중대성 평가 결과 */}
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
               <div className="text-center mb-4">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -887,6 +892,7 @@ export default function MaterialityHomePage() {
                 여기에 내용을 추가하세요
               </div>
             </div>
+          </div>
           </div>
 
           {/* 설문 대상 업로드 */}
