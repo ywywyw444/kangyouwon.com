@@ -61,7 +61,8 @@ export default function IndexBar() {
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
-      const offset = element.offsetTop - 20; // 여유 공간
+      const navbarHeight = 64; // 네비게이션 바 높이
+      const offset = element.offsetTop - navbarHeight - 20; // 네비게이션 바 높이와 여유 공간 고려
       window.scrollTo({
         top: offset,
         behavior: 'smooth',
