@@ -1581,9 +1581,58 @@ export default function MaterialityHomePage() {
                   
                   <button
                     onClick={() => {
-                      if (confirm('정말 초기화하시겠습니까? 모든 데이터가 삭제됩니다.')) {
-                        // Zustand store 초기화
-                        reset();
+                      const savedData = localStorage.getItem('excelUploadData');
+                      if (savedData) {
+                        try {
+                          const parsedData = JSON.parse(savedData);
+                          setExcelData(parsedData.excelData || []);
+                          setIsExcelValid(parsedData.isValid || null);
+                          setExcelFilename(parsedData.fileName || null);
+                          setExcelBase64(parsedData.base64Data || null);
+                          alert('✅ 저장된 명단을 불러왔습니다.');
+                        } catch (error) {
+                          console.error('저장된 데이터 불러오기 실패:', error);
+                          alert('❌ 저장된 데이터를 불러오는데 실패했습니다.');
+                        }
+                      } else {
+                        alert('저장된 명단이 없습니다.');
+                      }
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    명단 불러오기
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const newRow = {
+                        name: '',
+                        position: '',
+                        company: '',
+                        stakeholderType: '',
+                        email: ''
+                      };
+                      setExcelData([...excelData, newRow]);
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    추가
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (confirm('현재 화면의 명단을 초기화하시겠습니까?\n(저장된 데이터는 "명단 불러오기"를 통해 다시 불러올 수 있습니다)')) {
+                        // Zustand store만 초기화
+                        setExcelData([]);
+                        setIsExcelValid(false);
+                        setExcelFilename(null);
+                        setExcelBase64(null);
                         
                         // 파일 input 필드 초기화
                         const fileInput = document.getElementById('excel-upload') as HTMLInputElement;
@@ -1591,7 +1640,7 @@ export default function MaterialityHomePage() {
                           fileInput.value = '';
                         }
                         
-                        alert('✅ 명단이 초기화되었습니다.');
+                        alert('✅ 현재 화면의 명단이 초기화되었습니다.\n필요한 경우 "명단 불러오기"를 통해 이전 데이터를 불러올 수 있습니다.');
                       }
                     }}
                     className="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 transition-colors duration-200"
