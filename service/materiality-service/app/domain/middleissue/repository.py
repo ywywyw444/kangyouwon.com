@@ -3,7 +3,7 @@ Middleissue Repository - BaseModel을 받아서 데이터베이스 작업을 수
 데이터베이스 연결을 담당하며, BaseModel과 Entity 간의 변환을 처리
 """
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
+from sqlalchemy import select, and_, or_, cast, Integer, func, text
 from typing import List, Optional
 from app.domain.middleissue.schema import MiddleIssueBase, IssueItem, CorporationIssueResponse
 from app.domain.middleissue.entity import MiddleIssueEntity, CorporationEntity
@@ -31,7 +31,7 @@ class MiddleIssueRepository:
             async for db in get_db():
                 # 1. 먼저 기업명으로 corporation_id 조회
                 corp_query = select(CorporationEntity).where(
-                    CorporationEntity.companyname == corporation_name  # corporation_name에서 companyname으로 변경
+                    CorporationEntity.companyname == corporation_name
                 )
                 corp_result = await db.execute(corp_query)
                 corporation = corp_result.scalar_one_or_none()
@@ -41,12 +41,18 @@ class MiddleIssueRepository:
                     return CorporationIssueResponse(year_issues=[], common_issues=[])
                 
                 # 2. 해당 연도의 이슈와 공통 이슈(publish_year is null) 함께 조회
+                # 안전한 TEXT -> INTEGER 캐스팅을 위한 쿼리 수정
                 query = select(MiddleIssueEntity).where(
                     and_(
                         MiddleIssueEntity.corporation_id == corporation.id,
                         or_(
-                            MiddleIssueEntity.publish_year == target_year,
-                            MiddleIssueEntity.publish_year.is_(None)
+                            MiddleIssueEntity.publish_year.is_(None),
+                            and_(
+                                # 숫자로만 구성된 문자열인지 확인 (공백 허용)
+                                MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
+                                # 안전하게 trim 후 캐스팅하여 비교
+                                cast(func.trim(MiddleIssueEntity.publish_year), Integer) == target_year
+                            )
                         )
                     )
                 )

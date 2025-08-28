@@ -13,7 +13,7 @@ class MiddleIssueEntity(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     corporation_id = Column(Integer, ForeignKey("corporation.id"), nullable=False)
-    publish_year = Column(Integer, nullable=False)
+    publish_year = Column(Text, nullable=True)  # Integer에서 Text로 변경하고 nullable=True로 설정
     ranking = Column(Integer, nullable=False)
     base_issue_pool = Column(Text, nullable=False)
     issue_pool = Column(Text, nullable=False)
@@ -26,7 +26,7 @@ class CorporationEntity(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     corp_code = Column(String(100), nullable=False)
-    companyname = Column(String(100), nullable=False)  # corporation_name에서 companyname으로 변경
+    companyname = Column(String(100), nullable=False)
     market = Column(String(100), nullable=False)
     dart_code = Column(String(100), nullable=False)
 
