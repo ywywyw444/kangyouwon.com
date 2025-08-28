@@ -34,9 +34,24 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info(f"보고기간: {request.report_period}")
         logger.info(f"요청 타입: {request.request_type}")
         logger.info(f"타임스탬프: {request.timestamp}")
+        logger.info(f"총 크롤링 기사 수: {request.total_results}")
+        logger.info("-"*50)
+        
+        # 2. 크롤링 데이터 샘플 로깅 (최대 5개)
+        logger.info("📰 크롤링된 기사 샘플:")
+        for idx, article in enumerate(request.articles[:5]):
+            logger.info(f"\n기사 {idx + 1}:")
+            logger.info(f"제목: {article.title}")
+            logger.info(f"발행일: {article.pubDate}")
+            logger.info(f"이슈: {article.issue}")
+            logger.info(f"카테고리: {article.original_category}")
+            logger.info("-"*30)
+        
+        if len(request.articles) > 5:
+            logger.info(f"... 외 {len(request.articles) - 5}개 기사")
         logger.info("="*50)
 
-        # 2. local storage에서 가져온 크롤링 데이터 확인 (향후 구현)
+        # 3. 데이터 처리 단계 로깅
         logger.info("📊 크롤링 데이터 분석 준비")
         logger.info("1) 머신러닝 모델로 긍부정평가 예정")
         logger.info("2) relevance, recent, negative, rank, 기준서/평가기관 지표 판단 예정")
@@ -44,7 +59,7 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info("4) final score 계산 예정")
         logger.info("5) frontend로 결과 전송 및 메모리 저장 예정")
         
-        # 3. 임시 응답 생성 (실제 로직은 향후 구현)
+        # 4. 임시 응답 생성 (실제 로직은 향후 구현)
         response_data = {
             "success": True,
             "message": "중대성 평가가 시작되었습니다.",
@@ -52,6 +67,7 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
                 "company_id": request.company_id,
                 "report_period": request.report_period,
                 "assessment_status": "initialized",
+                "total_articles": request.total_results,
                 "next_steps": [
                     "크롤링 데이터 긍부정평가",
                     "지표별 점수 계산",

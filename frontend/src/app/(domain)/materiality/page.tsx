@@ -971,7 +971,9 @@ export default function MaterialityHomePage() {
                       company_id: searchResult.data.company_id,
                       report_period: searchResult.data.search_period,
                       request_type: 'middleissue_assessment',
-                      timestamp: new Date().toISOString()
+                      timestamp: new Date().toISOString(),
+                      articles: searchResult.data.articles || [],
+                      total_results: searchResult.data.total_results || 0
                     };
 
                     // Gateway를 통해 materiality-service 호출

@@ -33,12 +33,23 @@ class CorporationIssueResponse(BaseModel):
     class Config:
         orm_mode = True
 
+class Article(BaseModel):
+    """크롤링된 기사 데이터 스키마"""
+    title: str
+    originallink: Optional[str] = None
+    pubDate: Optional[str] = None
+    company: Optional[str] = None
+    issue: Optional[str] = None
+    original_category: Optional[str] = None
+
 class MiddleIssueRequest(BaseModel):
     """중간 이슈 요청 스키마"""
     company_id: str
     report_period: dict
     request_type: str = "middleissue_assessment"
     timestamp: str = datetime.now().isoformat()
+    articles: List[Article] = []
+    total_results: int = 0
 
 class MiddleIssueResponse(BaseModel):
     """중간 이슈 응답 스키마"""
