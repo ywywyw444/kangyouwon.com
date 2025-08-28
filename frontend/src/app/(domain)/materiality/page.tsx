@@ -1005,7 +1005,7 @@ export default function MaterialityHomePage() {
                     );
 
                     if (response.data.success) {
-                      alert('✅ 새로운 중대성 평가가 시작되었습니다.');
+                      alert('✅ 중간 중대성 평가 완료');
                       console.log('중대성 평가 시작 응답:', response.data);
                     } else {
                       alert('❌ 중대성 평가 시작에 실패했습니다: ' + response.data.message);
@@ -1027,7 +1027,7 @@ export default function MaterialityHomePage() {
                 {isAssessmentStarting ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span>중대성 평가 시작 중...</span>
+                    <span>중대성 평가 진행 중...</span>
                   </>
                 ) : (
                   <>
