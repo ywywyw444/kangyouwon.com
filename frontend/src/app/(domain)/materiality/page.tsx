@@ -1251,7 +1251,7 @@ export default function MaterialityHomePage() {
                 </div>
                 <div className="flex items-center space-x-3">
                   <span className="px-3 py-1 bg-purple-100 text-purple-800 text-sm font-medium rounded-full">
-                    총 {0}개 기업
+                    총 {excelData.length}개 기업
                   </span>
                   <button
                     onClick={() => {
@@ -1309,7 +1309,7 @@ export default function MaterialityHomePage() {
               {/* 대상 기업 목록 테이블 */}
               <div className="bg-white rounded-lg border border-purple-200 overflow-hidden">
                 <div className="px-6 py-4 bg-purple-50 border-b border-purple-200">
-                  <h4 className="font-medium text-purple-800">🏢 대상 기업 목록</h4>
+                  <h4 className="font-medium text-purple-800">🏢 설문 대상자 목록</h4>
                 </div>
                 
                 {excelFilename ? (
@@ -1327,10 +1327,10 @@ export default function MaterialityHomePage() {
                             담당자
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            연락처
+                            이해관계자 구분
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            상태
+                            이메일
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             작업
@@ -1338,37 +1338,19 @@ export default function MaterialityHomePage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {/* 샘플 데이터 - 실제로는 Excel에서 파싱된 데이터를 사용 */}
-                        <tr className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">1</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">샘플기업 A</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">김담당</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">kim@sample.com</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                              대기중
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <button className="text-purple-600 hover:text-purple-900 mr-2">수정</button>
-                            <button className="text-red-600 hover:text-red-900">삭제</button>
-                          </td>
-                        </tr>
-                        <tr className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">샘플기업 B</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">이담당</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">lee@sample.com</td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
-                              대기중
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <button className="text-purple-600 hover:text-purple-900 mr-2">수정</button>
-                            <button className="text-red-600 hover:text-red-900">삭제</button>
-                          </td>
-                        </tr>
+                        {excelData.map((row, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.company}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.name}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.stakeholderType}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.email}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <button className="text-purple-600 hover:text-purple-900 mr-2">수정</button>
+                              <button className="text-red-600 hover:text-red-900">삭제</button>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
