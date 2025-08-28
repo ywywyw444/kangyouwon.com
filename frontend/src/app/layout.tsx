@@ -1,17 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { GeistSans, GeistMono } from "geist/font";
 import "./globals.css";
 import PWAInstall from "@/component/PWAInstall";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const geistSans = GeistSans;
+const geistMono = GeistMono;
 
 export const metadata: Metadata = {
   title: "KangYouWon",
@@ -27,7 +20,6 @@ export const metadata: Metadata = {
   },
 };
 
-// Next.js 13+ 규칙에 맞게 viewport를 별도 export로 분리
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -41,7 +33,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
+    <html lang="ko" className={`${geistSans.className} ${geistMono.className}`}>
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -49,9 +41,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="KangYouWon" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body>
         {children}
         <PWAInstall />
       </body>

@@ -1,54 +1,76 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, ChangeEvent, useEffect } from 'react';
 import NavigationTabs from '@/component/NavigationTabs';
 import { MediaCard, MediaItem } from '@/component/MediaCard';
 import IndexBar from '@/component/IndexBar';
+import { useMediaStore } from '@/store/mediaStore';
+import { SearchResult, IssuepoolData } from "../../lib/types";
 import axios from 'axios';
 
 export default function MaterialityHomePage() {
-  const [selectedCompany, setSelectedCompany] = useState('');
-  const [companies, setCompanies] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [reportPeriod, setReportPeriod] = useState({
-    startDate: '',
-    endDate: ''
-  });
-  const [searchResult, setSearchResult] = useState<any>(null); // 검색 결과 저장
-  const [excelFilename, setExcelFilename] = useState<string | null>(null); // 엑셀 파일명
-  const [excelBase64, setExcelBase64] = useState<string | null>(null); // 엑셀 Base64 데이터
-  const [companySearchTerm, setCompanySearchTerm] = useState(''); // 기업 검색어
-  const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false); // 기업 드롭다운 열림 상태
-  const [isSearchResultCollapsed, setIsSearchResultCollapsed] = useState(false); // 미디어 검색 결과 접기/펼치기 상태
-  const [isFullResultCollapsed, setIsFullResultCollapsed] = useState(true); // 전체 검색 결과 접기/펼치기 상태 (기본값: 접힘)
-  const [isMediaSearching, setIsMediaSearching] = useState(false); // 미디어 검색 중 상태
+  // Zustand store 사용
+  const {
+    loading: isMediaSearching,
+    error,
+    companyId,
+    searchPeriod,
+    articles,
+    totalResults,
+    setCompanyId,
+    setSearchPeriod,
+    setLoading,
+    searchMedia,
+    reset: resetMediaSearch
+  } = useMediaStore();
 
-  // 지난 중대성 평가 목록 상태
-  const [issuepoolData, setIssuepoolData] = useState<any>(null);
+  // 기업 관련 상태
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [isCompanyLoading, setIsCompanyLoading] = useState(false);
+  const [companySearchTerm, setCompanySearchTerm] = useState('');
+  const [isCompanyDropdownOpen, setIsCompanyDropdownOpen] = useState(false);
+
+  // 검색 결과 관련 상태
+  const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
+  const [isSearchResultCollapsed, setIsSearchResultCollapsed] = useState(false);
+  const [isFullResultCollapsed, setIsFullResultCollapsed] = useState(true);
+
+  // 엑셀 파일 관련 상태
+  const [excelFilename, setExcelFilename] = useState<string | null>(null);
+  const [excelBase64, setExcelBase64] = useState<string | null>(null);
+
+  // 중대성 평가 관련 상태
+  const [issuepoolData, setIssuepoolData] = useState<IssuepoolData | null>(null);
   const [isIssuepoolLoading, setIsIssuepoolLoading] = useState(false);
 
-  // 로그인한 사용자의 기업 정보 가져오기 및 기업 목록 API 호출
-  React.useEffect(() => {
+  // 이전 검색 결과 자동 로드 제거 - 버튼 클릭시에만 로드하도록 변경
+
+  // 로그인한 사용자의 기업 정보 가져오기
+  useEffect(() => {
     const getUserCompany = () => {
       try {
         const userData = localStorage.getItem('user');
         if (userData) {
           const user = JSON.parse(userData);
-                     if (user.company_id) {
-             // 사용자의 기업명을 기본값으로 설정
-             setSelectedCompany(user.company_id);
-             setCompanySearchTerm(user.company_id);
-             console.log('✅ 로그인된 사용자의 기업명 설정:', user.company_id);
-           }
+          if (user.company_id && !companyId) {
+            setCompanyId(user.company_id);
+            setCompanySearchTerm(user.company_id);
+            console.log('✅ 로그인된 사용자의 기업명 설정:', user.company_id);
+          }
         }
       } catch (error) {
         console.error('사용자 정보를 가져오는데 실패했습니다:', error);
       }
     };
 
+    getUserCompany();
+  }, [companyId]);
+
+  // 기업 목록 가져오기
+  useEffect(() => {
     const fetchCompanies = async () => {
       try {
-        setLoading(true);
+        setIsCompanyLoading(true);
         console.log('🔍 기업 목록을 Gateway를 통해 가져오는 중...');
         
         // Gateway를 통해 materiality-service 호출 (GET 방식)
@@ -88,16 +110,15 @@ export default function MaterialityHomePage() {
           console.error('응답 데이터:', error.response.data);
         }
       } finally {
-        setLoading(false);
+        setIsCompanyLoading(false);
       }
     };
 
-    getUserCompany();
     fetchCompanies();
   }, []);
 
   // 드롭다운 외부 클릭 시 닫기
-  React.useEffect(() => {
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
       if (!target.closest('.company-dropdown-container')) {
@@ -128,9 +149,9 @@ export default function MaterialityHomePage() {
     console.log('🔍 searchResult.data 구조:', searchResult.data);
 
     // 데이터 구조 안전하게 확인
-    const companyId = searchResult.data.company_id || searchResult.data.company_name;
-    const startDate = searchResult.data.report_period?.start_date || searchResult.data.search_period?.start_date;
-    const endDate = searchResult.data.report_period?.end_date || searchResult.data.search_period?.end_date;
+    const companyId = searchResult.data.company_id;
+    const startDate = searchResult.data.search_period.start_date;
+    const endDate = searchResult.data.search_period.end_date;
 
     console.log('🔍 추출된 데이터:', { companyId, startDate, endDate });
 
@@ -158,7 +179,7 @@ export default function MaterialityHomePage() {
 
       // Gateway를 통해 materiality-service 호출
       const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
-      const response = await axios.post(
+              const response = await axios.post(
         `${gatewayUrl}/api/v1/materiality-service/issuepool/list`,
         requestData,
         {
@@ -186,31 +207,31 @@ export default function MaterialityHomePage() {
   const handleMediaSearch = async () => {
     try {
       // 입력값 검증
-      if (!selectedCompany) {
-        alert('기업을 선택해주세요.\n\n현재 로그인된 기업이 자동으로 선택되어야 합니다.');
+      if (!companyId) {
+        alert('기업을 선택해주세요.');
         return;
       }
       
-      if (!reportPeriod.startDate || !reportPeriod.endDate) {
+      if (!searchPeriod.start_date || !searchPeriod.end_date) {
         alert('보고기간을 설정해주세요.');
         return;
       }
 
       // 시작일이 종료일보다 늦은 경우 검증
-      if (new Date(reportPeriod.startDate) > new Date(reportPeriod.endDate)) {
+      if (new Date(searchPeriod.start_date) > new Date(searchPeriod.end_date)) {
         alert('시작일은 종료일보다 빨라야 합니다.');
         return;
       }
 
       // 로딩 상태 시작
-      setIsMediaSearching(true);
+      setLoading(true);
 
       // JSON 데이터 구성
       const searchData = {
-        company_id: selectedCompany,
+        company_id: companyId,
         report_period: {
-          start_date: reportPeriod.startDate,
-          end_date: reportPeriod.endDate
+          start_date: searchPeriod.start_date,
+          end_date: searchPeriod.end_date
         },
         search_type: 'materiality_assessment',
         timestamp: new Date().toISOString()
@@ -233,20 +254,16 @@ export default function MaterialityHomePage() {
       console.log('✅ Gateway 응답:', response.data);
 
       if (response.data.success) {
-                // 검색 결과 저장
+        // 검색 결과 저장
         setSearchResult(response.data);
         
         // 엑셀 파일 정보 추출
         if (response.data.excel_filename && response.data.excel_base64) {
-            setExcelFilename(response.data.excel_filename);
-            setExcelBase64(response.data.excel_base64);
+          setExcelFilename(response.data.excel_filename);
+          setExcelBase64(response.data.excel_base64);
         }
         
-        alert(`✅ 미디어 검색 요청이 성공적으로 전송되었습니다!\n\n기업: ${selectedCompany}\n기간: ${reportPeriod.startDate} ~ ${reportPeriod.endDate}\n\n총 ${response.data.data?.total_results || 0}개의 뉴스 기사를 찾았습니다.`);
-        
-        // 성공 후 추가 처리 로직 (예: 검색 결과 표시, 로딩 상태 관리 등)
-        // 여기에 실제 검색 결과를 받아와서 mediaItems를 업데이트하는 로직 추가 가능
-        
+        alert(`✅ 미디어 검색이 완료되었습니다!\n\n기업: ${companyId}\n기간: ${searchPeriod.start_date} ~ ${searchPeriod.end_date}\n\n총 ${response.data.data?.total_results || 0}개의 뉴스 기사를 찾았습니다.`);
       } else {
         alert(`❌ 미디어 검색 요청 실패: ${response.data.message || '알 수 없는 오류'}`);
       }
@@ -254,7 +271,7 @@ export default function MaterialityHomePage() {
     } catch (error: unknown) {
       console.error('❌ 미디어 검색 요청 실패:', error);
       
-      // 에러 응답 처리 - 타입 가드 사용
+      // 에러 응답 처리
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response?: { data?: { message?: string; detail?: string } } };
         if (axiosError.response?.data) {
@@ -268,7 +285,7 @@ export default function MaterialityHomePage() {
       }
     } finally {
       // 로딩 상태 종료
-      setIsMediaSearching(false);
+      setLoading(false);
     }
   };
 
@@ -279,7 +296,7 @@ export default function MaterialityHomePage() {
 
   // 기업 선택 처리
   const handleCompanySelect = (company: string) => {
-    setSelectedCompany(company);
+    setCompanyId(company);
     setCompanySearchTerm(company);
     setIsCompanyDropdownOpen(false);
   };
@@ -291,8 +308,8 @@ export default function MaterialityHomePage() {
   };
 
   // 기업 검색어 변경 처리
-  const handleCompanySearchChange = (value: string) => {
-    setCompanySearchTerm(value);
+  const handleCompanySearchChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setCompanySearchTerm(e.target.value);
     setIsCompanyDropdownOpen(true);
   };
 
@@ -364,12 +381,66 @@ export default function MaterialityHomePage() {
           </div>
 
           {/* 선택 옵션 */}
-          <div id="media-search" className="bg-white rounded-xl shadow-lg p-6 mb-12">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-              🔍 미디어 검색
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div id="media-search" className="bg-white rounded-xl shadow-lg p-6 mb-12">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold text-gray-800">
+                  🔍 미디어 검색
+                </h2>
+                <button
+                  onClick={() => {
+                    const savedSearch = localStorage.getItem('savedMediaSearch');
+                    if (savedSearch) {
+                      try {
+                        const savedData = JSON.parse(savedSearch);
+                        setCompanyId(savedData.company_id);
+                        setCompanySearchTerm(savedData.company_id);
+                        setSearchPeriod({
+                          start_date: savedData.search_period.start_date,
+                          end_date: savedData.search_period.end_date
+                        });
+                        console.log('Loading from localStorage:', {
+                          ...savedData,
+                          excel_base64: savedData.excel_base64 ? 'exists' : 'missing'
+                        });
+                        
+                        const searchResultData = {
+                          success: true,
+                          data: {
+                            company_id: savedData.company_id,
+                            search_period: savedData.search_period,
+                            articles: savedData.articles,
+                            total_results: savedData.total_results
+                          }
+                        };
+                        setSearchResult(searchResultData);
+
+                        // 검색 결과에서 받은 엑셀 파일 정보를 그대로 사용
+                        if (savedData.data?.excel_filename && savedData.data?.excel_base64) {
+                          setExcelFilename(savedData.data.excel_filename);
+                          setExcelBase64(savedData.data.excel_base64);
+                          console.log('Excel data loaded from search result');
+                        } else {
+                          console.log('No excel data in search result');
+                        }
+                        alert('✅ 이전 검색 정보를 성공적으로 불러왔습니다.');
+                      } catch (error) {
+                        console.error('저장된 검색 결과를 불러오는데 실패했습니다:', error);
+                        alert('❌ 이전 검색 정보를 불러오는데 실패했습니다.');
+                      }
+                    } else {
+                      alert('저장된 이전 검색 정보가 없습니다.');
+                    }
+                  }}
+                  className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 transition-colors duration-200"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  이전 검색 정보 불러오기
+                </button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="relative company-dropdown-container">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   기업 선택
@@ -378,13 +449,13 @@ export default function MaterialityHomePage() {
                    <input
                      type="text"
                      value={companySearchTerm}
-                     onChange={(e) => handleCompanySearchChange(e.target.value)}
+                                           onChange={handleCompanySearchChange}
                      onFocus={() => setIsCompanyDropdownOpen(true)}
-                     placeholder={loading ? "🔄 기업 목록을 불러오는 중..." : "기업명을 입력하거나 선택하세요"}
+                     placeholder={isCompanyLoading ? "🔄 기업 목록을 불러오는 중..." : "기업명을 입력하거나 선택하세요"}
                      className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                       selectedCompany ? 'text-gray-900 font-medium' : 'text-gray-500'
+                       companyId ? 'text-gray-900 font-medium' : 'text-gray-500'
                      }`}
-                     disabled={loading || isMediaSearching}
+                     disabled={isCompanyLoading || isMediaSearching}
                    />
                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
                      {companySearchTerm && (
@@ -400,10 +471,10 @@ export default function MaterialityHomePage() {
                      <button
                        type="button"
                        onClick={() => setIsCompanyDropdownOpen(!isCompanyDropdownOpen)}
-                       disabled={isMediaSearching}
-                       className={`text-gray-400 hover:text-gray-600 ${
-                         isMediaSearching ? 'cursor-not-allowed opacity-50' : ''
-                       }`}
+                                             disabled={isMediaSearching}
+                      className={`text-gray-400 hover:text-gray-600 ${
+                        isMediaSearching ? 'cursor-not-allowed opacity-50' : ''
+                      }`}
                      >
                        {isCompanyDropdownOpen ? '▲' : '▼'}
                      </button>
@@ -411,7 +482,7 @@ export default function MaterialityHomePage() {
                  </div>
                 
                 {/* 드롭다운 목록 */}
-                {isCompanyDropdownOpen && !loading && companies.length > 0 && (
+                {isCompanyDropdownOpen && !isCompanyLoading && companies.length > 0 && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {filteredCompanies.length === 0 ? (
                       <div className="px-4 py-2 text-gray-500 text-sm">
@@ -424,7 +495,7 @@ export default function MaterialityHomePage() {
                           type="button"
                           onClick={() => handleCompanySelect(company)}
                           className={`w-full text-left px-4 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none ${
-                            company === selectedCompany ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'
+                            company === companyId ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'
                           }`}
                         >
                           {company}
@@ -443,11 +514,11 @@ export default function MaterialityHomePage() {
                     <label className="block text-xs text-gray-500 mb-1">시작일</label>
                                          <input
                        type="date"
-                       value={reportPeriod.startDate}
-                       onChange={(e) => setReportPeriod(prev => ({ ...prev, startDate: e.target.value }))}
+                                             value={searchPeriod.start_date}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchPeriod({ ...searchPeriod, start_date: e.target.value })}
                        disabled={isMediaSearching}
                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                         reportPeriod.startDate ? 'text-gray-900 font-medium' : 'text-gray-500'
+                         searchPeriod.start_date ? 'text-gray-900 font-medium' : 'text-gray-500'
                        } ${isMediaSearching ? 'cursor-not-allowed opacity-50' : ''}`}
                      />
                   </div>
@@ -455,11 +526,11 @@ export default function MaterialityHomePage() {
                     <label className="block text-xs text-gray-500 mb-1">종료일</label>
                                          <input
                        type="date"
-                       value={reportPeriod.endDate}
-                       onChange={(e) => setReportPeriod(prev => ({ ...prev, endDate: e.target.value }))}
+                                             value={searchPeriod.end_date}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchPeriod({ ...searchPeriod, end_date: e.target.value })}
                        disabled={isMediaSearching}
                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${
-                         reportPeriod.endDate ? 'text-gray-900 font-medium' : 'text-gray-500'
+                         searchPeriod.end_date ? 'text-gray-900 font-medium' : 'text-gray-500'
                        } ${isMediaSearching ? 'cursor-not-allowed opacity-50' : ''}`}
                      />
                   </div>
@@ -500,13 +571,15 @@ export default function MaterialityHomePage() {
                 <h2 className="text-2xl font-semibold text-gray-800">
                   🔍 미디어 검색 결과
                 </h2>
-                <button
-                  onClick={() => setIsSearchResultCollapsed(!isSearchResultCollapsed)}
-                  className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                >
-                  <span>{isSearchResultCollapsed ? '펼치기' : '접기'}</span>
-                  <span className="text-lg">{isSearchResultCollapsed ? '▼' : '▲'}</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setIsSearchResultCollapsed(!isSearchResultCollapsed)}
+                    className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                  >
+                    <span>{isSearchResultCollapsed ? '펼치기' : '접기'}</span>
+                    <span className="text-lg">{isSearchResultCollapsed ? '▼' : '▲'}</span>
+                  </button>
+                </div>
               </div>
               
               {/* 접힌 상태일 때 간단한 요약만 표시 */}
@@ -521,9 +594,12 @@ export default function MaterialityHomePage() {
                     {excelFilename && excelBase64 && (
                       <button
                         onClick={() => downloadExcelFromBase64(excelBase64, excelFilename)}
-                        className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 transition-colors duration-200"
+                        className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 transition-colors duration-200"
                       >
-                        📥 엑셀 다운로드
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        엑셀 다운로드
                       </button>
                     )}
                   </div>
@@ -548,9 +624,12 @@ export default function MaterialityHomePage() {
                         </p>
                         <button
                           onClick={() => downloadExcelFromBase64(excelBase64, excelFilename)}
-                          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
+                          className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 transition-colors duration-200"
                         >
-                          📥 엑셀 다운로드
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          엑셀 다운로드
                         </button>
                       </div>
                     )}
@@ -610,10 +689,48 @@ export default function MaterialityHomePage() {
                   )}
                   
                                        {/* 전체 검색 결과 표시 */}
+                    {/* 검색 결과 저장 버튼 */}
+                    <div className="mt-8 mb-8">
+                      <button
+                        onClick={() => {
+                          // Zustand store에 검색 결과 저장
+                          setCompanyId(searchResult.data?.company_id);
+                          setSearchPeriod({
+                            start_date: searchResult.data?.search_period?.start_date,
+                            end_date: searchResult.data?.search_period?.end_date
+                          });
+                          // localStorage에도 저장
+                          const dataToSave = {
+                            company_id: searchResult.data?.company_id,
+                            search_period: {
+                              start_date: searchResult.data?.search_period?.start_date,
+                              end_date: searchResult.data?.search_period?.end_date
+                            },
+                            articles: searchResult.data?.articles,
+                            total_results: searchResult.data?.total_results,
+                            data: {
+                              excel_filename: excelFilename,
+                              excel_base64: excelBase64
+                            },
+                            timestamp: new Date().toISOString()
+                          };
+                          console.log('Saving to localStorage:', dataToSave);
+                          localStorage.setItem('savedMediaSearch', JSON.stringify(dataToSave));
+                          alert('✅ 검색 결과가 저장되었습니다.');
+                        }}
+                        className="w-full inline-flex items-center justify-center px-4 py-3 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 transition-colors duration-200"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                        </svg>
+                        검색 결과 저장하기
+                      </button>
+                    </div>
+
                     {searchResult.data?.articles && searchResult.data.articles.length > 8 && (
                       <div className="mt-8">
-                                                 <div className="flex items-center justify-between mb-4">
-                           <h3 className="font-semibold text-gray-800">📰 전체 검색 결과 ({searchResult.data.articles.length}개)</h3>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-semibold text-gray-800">📰 전체 검색 결과 ({searchResult.data.articles.length}개)</h3>
                            <button
                              onClick={() => setIsFullResultCollapsed(!isFullResultCollapsed)}
                              className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors duration-200"
@@ -676,6 +793,10 @@ export default function MaterialityHomePage() {
               )}
             </div>
           )}
+
+
+
+
 
           {/* 지난 중대성 평가 목록 */}
           <div id="first-assessment" className="bg-white rounded-xl shadow-lg p-6 mb-12">

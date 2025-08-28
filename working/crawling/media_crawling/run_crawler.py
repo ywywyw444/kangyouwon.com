@@ -10,8 +10,8 @@ if __name__ == "__main__":
 
     crawler.build_training_dataset(
     excel_path="미디어 크롤링 대상 자료.xlsx",
-    start_date="2023-01-01",
-    end_date="2023-12-31",
+    start_date="2024-01-01",
+    end_date="2024-12-31",
     max_results_per_keyword=800,        # 회사+이슈 검색 당
     search_unique_companies=True,       # ✅ 고유 기업명 추가 검색
     unique_company_max_results=300,     # 기업명 단독 검색 당

@@ -218,9 +218,9 @@ class NaverNewsCrawler:
     def build_training_dataset(
         self,
         excel_path: str,
-        output_file: str = "2023,2022년 중대성평가 목록 기반 뉴스데이터(전수검색).xlsx",
-        start_date: str = "2023-01-01",
-        end_date: str = "2023-12-31",
+        output_file: str = "2024년 중대성평가 목록 기반 뉴스데이터(전수검색).xlsx",
+        start_date: str = "2024-01-01",
+        end_date: str = "2024-12-31",
         max_results_per_keyword: int = 1000,
         *,
         search_unique_companies: bool = True,
