@@ -492,11 +492,20 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             logger.info("-"*30)
         
         # 10. 최종 카테고리 순위 요약 로깅
+                # 10. 최종 카테고리 순위 요약 로깅
         logger.info("\n🏆 최종 카테고리 순위 요약:")
         logger.info("순위 | 카테고리 | 최종점수 | 기사수")
         logger.info("-" * 50)
         for rank_info in ranked_categories[:20]:  # 상위 20개 표시
             logger.info(f"{rank_info['rank']:2d}위 | {rank_info['category']:15s} | {rank_info['final_score']:6.3f} | {rank_info['count']:3d}개")
+
+        # ✅ 전체 카테고리 순위 로깅 추가
+        logger.info("\n📋 전체 카테고리 순위:")
+        logger.info("순위 | 카테고리 | 최종점수 | 기사수")
+        logger.info("-" * 50)
+        for rank_info in ranked_categories:  # 전체 출력
+            logger.info(f"{rank_info['rank']:2d}위 | {rank_info['category']:15s} | {rank_info['final_score']:6.3f} | {rank_info['count']:3d}개")
+
         
         # 11. 샘플 기사 로깅 (최대 3개)
         logger.info("\n📰 샘플 기사 분석:")
