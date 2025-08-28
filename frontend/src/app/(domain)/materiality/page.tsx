@@ -960,9 +960,42 @@ export default function MaterialityHomePage() {
               </button>
               
               <button
-                onClick={() => {
-                  // 새로운 중대성 평가 시작 로직
-                  alert('새로운 중대성 평가를 시작합니다.');
+                onClick={async () => {
+                  if (!searchResult?.data) {
+                    alert('먼저 미디어 검색을 완료해주세요.');
+                    return;
+                  }
+
+                  try {
+                    const requestData = {
+                      company_id: searchResult.data.company_id,
+                      report_period: searchResult.data.search_period,
+                      request_type: 'middleissue_assessment',
+                      timestamp: new Date().toISOString()
+                    };
+
+                    // Gateway를 통해 materiality-service 호출
+                    const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
+                    const response = await axios.post(
+                      `${gatewayUrl}/api/v1/materiality-service/middleissue/assessment`,
+                      requestData,
+                      {
+                        headers: {
+                          'Content-Type': 'application/json',
+                        }
+                      }
+                    );
+
+                    if (response.data.success) {
+                      alert('✅ 새로운 중대성 평가가 시작되었습니다.');
+                      console.log('중대성 평가 시작 응답:', response.data);
+                    } else {
+                      alert('❌ 중대성 평가 시작에 실패했습니다: ' + response.data.message);
+                    }
+                  } catch (error) {
+                    console.error('중대성 평가 시작 중 오류:', error);
+                    alert('❌ 중대성 평가 시작 중 오류가 발생했습니다.');
+                  }
                 }}
                 className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
               >
