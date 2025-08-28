@@ -25,7 +25,10 @@ class CorporationEntity(Base):
     __tablename__ = "corporation"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    corporation_name = Column(String(100), nullable=False)
+    corp_code = Column(String(100), nullable=False)
+    companyname = Column(String(100), nullable=False)  # corporation_name에서 companyname으로 변경
+    market = Column(String(100), nullable=False)
+    dart_code = Column(String(100), nullable=False)
 
 class ESGClassificationEntity(Base):
     """ESG 분류 SQLAlchemy 모델"""

@@ -31,7 +31,7 @@ class MiddleIssueRepository:
             async for db in get_db():
                 # 1. 먼저 기업명으로 corporation_id 조회
                 corp_query = select(CorporationEntity).where(
-                    CorporationEntity.corporation_name == corporation_name
+                    CorporationEntity.companyname == corporation_name  # corporation_name에서 companyname으로 변경
                 )
                 corp_result = await db.execute(corp_query)
                 corporation = corp_result.scalar_one_or_none()

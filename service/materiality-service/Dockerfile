@@ -12,7 +12,9 @@ RUN apt-get update && apt-get install -y \
 
 # Python 의존성 파일 복사 및 설치
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir scikit-learn==1.6.1 joblib scipy numpy \
+    && pip install --no-cache-dir -r requirements.txt
 
 # 애플리케이션 코드 복사
 COPY . .
