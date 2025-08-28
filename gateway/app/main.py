@@ -54,6 +54,8 @@ app.add_middleware(
         "https://esg-mate.vercel.app",
         "https://esg-mate-lywmmygs7-ywyw74s-projects.vercel.app",
         "https://zustand-beta.vercel.app",
+        "https://zustand-git-main-ywyw74s-projects.vercel.app",
+        "https://zustand-owlotwu22-ywyw74s-projects.vercel.app",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://frontend:3000",
