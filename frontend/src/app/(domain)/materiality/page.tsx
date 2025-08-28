@@ -967,12 +967,25 @@ export default function MaterialityHomePage() {
                   }
 
                   try {
+                    // 기사 데이터 구조 확인 및 필요한 필드 포함
+                    const formattedArticles = (searchResult.data.articles || []).map(article => ({
+                      company: article.company || searchResult.data.company_id,
+                      issue: article.issue || '',
+                      original_category: article.original_category || '',
+                      query_kind: article.query_kind || '',
+                      keyword: article.keyword || '',
+                      title: article.title || '',
+                      description: article.description || '',
+                      pubDate: article.pubDate || '',
+                      originallink: article.originallink || ''
+                    }));
+
                     const requestData = {
                       company_id: searchResult.data.company_id,
                       report_period: searchResult.data.search_period,
                       request_type: 'middleissue_assessment',
                       timestamp: new Date().toISOString(),
-                      articles: searchResult.data.articles || [],
+                      articles: formattedArticles,
                       total_results: searchResult.data.total_results || 0
                     };
 

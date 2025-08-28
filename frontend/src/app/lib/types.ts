@@ -1,10 +1,13 @@
 export interface Article {
   title: string;
+  description: string;  // 필수 필드로 추가
   originallink: string;
   pubDate: string;
   company: string;
   issue?: string;
   original_category?: string;
+  query_kind?: string;  // 추가
+  keyword?: string;     // 추가
 }
 
 export interface SearchPeriod {
