@@ -18,6 +18,7 @@ from app.domain.middleissue.schema import MiddleIssueRequest, MiddleIssueRespons
 from app.domain.middleissue.repository import MiddleIssueRepository
 import re
 import numpy as np
+from dateutil import parser
 
 # 로거 설정
 logger = logging.getLogger(__name__)
@@ -49,6 +50,29 @@ MODEL_PATH = os.path.join(
 # 정규식 패턴 컴파일
 _NEG_RE = re.compile("|".join(map(re.escape, sorted(NEGATIVE_LEXICON, key=len, reverse=True))))
 _POS_RE = re.compile("|".join(map(re.escape, sorted(POSITIVE_LEXICON, key=len, reverse=True))))
+
+def parse_pubdate(date_str: str) -> datetime:
+    """다양한 형식의 날짜 문자열을 datetime으로 파싱"""
+    try:
+        # 1. ISO 형식 시도
+        try:
+            return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+
+        # 2. RSS 형식 시도 (예: 'Wed, 06 Aug 2023 12:30:00 +0900')
+        try:
+            from email.utils import parsedate_to_datetime
+            return parsedate_to_datetime(date_str)
+        except Exception:
+            pass
+
+        # 3. 기타 일반적인 형식들 시도
+        return parser.parse(date_str)
+
+    except Exception as e:
+        logger.warning(f"⚠️ 날짜 파싱 실패 ({date_str}): {str(e)}")
+        return datetime.now()  # 파싱 실패 시 현재 시간 반환
 
 def extract_keywords(text: str, patt: re.Pattern) -> List[str]:
     """텍스트에서 키워드 추출"""
@@ -165,7 +189,7 @@ async def add_relevance_labels(
     """
     try:
         for article in articles:
-            score = 0.0  # float으로 변경
+            score = 0.0
             reasons = []
 
             # 1. 제목에 기업명 포함 여부 (++)
@@ -175,15 +199,18 @@ async def add_relevance_labels(
 
             # 2. 발행일 기준 최신성 (3개월 이내: ++, 3-6개월: +)
             if article["pubDate"]:
-                pub_date = datetime.fromisoformat(article["pubDate"].replace('Z', '+00:00'))
-                months_diff = (search_date - pub_date).days / 30
-                
-                if months_diff <= 3:
-                    score += 1.0
-                    reasons.append("최근 3개월 이내 (1.0)")
-                elif months_diff <= 6:
-                    score += 0.5
-                    reasons.append("최근 3-6개월 (0.5)")
+                try:
+                    pub_date = parse_pubdate(article["pubDate"])
+                    months_diff = (search_date - pub_date).days / 30
+                    
+                    if months_diff <= 3:
+                        score += 1.0
+                        reasons.append("최근 3개월 이내 (1.0)")
+                    elif months_diff <= 6:
+                        score += 0.5
+                        reasons.append("최근 3-6개월 (0.5)")
+                except Exception as e:
+                    logger.warning(f"⚠️ 발행일 처리 중 오류: {str(e)}")
 
             # 3 & 4. 카테고리 매칭
             if article["original_category"]:
@@ -311,8 +338,6 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             logger.info(f"\n기사 {idx + 1}:")
             logger.info(f"제목: {article['title']}")
             logger.info(f"감성: {article['sentiment']} (신뢰도: {article['sentiment_confidence']:.2f})")
-            logger.info(f"제목 감성: {article['title_sentiment']}")
-            logger.info(f"본문 감성: {article['desc_sentiment']}")
             logger.info(f"관련성 점수: {article['relevance_score']:.1f}/4.0")
             logger.info(f"관련성 이유: {', '.join(article['relevance_reasons'])}")
             logger.info(f"카테고리: {article['original_category']}")
