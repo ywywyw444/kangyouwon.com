@@ -1243,59 +1243,120 @@ export default function MaterialityHomePage() {
               
               {assessmentResult ? (
                 <div className="space-y-4">
-                  {/* 요약 정보 */}
-                  <div className="bg-white rounded-lg p-4 border border-green-200">
-                    <h4 className="font-medium text-gray-800 mb-2">📊 평가 요약</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-600">총 기사:</span>
-                        <span className="ml-2 font-medium">{assessmentResult.total_articles}개</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">부정 기사:</span>
-                        <span className="ml-2 font-medium">{assessmentResult.negative_articles}개</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">부정 비율:</span>
-                        <span className="ml-2 font-medium">{assessmentResult.negative_ratio?.toFixed(1)}%</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">카테고리:</span>
-                        <span className="ml-2 font-medium">{assessmentResult.total_categories}개</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* 상위 카테고리 */}
+                  {/* 상위 카테고리 목록 */}
                   {assessmentResult.matched_categories && assessmentResult.matched_categories.length > 0 && (
-                    <div className="bg-white rounded-lg p-4 border border-green-200">
-                      <h4 className="font-medium text-gray-800 mb-3">🏆 상위 카테고리 (Top 10)</h4>
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {assessmentResult.matched_categories.slice(0, 10).map((cat: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded border">
-                            <div className="flex items-center space-x-3">
-                              <span className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-medium">
-                                {cat.rank}
-                              </span>
-                              <div>
-                                <div className="font-medium text-gray-800">{cat.category}</div>
-                                <div className="text-sm text-gray-600">
-                                  ESG: {cat.esg_classification || '미분류'} | 
-                                  이슈풀: {cat.total_issuepools || 0}개
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-sm font-medium text-green-600">
-                                {cat.final_score?.toFixed(3)}
-                              </div>
-                              <div className="text-xs text-gray-500">최종점수</div>
-                            </div>
-                          </div>
-                        ))}
+                    <div className="space-y-2">
+                      {assessmentResult.matched_categories.slice(0, 10).map((cat: any, index: number) => (
+                        <div key={index} className="flex items-center text-sm">
+                          <span className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">
+                            {cat.rank}
+                          </span>
+                          <span className="text-gray-700 flex-1 truncate">{cat.category}</span>
+                          {/* ESG Classification 라벨 추가 */}
+                          <span className="ml-2 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">
+                            {cat.esg_classification || "미분류"}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="text-center text-xs text-gray-500 mt-3">
+                        총 {Math.min(assessmentResult.matched_categories.length, 10)}개 항목
                       </div>
                     </div>
                   )}
+
+                  {/* ESG 분류 막대그래프 */}
+                  {assessmentResult.matched_categories && assessmentResult.matched_categories.length > 0 && (
+                    <div className="mt-6 pt-4 border-t border-gray-200">
+                      <h4 className="text-md font-semibold text-gray-700 mb-3">ESG 분류 비율</h4>
+                      {(() => {
+                        // ESG 분류별로 카운트 계산
+                        const esgCounts: { [key: string]: number } = {};
+                        assessmentResult.matched_categories.forEach((cat: any) => {
+                          const esgName = cat.esg_classification || '미분류';
+                          esgCounts[esgName] = (esgCounts[esgName] || 0) + 1;
+                        });
+
+                        // 비율 계산
+                        const total = assessmentResult.matched_categories.length;
+                        const esgDistribution = Object.entries(esgCounts).map(([esgName, count]) => ({
+                          name: esgName,
+                          count,
+                          percentage: Math.round((count / total) * 100)
+                        }));
+
+                        // ESG 분류별로 막대그래프 렌더링
+                        return esgDistribution.map((data) => {
+                          // ESG 분류에 따른 색상 결정
+                          let barColor = 'bg-gray-500'; // 기본 색상
+                          if (data.name.includes('환경')) {
+                            barColor = 'bg-green-500';
+                          } else if (data.name.includes('사회')) {
+                            barColor = 'bg-orange-500';
+                          } else if (data.name.includes('지배구조') || data.name.includes('경제')) {
+                            barColor = 'bg-blue-500';
+                          }
+                          
+                          return (
+                            <div key={data.name} className="mb-2">
+                              <div className="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>{data.name} ({data.count}개)</span>
+                                <span>{data.percentage}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div
+                                  className={`${barColor} h-2.5 rounded-full`}
+                                  style={{ width: `${data.percentage}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+
+                  {/* 더보기 버튼 */}
+                  <div className="mt-4 text-center">
+                    <button
+                      onClick={() => {
+                        if (assessmentResult) {
+                          // 상세 정보를 모달이나 새로운 섹션으로 표시
+                          const detailInfo = `
+📊 평가 요약
+• 총 기사: ${assessmentResult.total_articles}개
+• 부정 기사: ${assessmentResult.negative_articles}개
+• 부정 비율: ${assessmentResult.negative_ratio?.toFixed(1)}%
+• 분석된 카테고리: ${assessmentResult.total_categories}개
+
+🏆 상위 카테고리 상세 정보
+${assessmentResult.matched_categories?.slice(0, 15).map((cat: any) => 
+  `${cat.rank}위: ${cat.category}
+   ESG: ${cat.esg_classification || '미분류'}
+   이슈풀: ${cat.total_issuepools || 0}개
+   최종점수: ${cat.final_score?.toFixed(3)}
+   빈도점수: ${cat.frequency_score?.toFixed(3)}
+   관련성점수: ${cat.relevance_score?.toFixed(3)}
+   최신성점수: ${cat.recent_score?.toFixed(3)}
+   순위점수: ${cat.rank_score?.toFixed(3)}
+   참조점수: ${cat.reference_score?.toFixed(3)}
+   부정성점수: ${cat.negative_score?.toFixed(3)}`
+).join('\n\n')}
+
+📈 점수 계산 공식
+최종점수 = 0.4×빈도점수 + 0.6×관련성점수 + 0.2×최신성점수 + 0.4×순위점수 + 0.6×참조점수 + 0.8×부정성점수×(1+0.5×빈도점수+0.5×관련성점수)
+                          `;
+                          alert(detailInfo);
+                        }
+                      }}
+                      className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 transition-colors duration-200"
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      더보기
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center text-gray-500 text-sm">
