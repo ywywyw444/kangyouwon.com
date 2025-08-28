@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, cast, Integer, func, text
 from typing import List, Optional, Dict
 from app.domain.middleissue.schema import MiddleIssueBase, IssueItem, CorporationIssueResponse
-from app.domain.middleissue.entity import MiddleIssueEntity, CorporationEntity
+from app.domain.middleissue.entity import MiddleIssueEntity, CorporationEntity, CategoryEntity
 from app.common.database.issuepool_db import get_db
 import logging
 
@@ -28,6 +28,20 @@ CATEGORY_SYNONYMS: Dict[str, str] = {
     "협력사": "협력사",
     "원재료": "원재료",
     "인권": "인권",
+    # 추가 별칭들
+    "기후변화/탄소배출": "기후변화",
+    "수질오염/물관리": "수질오염",
+    "생물다양성/자연보호": "생물다양성",
+    "에너지효율/절약": "에너지효율",
+    "순환경제/자원재활용": "순환경제",
+    "공급망관리/협력사": "공급망관리",
+    "노동조건/안전보건": "노동조건",
+    "다양성/포용성": "다양성",
+    "데이터보호/개인정보": "데이터보호",
+    "투명성/정보공개": "투명성",
+    "이사회/지배구조": "이사회",
+    "주주권익/소액주주": "주주권익",
+    "리스크관리/내부통제": "리스크관리",
     # 필요에 따라 더 추가
 }
 
@@ -56,11 +70,11 @@ async def resolve_category_id(session, category_value: str) -> Optional[int]:
     # 1) 정확 일치 (category_id가 문자열인 경우)
     try:
         cat_id = await session.scalar(
-            select(MiddleIssueEntity.category_id).where(MiddleIssueEntity.category_id == category_value)
+            select(CategoryEntity.id).where(CategoryEntity.name == category_value)
         )
         if cat_id:
             logger.info(f"✅ 정확 일치 성공: '{category_value}' → {cat_id}")
-            return cat_id
+            return int(cat_id)
     except Exception as e:
         logger.warning(f"⚠️ 정확 일치 시도 중 오류: {e}")
 
@@ -70,12 +84,12 @@ async def resolve_category_id(session, category_value: str) -> Optional[int]:
     
     for tok in tokens:
         try:
-            cat_id = await session.scalar(
-                select(MiddleIssueEntity.category_id).where(MiddleIssueEntity.category_id == tok)
-            )
-            if cat_id:
-                logger.info(f"✅ 토큰 일치 성공: '{tok}' → {cat_id}")
-                return cat_id
+                    cat_id = await session.scalar(
+            select(CategoryEntity.id).where(CategoryEntity.name == tok)
+        )
+        if cat_id:
+            logger.info(f"✅ 토큰 일치 성공: '{tok}' → {cat_id}")
+            return int(cat_id)
         except Exception as e:
             logger.warning(f"⚠️ 토큰 '{tok}' 일치 시도 중 오류: {e}")
 
@@ -84,12 +98,12 @@ async def resolve_category_id(session, category_value: str) -> Optional[int]:
     if alias_key:
         logger.info(f"🔍 별칭 매핑 시도: '{category_value}' → '{alias_key}'")
         try:
-            cat_id = await session.scalar(
-                select(MiddleIssueEntity.category_id).where(MiddleIssueEntity.category_id == alias_key)
-            )
-            if cat_id:
-                logger.info(f"✅ 별칭 매핑 성공: '{category_value}' → '{alias_key}' → {cat_id}")
-                return cat_id
+                    cat_id = await session.scalar(
+            select(CategoryEntity.id).where(CategoryEntity.name == alias_key)
+        )
+        if cat_id:
+            logger.info(f"✅ 별칭 매핑 성공: '{category_value}' → '{alias_key}' → {cat_id}")
+            return int(cat_id)
         except Exception as e:
             logger.warning(f"⚠️ 별칭 매핑 시도 중 오류: {e}")
     else:
@@ -99,23 +113,23 @@ async def resolve_category_id(session, category_value: str) -> Optional[int]:
                 logger.info(f"🔍 토큰별 별칭 매핑 시도: '{tok}' → '{alias_key}'")
                 try:
                     cat_id = await session.scalar(
-                        select(MiddleIssueEntity.category_id).where(MiddleIssueEntity.category_id == alias_key)
+                        select(CategoryEntity.id).where(CategoryEntity.name == alias_key)
                     )
                     if cat_id:
                         logger.info(f"✅ 토큰별 별칭 매핑 성공: '{tok}' → '{alias_key}' → {cat_id}")
-                        return cat_id
+                        return int(cat_id)
                 except Exception as e:
                     logger.warning(f"⚠️ 토큰별 별칭 매핑 시도 중 오류: {e}")
 
     # 4) (선택) 느슨한 ILIKE 매칭 (가장 긴 토큰부터)
     for tok in sorted(tokens, key=len, reverse=True):
         try:
-            cat_id = await session.scalar(
-                select(MiddleIssueEntity.category_id).where(MiddleIssueEntity.category_id.ilike(f"%{tok}%"))
-            )
-            if cat_id:
-                logger.info(f"✅ ILIKE 매칭 성공: '{tok}' → {cat_id}")
-                return cat_id
+                    cat_id = await session.scalar(
+            select(CategoryEntity.id).where(CategoryEntity.name.ilike(f"%{tok}%"))
+        )
+        if cat_id:
+            logger.info(f"✅ ILIKE 매칭 성공: '{tok}' → {cat_id}")
+            return int(cat_id)
         except Exception as e:
             logger.warning(f"⚠️ ILIKE 매칭 시도 중 오류: {e}")
 
@@ -251,12 +265,14 @@ class MiddleIssueRepository:
                         # 카테고리 해석기를 사용하여 이름을 ID로 변환 시도
                         logger.info(f"🔍 카테고리 해석기 사용하여 '{category_id}'를 ID로 변환 시도")
                         resolved_id = await resolve_category_id(db, str(category_id))
-                        if resolved_id:
-                            normalized_category_id = resolved_id
+                        if resolved_id is not None:
+                            normalized_category_id = int(resolved_id)
                             logger.info(f"✅ 카테고리 해석기 성공: '{category_id}' → {normalized_category_id}")
                         else:
                             logger.warning(f"⚠️ 카테고리 해석기 실패: '{category_id}'를 ID로 변환할 수 없음")
-                            # 변환 실패 시 원본 값 사용하되 로그 기록
+                            # 해석 실패 시 매칭 불가로 처리
+                            logger.error(f"❌ 카테고리 '{category_id}' 해석 실패 → 매칭 불가")
+                            return None
                 except (ValueError, TypeError) as e:
                     logger.error(f"❌ 카테고리 ID 변환 실패: {category_id}, 오류: {e}")
                     # 변환 실패 시 원본 값 사용하되 로그 기록
@@ -283,10 +299,15 @@ class MiddleIssueRepository:
                     logger.info(f"🔍 연도 조건: NULL만 조회")
                 
                 # 4. 해당 카테고리의 이슈풀 정보 조회 (ESG 분류 포함)
+                # normalized_category_id가 정수인지 확인
+                if not isinstance(normalized_category_id, int):
+                    logger.error(f"❌ 카테고리 ID가 정수가 아님: {normalized_category_id} (타입: {type(normalized_category_id)})")
+                    return None
+                
                 query = select(MiddleIssueEntity).where(
                     and_(
                         MiddleIssueEntity.corporation_id == corporation.id,
-                        MiddleIssueEntity.category_id == normalized_category_id,
+                        MiddleIssueEntity.category_id == int(normalized_category_id),  # 정수 비교 보장
                         year_condition
                     )
                 )

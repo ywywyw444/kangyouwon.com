@@ -1095,13 +1095,20 @@ export default function MaterialityHomePage() {
                     );
 
                     if (response.data.success) {
+                      // 디버깅을 위한 전체 응답 로깅
+                      console.log('🔍 전체 응답 데이터:', response.data);
+                      console.log('🔍 response.data.data:', response.data.data);
+                      
                       // 매칭된 카테고리 정보 확인
                       const matchedCategories = response.data.data?.matched_categories;
+                      console.log('🔍 matched_categories:', matchedCategories);
+                      
                       if (matchedCategories && matchedCategories.length > 0) {
                         console.log('✅ 중대성 평가 완료 - 매칭된 카테고리:', matchedCategories);
                         
-                        // 결과를 상태에 저장
-                        setAssessmentResult(response.data.data);
+                        // 결과를 상태에 저장 (response.data.data가 아닌 response.data)
+                        setAssessmentResult(response.data);
+                        console.log('🔍 assessmentResult 상태 설정:', response.data);
                         
                         // 상위 5개 카테고리 정보를 alert로 표시
                         const topCategories = matchedCategories.slice(0, 5);
@@ -1115,9 +1122,11 @@ export default function MaterialityHomePage() {
                         
                         alert(alertMessage);
                       } else {
+                        console.log('⚠️ matched_categories가 비어있음');
                         alert('✅ 중간 중대성 평가 완료');
                       }
                     } else {
+                      console.log('❌ 응답 실패:', response.data);
                       alert('❌ 중대성 평가 시작에 실패했습니다: ' + response.data.message);
                     }
                   } catch (error) {
@@ -1324,10 +1333,30 @@ export default function MaterialityHomePage() {
               
               {assessmentResult ? (
                 <div className="space-y-4">
+                  {/* 디버깅 정보 표시 */}
+                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    <p className="text-sm text-blue-800">
+                      <strong>디버깅:</strong> assessmentResult 상태 확인
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      전체 구조: {JSON.stringify(Object.keys(assessmentResult))}
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      data 키 존재: {assessmentResult.data ? '있음' : '없음'}
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      matched_categories 직접: {assessmentResult.matched_categories ? `${assessmentResult.matched_categories.length}개` : '없음'}
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      data.matched_categories: {assessmentResult.data?.matched_categories ? `${assessmentResult.data.matched_categories.length}개` : '없음'}
+                    </p>
+                  </div>
+                  
                   {/* 전체 카테고리 목록 */}
-                  {assessmentResult.matched_categories && assessmentResult.matched_categories.length > 0 && (
+                  {(assessmentResult.matched_categories || assessmentResult.data?.matched_categories) && 
+                   (assessmentResult.matched_categories?.length > 0 || assessmentResult.data?.matched_categories?.length > 0) && (
                     <div className="space-y-2">
-                      {assessmentResult.matched_categories.map((cat: any, index: number) => (
+                      {(assessmentResult.matched_categories || assessmentResult.data?.matched_categories)?.map((cat: any, index: number) => (
                         <div key={index} className="flex items-center text-sm">
                           <span className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                             {cat.rank}
@@ -1340,19 +1369,21 @@ export default function MaterialityHomePage() {
                         </div>
                       ))}
                       <div className="text-center text-xs text-gray-500 mt-3">
-                        총 {assessmentResult.matched_categories.length}개 항목
+                        총 {(assessmentResult.matched_categories || assessmentResult.data?.matched_categories)?.length || 0}개 항목
                       </div>
                     </div>
                   )}
 
                   {/* ESG 분류 막대그래프 */}
-                  {assessmentResult.matched_categories && assessmentResult.matched_categories.length > 0 && (
+                  {(assessmentResult.matched_categories || assessmentResult.data?.matched_categories) && 
+                   (assessmentResult.matched_categories?.length > 0 || assessmentResult.data?.matched_categories?.length > 0) && (
                     <div className="mt-6 pt-4 border-t border-gray-200">
                       <h4 className="text-md font-semibold text-gray-700 mb-3">ESG 분류 비율</h4>
                       {(() => {
                         // ESG 분류별로 카운트 계산
                         const esgCounts: { [key: string]: number } = {};
-                        assessmentResult.matched_categories.forEach((cat: any) => {
+                        const categories = assessmentResult.matched_categories || assessmentResult.data?.matched_categories || [];
+                        categories.forEach((cat: any) => {
                           const esgName = cat.esg_classification || '미분류';
                           esgCounts[esgName] = (esgCounts[esgName] || 0) + 1;
                         });
@@ -1400,11 +1431,16 @@ export default function MaterialityHomePage() {
                   <div className="mt-4 text-center">
                     <button
                       onClick={() => {
-                        if (assessmentResult) {
+                        if (assessmentResult && (assessmentResult.matched_categories || assessmentResult.data?.matched_categories)) {
                           setIsDetailModalOpen(true);
                         }
                       }}
-                      className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 transition-colors duration-200"
+                      disabled={!assessmentResult || (!assessmentResult.matched_categories && !assessmentResult.data?.matched_categories)}
+                      className={`inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md transition-colors duration-200 ${
+                        assessmentResult && (assessmentResult.matched_categories || assessmentResult.data?.matched_categories)
+                          ? 'text-green-700 bg-white hover:bg-green-50'
+                          : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                      }`}
                     >
                       <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -2151,42 +2187,42 @@ export default function MaterialityHomePage() {
               {/* 평가 요약 */}
               <div className="mb-8">
                 <h4 className="text-xl font-semibold text-gray-800 mb-4">📊 평가 요약</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">{assessmentResult.total_articles || 0}</div>
-                    <div className="text-sm text-blue-700">총 기사</div>
-                  </div>
-                  <div className="bg-red-50 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-red-600">{assessmentResult.negative_articles || 0}</div>
-                    <div className="text-sm text-red-700">부정 기사</div>
-                  </div>
-                  <div className="bg-orange-50 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-orange-600">
-                      {assessmentResult.negative_ratio?.toFixed(1) || 0}%
-                    </div>
-                    <div className="text-sm text-orange-700">부정 비율</div>
-                  </div>
-                  <div className="bg-green-50 p-4 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">{assessmentResult.total_categories || 0}</div>
-                    <div className="text-sm text-green-700">분석된 카테고리</div>
-                  </div>
-                </div>
+                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                     <div className="bg-blue-50 p-4 rounded-lg">
+                       <div className="text-2xl font-bold text-blue-600">{assessmentResult.total_articles || assessmentResult.data?.total_articles || 0}</div>
+                       <div className="text-sm text-blue-700">총 기사</div>
+                     </div>
+                     <div className="bg-red-50 p-4 rounded-lg">
+                       <div className="text-2xl font-bold text-red-600">{assessmentResult.negative_articles || assessmentResult.data?.negative_articles || 0}</div>
+                       <div className="text-sm text-red-700">부정 기사</div>
+                     </div>
+                     <div className="bg-orange-50 p-4 rounded-lg">
+                       <div className="text-2xl font-bold text-orange-600">
+                         {(assessmentResult.negative_ratio || assessmentResult.data?.negative_ratio || 0).toFixed(1)}%
+                       </div>
+                       <div className="text-sm text-orange-700">부정 비율</div>
+                     </div>
+                     <div className="bg-green-50 p-4 rounded-lg">
+                       <div className="text-2xl font-bold text-green-600">{assessmentResult.total_categories || assessmentResult.data?.total_categories || 0}</div>
+                       <div className="text-sm text-green-700">분석된 카테고리</div>
+                     </div>
+                   </div>
               </div>
               
-              {/* 전체 카테고리 상세 정보 */}
-              <div className="mb-8">
-                <h4 className="text-xl font-semibold text-gray-800 mb-4">🏆 전체 카테고리 상세 정보</h4>
-                <div className="space-y-4">
-                  {assessmentResult.matched_categories?.map((cat: any, index: number) => (
-                    <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <h5 className="text-lg font-semibold text-gray-800">
-                          {cat.rank}위: {cat.category}
-                        </h5>
-                        <span className="px-3 py-1 text-sm font-medium text-gray-600 bg-gray-100 rounded-full">
-                          {cat.esg_classification || '미분류'}
-                        </span>
-                      </div>
+                                   {/* 전체 카테고리 상세 정보 */}
+                     <div className="mb-8">
+                       <h4 className="text-xl font-semibold text-gray-800 mb-4">🏆 전체 카테고리 상세 정보</h4>
+                       <div className="space-y-4">
+                         {(assessmentResult.matched_categories || assessmentResult.data?.matched_categories)?.map((cat: any, index: number) => (
+                           <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                             <div className="flex items-center justify-between mb-3">
+                               <h5 className="text-lg font-semibold text-gray-800">
+                                 {cat.rank}위: {cat.category}
+                               </h5>
+                               <span className="px-3 py-1 text-sm font-medium text-gray-600 bg-gray-100 rounded-full">
+                                 {cat.esg_classification || '미분류'}
+                               </span>
+                             </div>
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                         <div>

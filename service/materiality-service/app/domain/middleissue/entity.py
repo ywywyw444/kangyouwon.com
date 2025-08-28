@@ -37,3 +37,12 @@ class ESGClassificationEntity(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     classification_name = Column(String(100), nullable=False)
     classification_type = Column(String(50), nullable=False)
+
+class CategoryEntity(Base):
+    """카테고리 기준 SQLAlchemy 모델"""
+    __tablename__ = "materiality_category"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(200), nullable=False, unique=True, index=True)
+    description = Column(Text, nullable=True)
+    parent_category_id = Column(Integer, ForeignKey("materiality_category.id"), nullable=True)
