@@ -89,10 +89,9 @@ export const useExcelDataStore = create<ExcelDataStore>((set, get) => {
       saveToLocalStorage({ ...get(), excelData: currentData });
     },
 
-    reset: () => {
-      const initialState = { excelData: [], isValid: null, fileName: null, base64Data: null };
-      set(initialState);
-      localStorage.removeItem('excelUploadData');
+               reset: () => {
+             const initialState = { excelData: [], isValid: false, fileName: null, base64Data: null };
+             set(initialState);
     },
   };
 });

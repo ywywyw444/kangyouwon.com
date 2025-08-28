@@ -1154,26 +1154,54 @@ export default function MaterialityHomePage() {
 
           {/* 설문 대상 업로드 */}
           <div id="survey-upload" className="bg-white rounded-xl shadow-lg p-6 mb-12">
-            <div>
+              <div>
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-                    📊 설문 대상 업로드
-                  </h2>
+                  📊 설문 대상 업로드
+                </h2>
                   <p className="text-gray-600">
                     업로드된 Excel 파일의 설문 대상 기업 목록을 확인하세요
                   </p>
                 </div>
-                <a
-                  href="/중대성평가 설문 대상자 템플릿.xlsx"
-                  download="중대성평가 설문 대상자 템플릿.xlsx"
-                  className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Excel 템플릿 다운로드
-                </a>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => {
+                      const savedData = localStorage.getItem('excelUploadData');
+                      if (savedData) {
+                        try {
+                          const parsedData = JSON.parse(savedData);
+                          setExcelData(parsedData.excelData || []);
+                          setIsExcelValid(parsedData.isValid || null);
+                          setExcelFilename(parsedData.fileName || null);
+                          setExcelBase64(parsedData.base64Data || null);
+                          alert('✅ 저장된 명단을 불러왔습니다.');
+                        } catch (error) {
+                          console.error('저장된 데이터 불러오기 실패:', error);
+                          alert('❌ 저장된 데이터를 불러오는데 실패했습니다.');
+                        }
+                      } else {
+                        alert('저장된 명단이 없습니다.');
+                      }
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    명단 불러오기
+                  </button>
+                  <a
+                    href="/중대성평가 설문 대상자 템플릿.xlsx"
+                    download="중대성평가 설문 대상자 템플릿.xlsx"
+                    className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Excel 템플릿 다운로드
+                  </a>
+                </div>
               </div>
 
               <div 
@@ -1192,30 +1220,30 @@ export default function MaterialityHomePage() {
                   }
                 }}
               >
-                <div className="text-4xl text-gray-400 mb-4">📁</div>
-                <p className="text-gray-600 mb-4">
-                  Excel 파일을 여기에 드래그하거나 클릭하여 선택하세요
-                </p>
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
+                  <div className="text-4xl text-gray-400 mb-4">📁</div>
+                  <p className="text-gray-600 mb-4">
+                    Excel 파일을 여기에 드래그하거나 클릭하여 선택하세요
+                  </p>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
                       handleExcelUpload(file);
-                    }
-                  }}
-                  className="hidden"
-                  id="excel-upload"
-                />
-                <label
-                  htmlFor="excel-upload"
-                  className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg cursor-pointer transition-colors duration-200"
-                >
+                      }
+                    }}
+                    className="hidden"
+                    id="excel-upload"
+                  />
+                  <label
+                    htmlFor="excel-upload"
+                    className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg cursor-pointer transition-colors duration-200"
+                  >
                   파일 업로드
-                </label>
-              </div>
-              
+                  </label>
+                </div>
+                
               <div className="mt-4 space-y-2">
                 <div className="text-sm text-gray-500">
                   지원 형식: .xlsx, .xls (최대 10MB)
@@ -1226,18 +1254,18 @@ export default function MaterialityHomePage() {
                       <div className="flex items-center">
                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
+                      </svg>
                         템플릿 검증 완료
-                      </div>
+                    </div>
                     ) : (
                       <div className="flex items-center">
                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                    </svg>
                         템플릿 형식이 올바르지 않습니다
-                      </div>
-                    )}
                   </div>
+                    )}
+                </div>
                 )}
               </div>
             </div>
@@ -1464,7 +1492,7 @@ export default function MaterialityHomePage() {
                                 };
                               }}
                             >{row.email}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               <button 
                                 onClick={() => {
                                   // 해당 행의 모든 셀을 input으로 변경
@@ -1510,8 +1538,8 @@ export default function MaterialityHomePage() {
                               >
                                 삭제
                               </button>
-                            </td>
-                          </tr>
+                          </td>
+                        </tr>
                         ))}
                       </tbody>
                     </table>
@@ -1581,33 +1609,6 @@ export default function MaterialityHomePage() {
                   
                   <button
                     onClick={() => {
-                      const savedData = localStorage.getItem('excelUploadData');
-                      if (savedData) {
-                        try {
-                          const parsedData = JSON.parse(savedData);
-                          setExcelData(parsedData.excelData || []);
-                          setIsExcelValid(parsedData.isValid || null);
-                          setExcelFilename(parsedData.fileName || null);
-                          setExcelBase64(parsedData.base64Data || null);
-                          alert('✅ 저장된 명단을 불러왔습니다.');
-                        } catch (error) {
-                          console.error('저장된 데이터 불러오기 실패:', error);
-                          alert('❌ 저장된 데이터를 불러오는데 실패했습니다.');
-                        }
-                      } else {
-                        alert('저장된 명단이 없습니다.');
-                      }
-                    }}
-                    className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 transition-colors duration-200"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    명단 불러오기
-                  </button>
-
-                  <button
-                    onClick={() => {
                       const newRow = {
                         name: '',
                         position: '',
@@ -1624,7 +1625,7 @@ export default function MaterialityHomePage() {
                     </svg>
                     추가
                   </button>
-
+                  
                   <button
                     onClick={() => {
                       if (confirm('현재 화면의 명단을 초기화하시겠습니까?\n(저장된 데이터는 "명단 불러오기"를 통해 다시 불러올 수 있습니다)')) {
