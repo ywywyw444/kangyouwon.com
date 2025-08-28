@@ -1,7 +1,8 @@
 from typing import Optional, List, Any, Dict
 from fastapi import APIRouter, FastAPI, Request, UploadFile, File, Query, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from starlette.middleware.base import BaseHTTPMiddleware
 import os
 import logging
 import sys
@@ -10,7 +11,16 @@ from contextlib import asynccontextmanager
 import httpx
 import json
 
-from app.www.jwt_auth_middleware import AuthMiddleware
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # 프리플라이트는 무조건 통과
+        if request.method == "OPTIONS":
+            return Response(status_code=204)
+        # 공개 엔드포인트는 인증 우회
+        if request.url.path in ("/api/v1/auth-service/login", "/healthz"):
+            return await call_next(request)
+        # ... 나머지 인증 로직 ...
+        return await call_next(request)
 from app.domain.discovery.service_factory import SimpleServiceFactory
 
 # Gateway는 DB에 직접 접근하지 않음 (MSA 원칙)
@@ -44,8 +54,6 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-app.add_middleware(AuthMiddleware)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -64,6 +72,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
+
+# CORS 다음에 인증 미들웨어 추가
+app.add_middleware(AuthMiddleware)
 
 # 모든 요청 로깅 미들웨어 추가
 @app.middleware("http")
