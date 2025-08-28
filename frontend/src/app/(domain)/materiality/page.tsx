@@ -131,8 +131,11 @@ export default function MaterialityHomePage() {
           setExcelFilename(file.name);
 
           if (isValid) {
-            // 엑셀 데이터를 JSON으로 변환
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { range: 2 }); // 3행부터 데이터 시작
+            // 엑셀 데이터를 JSON으로 변환 (헤더 행을 제외하고 데이터 시작)
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+              range: 2,  // 3행부터 데이터 시작
+              header: ['이름', '직책', '소속 기업', '이해관계자 구분', '이메일']  // 열 이름 직접 지정
+            });
             
             // 데이터 형식 변환 및 저장
             const formattedData = jsonData.map((row: any) => ({
@@ -143,6 +146,7 @@ export default function MaterialityHomePage() {
               email: row['이메일'] || ''
             }));
 
+            console.log('Formatted Excel Data:', formattedData);  // 데이터 확인용 로그
             setExcelData(formattedData);
             alert('✅ 템플릿 검증이 완료되었습니다.\n' + formattedData.length + '개의 데이터가 성공적으로 업로드되었습니다.');
           } else {
