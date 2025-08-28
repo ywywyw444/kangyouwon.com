@@ -12,13 +12,32 @@ import logging
 import json
 import os
 import joblib
-from datetime import datetime, timedelta
+from datetime import import datetime, timedelta
 from typing import Dict, Any, List, Set, Tuple
 from app.domain.middleissue.schema import MiddleIssueRequest, MiddleIssueResponse, Article
 from app.domain.middleissue.repository import MiddleIssueRepository
+import re
+import numpy as np
 
 # 로거 설정
 logger = logging.getLogger(__name__)
+
+NEGATIVE_LEXICON = {
+    "감소","하락","부진","악화","오염","위반","담합","부패","뇌물","횡령","배임","사기",
+    "과징금","벌금","사고","사망","파업","분쟁","갈등","논란","소송","리콜","결함","불량",
+    "누출","유출","화재","적자","파산","구조조정","정리해고","중단","차질","실패","불법",
+    "철수","퇴출","부정","불공정","갑질","직장괴롭힘","폭언","횡포","환불","회수","손실",
+    "경고","제재","해지","취소","낙제","부과","징계","중징계","부정청탁","경영권분쟁","위기","청산"
+}
+
+POSITIVE_LEXICON = {
+    "성장","확대","증가","개선","호조","흑자","최고","선정","수상","포상","산업포장",
+    "강화","상생","협력","도입","출시","선도","인증","확보","우수","도약","확장","회복",
+    "고도화","최적화","안정화","신설","채용","증설","증산","확충","공급","수주","모범",
+    "달성","신기술","개시","증빙","성과","매출증가","고성장","선도기업","수출확대",
+    "해외진출","파트너십","리더","평판","재생에너지","감축","이행","혁신","개발","역대",
+    "순항","껑충","기증","기부","전달","지원","캠페인","후원"
+}
 
 # 모델 경로 설정
 MODEL_PATH = os.path.join(
@@ -27,16 +46,20 @@ MODEL_PATH = os.path.join(
     'model_multinomialnb.joblib'
 )
 
+# 정규식 패턴 컴파일
+_NEG_RE = re.compile("|".join(map(re.escape, sorted(NEGATIVE_LEXICON, key=len, reverse=True))))
+_POS_RE = re.compile("|".join(map(re.escape, sorted(POSITIVE_LEXICON, key=len, reverse=True))))
+
+def extract_keywords(text: str, patt: re.Pattern) -> List[str]:
+    """텍스트에서 키워드 추출"""
+    if not isinstance(text, str):
+        return []
+    return sorted(set(patt.findall(text)))
+
 def load_sentiment_model():
     """감성 분석 모델 로드"""
     try:
         logger.info(f"🤖 감성 분석 모델 로드 시도: {MODEL_PATH}")
-        
-        # 모델 파일이 없는 경우 기본값 반환
-        if not os.path.exists(MODEL_PATH):
-            logger.warning(f"⚠️ 모델 파일이 없습니다. 모든 텍스트를 'other'로 분류합니다.")
-            return None
-            
         model = joblib.load(MODEL_PATH)
         logger.info("✅ 감성 분석 모델 로드 성공")
         return model
@@ -44,59 +67,69 @@ def load_sentiment_model():
         logger.error(f"❌ 감성 분석 모델 로드 실패: {str(e)}")
         return None
 
-def analyze_text_sentiment(model, text: str) -> Tuple[str, float]:
-    """텍스트 감성 분석 수행"""
-    try:
-        # 모델이 없는 경우 기본값 반환
-        if model is None:
-            return "other", 1.0
-            
-        prediction = model.predict([text])[0]
-        # predict_proba로 확률값도 가져옴
-        probabilities = model.predict_proba([text])[0]
-        confidence = max(probabilities)  # 가장 높은 확률값
-        sentiment = "negative" if prediction == 1 else "other"
-        return sentiment, confidence
-    except Exception as e:
-        logger.error(f"❌ 텍스트 감성 분석 중 오류: {str(e)}")
-        return "other", 0.0
-
 def analyze_sentiment(model, articles: List[Article]) -> List[Dict[str, Any]]:
     """기사 감성 분석 수행"""
     try:
-        if not model:
-            logger.error("❌ 감성 분석 모델이 로드되지 않았습니다.")
-            return []
-
         analyzed_articles = []
+        
         for article in articles:
             try:
-                # 제목과 본문을 각각 분석
-                title_text = f"{article.title} {article.original_category or ''}"
-                title_sentiment, title_confidence = analyze_text_sentiment(model, title_text)
+                # 1. 텍스트 준비
+                title_text = article.title
+                desc_text = article.description
+                full_text = f"{title_text} {desc_text}"
                 
-                desc_sentiment, desc_confidence = analyze_text_sentiment(model, article.description)
+                # 2. 키워드 기반 분석
+                neg_keywords = extract_keywords(full_text, _NEG_RE)
+                pos_keywords = extract_keywords(full_text, _POS_RE)
+                has_both = len(neg_keywords) > 0 and len(pos_keywords) > 0
                 
-                # 제목과 본문의 감성이 다른 경우, 더 높은 confidence를 가진 쪽을 선택
-                if title_sentiment != desc_sentiment:
-                    if title_confidence > desc_confidence:
-                        final_sentiment = title_sentiment
-                        confidence = title_confidence
-                    else:
-                        final_sentiment = desc_sentiment
-                        confidence = desc_confidence
+                # 3. 모델 기반 분석
+                if model is not None:
+                    try:
+                        # 예측 및 확률 계산
+                        y_pred = model.predict([full_text])[0]
+                        probas = model.predict_proba([full_text])[0]
+                        
+                        # negative 클래스의 인덱스 찾기
+                        classes = getattr(model.named_steps["clf"], "classes_", None)
+                        if classes is None:
+                            classes = getattr(model, "classes_", None)
+                        
+                        if classes is not None and "negative" in classes:
+                            neg_idx = int(np.where(classes == "negative")[0][0])
+                            neg_proba = probas[neg_idx]
+                        else:
+                            neg_proba = 0.0
+                            
+                        # 부정+긍정 동시 출현 시 other로 변경
+                        if y_pred == "negative" and has_both:
+                            final_sentiment = "other"
+                            final_basis = "부정+긍정 동시 출현 → other"
+                        else:
+                            final_sentiment = y_pred
+                            final_basis = "모델 예측 유지"
+                            
+                    except Exception as e:
+                        logger.error(f"❌ 모델 예측 중 오류: {str(e)}")
+                        # 모델 실패 시 키워드 기반으로만 판단
+                        final_sentiment = "negative" if len(neg_keywords) > len(pos_keywords) else "other"
+                        final_basis = "키워드 기반 판단 (모델 실패)"
+                        neg_proba = 1.0 if final_sentiment == "negative" else 0.0
                 else:
-                    # 같은 감성이면 평균 confidence 사용
-                    final_sentiment = title_sentiment
-                    confidence = (title_confidence + desc_confidence) / 2
+                    # 모델이 없는 경우 키워드 기반으로만 판단
+                    final_sentiment = "negative" if len(neg_keywords) > len(pos_keywords) else "other"
+                    final_basis = "키워드 기반 판단 (모델 없음)"
+                    neg_proba = 1.0 if final_sentiment == "negative" else 0.0
                 
                 analyzed_articles.append({
-                    "title": article.title,
-                    "description": article.description,
+                    "title": title_text,
+                    "description": desc_text,
                     "sentiment": final_sentiment,
-                    "sentiment_confidence": confidence,
-                    "title_sentiment": title_sentiment,
-                    "desc_sentiment": desc_sentiment,
+                    "sentiment_confidence": neg_proba if final_sentiment == "negative" else (1 - neg_proba),
+                    "neg_keywords": ", ".join(neg_keywords),
+                    "pos_keywords": ", ".join(pos_keywords),
+                    "sentiment_basis": final_basis,
                     "original_category": article.original_category,
                     "issue": article.issue,
                     "pubDate": article.pubDate,
