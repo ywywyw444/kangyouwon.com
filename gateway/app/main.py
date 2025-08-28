@@ -53,6 +53,7 @@ app.add_middleware(
         "https://kangyouwon.com",
         "https://esg-mate.vercel.app",
         "https://esg-mate-lywmmygs7-ywyw74s-projects.vercel.app",
+        "https://zustand-beta.vercel.app",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://frontend:3000",
@@ -61,6 +62,9 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
 )
+
+if request.method == "OPTIONS":
+    return Response(status_code=204)
 
 # 모든 요청 로깅 미들웨어 추가
 @app.middleware("http")
