@@ -84,12 +84,12 @@ async def resolve_category_id(session, category_value: str) -> Optional[int]:
     
     for tok in tokens:
         try:
-                    cat_id = await session.scalar(
-            select(CategoryEntity.id).where(CategoryEntity.name == tok)
-        )
-        if cat_id:
-            logger.info(f"✅ 토큰 일치 성공: '{tok}' → {cat_id}")
-            return int(cat_id)
+            cat_id = await session.scalar(
+                select(CategoryEntity.id).where(CategoryEntity.name == tok)
+            )
+            if cat_id:
+                logger.info(f"✅ 토큰 일치 성공: '{tok}' → {cat_id}")
+                return int(cat_id)
         except Exception as e:
             logger.warning(f"⚠️ 토큰 '{tok}' 일치 시도 중 오류: {e}")
 
@@ -98,12 +98,12 @@ async def resolve_category_id(session, category_value: str) -> Optional[int]:
     if alias_key:
         logger.info(f"🔍 별칭 매핑 시도: '{category_value}' → '{alias_key}'")
         try:
-                    cat_id = await session.scalar(
-            select(CategoryEntity.id).where(CategoryEntity.name == alias_key)
-        )
-        if cat_id:
-            logger.info(f"✅ 별칭 매핑 성공: '{category_value}' → '{alias_key}' → {cat_id}")
-            return int(cat_id)
+            cat_id = await session.scalar(
+                select(CategoryEntity.id).where(CategoryEntity.name == alias_key)
+            )
+            if cat_id:
+                logger.info(f"✅ 별칭 매핑 성공: '{category_value}' → '{alias_key}' → {cat_id}")
+                return int(cat_id)
         except Exception as e:
             logger.warning(f"⚠️ 별칭 매핑 시도 중 오류: {e}")
     else:
