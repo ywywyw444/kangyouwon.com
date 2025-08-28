@@ -1331,8 +1331,35 @@ export default function MaterialityHomePage() {
                   <button
                     onClick={() => {
                       try {
-                        loadFromStorage();
-                        alert('✅ 저장된 명단을 불러왔습니다.');
+                        // 먼저 localStorage에서 직접 데이터 확인
+                        const savedData = localStorage.getItem('excelUploadData');
+                        console.log('localStorage 데이터:', savedData);
+                        
+                        if (savedData) {
+                          const parsedData = JSON.parse(savedData);
+                          console.log('파싱된 데이터:', parsedData);
+                          
+                          // Zustand store에 직접 설정
+                          setExcelData(parsedData.excelData || []);
+                          setIsExcelValid(parsedData.isValid || false);
+                          setExcelFilename(parsedData.fileName || null);
+                          setExcelBase64(parsedData.base64Data || null);
+                          
+                          console.log('명단 불러오기 후 상태:', {
+                            excelData: parsedData.excelData?.length || 0,
+                            excelFilename: parsedData.fileName,
+                            isExcelValid: parsedData.isValid,
+                            base64Data: parsedData.base64Data ? 'exists' : 'null'
+                          });
+                          
+                          if (parsedData.excelData && parsedData.excelData.length > 0) {
+                            alert('✅ 저장된 명단을 불러왔습니다.');
+                          } else {
+                            alert('⚠️ 저장된 명단이 없습니다.');
+                          }
+                        } else {
+                          alert('⚠️ 저장된 명단이 없습니다.');
+                        }
                       } catch (error) {
                         console.error('저장된 데이터 불러오기 실패:', error);
                         alert('❌ 저장된 데이터를 불러오는데 실패했습니다.');
