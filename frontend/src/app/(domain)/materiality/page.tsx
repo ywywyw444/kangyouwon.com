@@ -1348,33 +1348,111 @@ export default function MaterialityHomePage() {
                         {excelData.map((row, index) => (
                           <tr key={index} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.company}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.name}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.stakeholderType}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.email}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <button 
-                                onClick={() => {
-                                  const newName = prompt('이름을 입력하세요:', row.name);
-                                  const newPosition = prompt('직책을 입력하세요:', row.position);
-                                  const newCompany = prompt('기업명을 입력하세요:', row.company);
-                                  const newStakeholderType = prompt('이해관계자 구분을 입력하세요:', row.stakeholderType);
-                                  const newEmail = prompt('이메일을 입력하세요:', row.email);
-
-                                  if (newName && newPosition && newCompany && newStakeholderType && newEmail) {
-                                    updateRow(index, {
-                                      name: newName,
-                                      position: newPosition,
-                                      company: newCompany,
-                                      stakeholderType: newStakeholderType,
-                                      email: newEmail
-                                    });
+                            <td 
+                              className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:bg-gray-100"
+                              onClick={(e) => {
+                                const input = document.createElement('input');
+                                input.value = row.company;
+                                input.className = 'w-full px-2 py-1 border rounded';
+                                const cell = e.currentTarget;
+                                cell.innerHTML = '';
+                                cell.appendChild(input);
+                                input.focus();
+                                
+                                input.onblur = () => {
+                                  updateRow(index, {
+                                    ...row,
+                                    company: input.value
+                                  });
+                                  cell.innerHTML = input.value;
+                                };
+                                
+                                input.onkeydown = (e) => {
+                                  if (e.key === 'Enter') {
+                                    input.blur();
                                   }
-                                }}
-                                className="text-purple-600 hover:text-purple-900 mr-2"
-                              >
-                                수정
-                              </button>
+                                };
+                              }}
+                            >{row.company}</td>
+                            <td 
+                              className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer hover:bg-gray-100"
+                              onClick={(e) => {
+                                const input = document.createElement('input');
+                                input.value = row.name;
+                                input.className = 'w-full px-2 py-1 border rounded';
+                                const cell = e.currentTarget;
+                                cell.innerHTML = '';
+                                cell.appendChild(input);
+                                input.focus();
+                                
+                                input.onblur = () => {
+                                  updateRow(index, {
+                                    ...row,
+                                    name: input.value
+                                  });
+                                  cell.innerHTML = input.value;
+                                };
+                                
+                                input.onkeydown = (e) => {
+                                  if (e.key === 'Enter') {
+                                    input.blur();
+                                  }
+                                };
+                              }}
+                            >{row.name}</td>
+                            <td 
+                              className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer hover:bg-gray-100"
+                              onClick={(e) => {
+                                const input = document.createElement('input');
+                                input.value = row.stakeholderType;
+                                input.className = 'w-full px-2 py-1 border rounded';
+                                const cell = e.currentTarget;
+                                cell.innerHTML = '';
+                                cell.appendChild(input);
+                                input.focus();
+                                
+                                input.onblur = () => {
+                                  updateRow(index, {
+                                    ...row,
+                                    stakeholderType: input.value
+                                  });
+                                  cell.innerHTML = input.value;
+                                };
+                                
+                                input.onkeydown = (e) => {
+                                  if (e.key === 'Enter') {
+                                    input.blur();
+                                  }
+                                };
+                              }}
+                            >{row.stakeholderType}</td>
+                            <td 
+                              className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer hover:bg-gray-100"
+                              onClick={(e) => {
+                                const input = document.createElement('input');
+                                input.value = row.email;
+                                input.className = 'w-full px-2 py-1 border rounded';
+                                const cell = e.currentTarget;
+                                cell.innerHTML = '';
+                                cell.appendChild(input);
+                                input.focus();
+                                
+                                input.onblur = () => {
+                                  updateRow(index, {
+                                    ...row,
+                                    email: input.value
+                                  });
+                                  cell.innerHTML = input.value;
+                                };
+                                
+                                input.onkeydown = (e) => {
+                                  if (e.key === 'Enter') {
+                                    input.blur();
+                                  }
+                                };
+                              }}
+                            >{row.email}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               <button 
                                 onClick={() => {
                                   if (confirm('정말 삭제하시겠습니까?')) {
@@ -1414,7 +1492,35 @@ export default function MaterialityHomePage() {
                 <div className="mt-6 flex flex-wrap gap-3">
                   <button
                     onClick={() => {
-                      alert('명단 내보내기 기능을 구현합니다.');
+                      // 새로운 워크북 생성
+                      const wb = XLSX.utils.book_new();
+                      
+                      // 헤더 행 생성 (1행은 빈 행, 2행은 템플릿 헤더)
+                      const headers = [
+                        [], // 1행은 빈 행
+                        ['이름', '직책', '소속 기업', '이해관계자 구분', '이메일'] // 2행은 헤더
+                      ];
+                      
+                      // 데이터 행 생성 (3행부터 시작)
+                      const data = excelData.map(row => [
+                        row.name,
+                        row.position,
+                        row.company,
+                        row.stakeholderType,
+                        row.email
+                      ]);
+                      
+                      // 헤더와 데이터 결합
+                      const wsData = [...headers, ...data];
+                      
+                      // 워크시트 생성
+                      const ws = XLSX.utils.aoa_to_sheet(wsData);
+                      
+                      // 워크북에 워크시트 추가
+                      XLSX.utils.book_append_sheet(wb, ws, "설문대상자명단");
+                      
+                      // 파일 다운로드
+                      XLSX.writeFile(wb, "중대성평가 설문 대상자 명단.xlsx");
                     }}
                     className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
                   >
@@ -1424,34 +1530,20 @@ export default function MaterialityHomePage() {
                     명단 내보내기
                   </button>
                   
-                  <button
-                    onClick={() => {
-                      alert('명단 편집 기능을 구현합니다.');
-                    }}
-                    className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    명단 편집
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      alert('명단 검증 기능을 구현합니다.');
-                    }}
-                    className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    명단 검증
-                  </button>
+
                   
                   <button
                     onClick={() => {
                       if (confirm('정말 초기화하시겠습니까? 모든 데이터가 삭제됩니다.')) {
+                        // Zustand store 초기화
                         reset();
+                        
+                        // 파일 input 필드 초기화
+                        const fileInput = document.getElementById('excel-upload') as HTMLInputElement;
+                        if (fileInput) {
+                          fileInput.value = '';
+                        }
+                        
                         alert('✅ 명단이 초기화되었습니다.');
                       }
                     }}
