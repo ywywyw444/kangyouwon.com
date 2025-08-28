@@ -87,7 +87,10 @@ export default function MaterialityHomePage() {
     setExcelData,
     setIsValid: setIsExcelValid,
     setFileName: setExcelFilename,
-    setBase64Data: setExcelBase64
+    setBase64Data: setExcelBase64,
+    updateRow,
+    deleteRow,
+    reset
   } = useExcelDataStore();
 
   // 엑셀 파일 업로드 및 검증 처리
@@ -1328,7 +1331,7 @@ export default function MaterialityHomePage() {
                             기업명
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            담당자
+                            이름
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             이해관계자 구분
@@ -1350,8 +1353,38 @@ export default function MaterialityHomePage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.stakeholderType}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.email}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <button className="text-purple-600 hover:text-purple-900 mr-2">수정</button>
-                              <button className="text-red-600 hover:text-red-900">삭제</button>
+                              <button 
+                                onClick={() => {
+                                  const newName = prompt('이름을 입력하세요:', row.name);
+                                  const newPosition = prompt('직책을 입력하세요:', row.position);
+                                  const newCompany = prompt('기업명을 입력하세요:', row.company);
+                                  const newStakeholderType = prompt('이해관계자 구분을 입력하세요:', row.stakeholderType);
+                                  const newEmail = prompt('이메일을 입력하세요:', row.email);
+
+                                  if (newName && newPosition && newCompany && newStakeholderType && newEmail) {
+                                    updateRow(index, {
+                                      name: newName,
+                                      position: newPosition,
+                                      company: newCompany,
+                                      stakeholderType: newStakeholderType,
+                                      email: newEmail
+                                    });
+                                  }
+                                }}
+                                className="text-purple-600 hover:text-purple-900 mr-2"
+                              >
+                                수정
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  if (confirm('정말 삭제하시겠습니까?')) {
+                                    deleteRow(index);
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                삭제
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -1417,7 +1450,10 @@ export default function MaterialityHomePage() {
                   
                   <button
                     onClick={() => {
-                      alert('명단 초기화 기능을 구현합니다.');
+                      if (confirm('정말 초기화하시겠습니까? 모든 데이터가 삭제됩니다.')) {
+                        reset();
+                        alert('✅ 명단이 초기화되었습니다.');
+                      }
                     }}
                     className="inline-flex items-center px-4 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 transition-colors duration-200"
                   >
