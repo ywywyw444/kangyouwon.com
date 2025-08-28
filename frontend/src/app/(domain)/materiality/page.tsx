@@ -158,7 +158,45 @@ export default function MaterialityHomePage() {
             }));
 
             console.log('Formatted Excel Data:', formattedData);  // 데이터 확인용 로그
+            console.log('📊 데이터 길이:', formattedData.length);
+            console.log('📁 파일명:', file.name);
+            console.log('🔑 base64 길이:', base64String.length);
+            
+            // Zustand store에 데이터 설정
             setExcelData(formattedData);
+            setIsExcelValid(true);
+            setExcelFilename(file.name);
+            setExcelBase64(base64String);
+            
+            console.log('✅ Zustand store 설정 완료');
+            
+            // 명시적으로 localStorage에 저장
+            const dataToSave = {
+              excelData: formattedData,
+              isValid: true,
+              fileName: file.name,
+              base64Data: base64String
+            };
+            
+            try {
+              localStorage.setItem('excelUploadData', JSON.stringify(dataToSave));
+              console.log('💾 localStorage 저장 완료:', dataToSave);
+              
+              // 저장 확인
+              const savedData = localStorage.getItem('excelUploadData');
+              console.log('🔍 localStorage 저장 확인:', savedData);
+              
+              if (savedData) {
+                const parsedData = JSON.parse(savedData);
+                console.log('✅ localStorage 데이터 파싱 성공:', parsedData);
+                console.log('📊 저장된 데이터 길이:', parsedData.excelData?.length);
+              } else {
+                console.error('❌ localStorage 저장 실패: 데이터가 없음');
+              }
+            } catch (error) {
+              console.error('❌ localStorage 저장 중 오류:', error);
+            }
+            
             alert('✅ 템플릿 검증이 완료되었습니다.\n' + formattedData.length + '개의 데이터가 성공적으로 업로드되었습니다.');
           } else {
             alert('❌ 템플릿 형식이 올바르지 않습니다.\n2행의 열 제목이 템플릿과 일치하지 않습니다.\n\n예상된 열 제목:\n' + expectedHeaders.join(', '));
@@ -184,7 +222,19 @@ export default function MaterialityHomePage() {
   const [isAssessmentStarting, setIsAssessmentStarting] = useState(false);
   const [assessmentResult, setAssessmentResult] = useState<any>(null);
 
-  // 이전 검색 결과 자동 로드 제거 - 버튼 클릭시에만 로드하도록 변경
+  // 엑셀 데이터 상태 변경 시 자동으로 localStorage에 저장
+  useEffect(() => {
+    if (excelData.length > 0 || isExcelValid !== null || excelFilename !== null || excelBase64 !== null) {
+      const dataToSave = {
+        excelData,
+        isValid: isExcelValid,
+        fileName: excelFilename,
+        base64Data: excelBase64
+      };
+      localStorage.setItem('excelUploadData', JSON.stringify(dataToSave));
+      console.log('💾 엑셀 데이터 자동 저장:', dataToSave);
+    }
+  }, [excelData, isExcelValid, excelFilename, excelBase64]);
 
   // 로그인한 사용자의 기업 정보 가져오기
   useEffect(() => {
@@ -206,6 +256,31 @@ export default function MaterialityHomePage() {
 
     getUserCompany();
   }, [companyId]);
+
+  // 페이지 로드 시 localStorage에서 엑셀 데이터 자동 불러오기
+  useEffect(() => {
+    const loadExcelDataFromStorage = () => {
+      try {
+        const savedData = localStorage.getItem('excelUploadData');
+        if (savedData) {
+          const parsedData = JSON.parse(savedData);
+          console.log('📂 localStorage에서 엑셀 데이터 불러오기:', parsedData);
+          
+          if (parsedData.excelData && parsedData.excelData.length > 0) {
+            setExcelData(parsedData.excelData);
+            setIsExcelValid(parsedData.isValid);
+            setExcelFilename(parsedData.fileName);
+            setExcelBase64(parsedData.base64Data);
+            console.log('✅ 엑셀 데이터 자동 로드 완료');
+          }
+        }
+      } catch (error) {
+        console.error('localStorage에서 엑셀 데이터 불러오기 실패:', error);
+      }
+    };
+
+    loadExcelDataFromStorage();
+  }, []);
 
   // 기업 목록 가져오기
   useEffect(() => {
@@ -1839,7 +1914,18 @@ ${assessmentResult.matched_categories?.slice(0, 15).map((cat: any) =>
                         stakeholderType: '',
                         email: ''
                       };
-                      setExcelData([...excelData, newRow]);
+                      const updatedData = [...excelData, newRow];
+                      setExcelData(updatedData);
+                      
+                      // localStorage도 명시적으로 업데이트
+                      const dataToSave = {
+                        excelData: updatedData,
+                        isValid: isExcelValid,
+                        fileName: excelFilename,
+                        base64Data: excelBase64
+                      };
+                      localStorage.setItem('excelUploadData', JSON.stringify(dataToSave));
+                      console.log('➕ 새 행 추가 후 localStorage 업데이트:', dataToSave);
                     }}
                     className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 transition-colors duration-200"
                   >
@@ -1857,6 +1943,16 @@ ${assessmentResult.matched_categories?.slice(0, 15).map((cat: any) =>
                         setIsExcelValid(false);
                         setExcelFilename(null);
                         setExcelBase64(null);
+                        
+                        // localStorage도 명시적으로 업데이트
+                        const dataToSave = {
+                          excelData: [],
+                          isValid: false,
+                          fileName: null,
+                          base64Data: null
+                        };
+                        localStorage.setItem('excelUploadData', JSON.stringify(dataToSave));
+                        console.log('🗑️ 명단 초기화 후 localStorage 업데이트:', dataToSave);
                         
                         // 파일 input 필드 초기화
                         const fileInput = document.getElementById('excel-upload') as HTMLInputElement;
