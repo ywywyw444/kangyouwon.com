@@ -1350,6 +1350,9 @@ export default function MaterialityHomePage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
                             <td 
                               className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 cursor-pointer hover:bg-gray-100"
+                              data-row={index}
+                              data-field="company"
+                              data-value={row.company}
                               onClick={(e) => {
                                 const input = document.createElement('input');
                                 input.value = row.company;
@@ -1376,6 +1379,9 @@ export default function MaterialityHomePage() {
                             >{row.company}</td>
                             <td 
                               className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer hover:bg-gray-100"
+                              data-row={index}
+                              data-field="name"
+                              data-value={row.name}
                               onClick={(e) => {
                                 const input = document.createElement('input');
                                 input.value = row.name;
@@ -1402,6 +1408,9 @@ export default function MaterialityHomePage() {
                             >{row.name}</td>
                             <td 
                               className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer hover:bg-gray-100"
+                              data-row={index}
+                              data-field="stakeholderType"
+                              data-value={row.stakeholderType}
                               onClick={(e) => {
                                 const input = document.createElement('input');
                                 input.value = row.stakeholderType;
@@ -1428,6 +1437,9 @@ export default function MaterialityHomePage() {
                             >{row.stakeholderType}</td>
                             <td 
                               className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 cursor-pointer hover:bg-gray-100"
+                              data-row={index}
+                              data-field="email"
+                              data-value={row.email}
                               onClick={(e) => {
                                 const input = document.createElement('input');
                                 input.value = row.email;
@@ -1453,6 +1465,41 @@ export default function MaterialityHomePage() {
                               }}
                             >{row.email}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <button 
+                                onClick={() => {
+                                  // 해당 행의 모든 셀을 input으로 변경
+                                  const cells = document.querySelectorAll(`[data-row="${index}"]`);
+                                  cells.forEach((cell) => {
+                                    const input = document.createElement('input');
+                                    const cellData = cell.getAttribute('data-value');
+                                    input.value = cellData || '';
+                                    input.className = 'w-full px-2 py-1 border rounded';
+                                    cell.innerHTML = '';
+                                    cell.appendChild(input);
+                                    input.focus();
+
+                                    input.onblur = () => {
+                                      const field = cell.getAttribute('data-field');
+                                      if (field) {
+                                        updateRow(index, {
+                                          ...row,
+                                          [field]: input.value
+                                        });
+                                      }
+                                      cell.innerHTML = input.value;
+                                    };
+
+                                    input.onkeydown = (e) => {
+                                      if (e.key === 'Enter') {
+                                        input.blur();
+                                      }
+                                    };
+                                  });
+                                }}
+                                className="text-purple-600 hover:text-purple-900 mr-2"
+                              >
+                                수정
+                              </button>
                               <button 
                                 onClick={() => {
                                   if (confirm('정말 삭제하시겠습니까?')) {
