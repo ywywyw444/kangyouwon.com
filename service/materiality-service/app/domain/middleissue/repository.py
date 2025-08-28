@@ -124,12 +124,12 @@ async def resolve_category_id(session, category_value: str) -> Optional[int]:
     # 4) (선택) 느슨한 ILIKE 매칭 (가장 긴 토큰부터)
     for tok in sorted(tokens, key=len, reverse=True):
         try:
-                    cat_id = await session.scalar(
-            select(CategoryEntity.id).where(CategoryEntity.name.ilike(f"%{tok}%"))
-        )
-        if cat_id:
-            logger.info(f"✅ ILIKE 매칭 성공: '{tok}' → {cat_id}")
-            return int(cat_id)
+            cat_id = await session.scalar(
+                select(CategoryEntity.id).where(CategoryEntity.name.ilike(f"%{tok}%"))
+            )
+            if cat_id:
+                logger.info(f"✅ ILIKE 매칭 성공: '{tok}' → {cat_id}")
+                return int(cat_id)
         except Exception as e:
             logger.warning(f"⚠️ ILIKE 매칭 시도 중 오류: {e}")
 
