@@ -8,6 +8,48 @@ import { useMediaStore } from '@/store/mediaStore';
 import { SearchResult, IssuepoolData } from "../../lib/types";
 import axios from 'axios';
 import * as XLSX from 'xlsx';
+import { useExcelDataStore } from '@/store/excelDataStore';
+
+interface ExcelCell {
+  v?: string | number | boolean | Date;
+  w?: string;
+  t?: string;
+}
+
+interface ExcelWorksheet {
+  [cell: string]: ExcelCell;
+}
+
+interface Article {
+  title: string;
+  originallink?: string;
+  pubDate?: string;
+  company?: string;
+  issue?: string;
+  original_category?: string;
+}
+
+interface SearchPeriod {
+  start_date: string;
+  end_date: string;
+}
+
+interface SearchData {
+  company_id: string;
+  search_period: SearchPeriod;
+  articles?: Article[];
+  total_results?: number;
+  excel_filename?: string;
+  excel_base64?: string;
+  search_context?: Record<string, unknown>;
+}
+
+interface ExcelUploadResult {
+  isValid: boolean;
+  filename: string;
+  base64Data?: string;
+  error?: string;
+}
 
 export default function MaterialityHomePage() {
   // Zustand store 사용
@@ -36,10 +78,17 @@ export default function MaterialityHomePage() {
   const [isSearchResultCollapsed, setIsSearchResultCollapsed] = useState(false);
   const [isFullResultCollapsed, setIsFullResultCollapsed] = useState(true);
 
-  // 엑셀 파일 관련 상태
-  const [excelFilename, setExcelFilename] = useState<string | null>(null);
-  const [excelBase64, setExcelBase64] = useState<string | null>(null);
-  const [isExcelValid, setIsExcelValid] = useState<boolean | null>(null);
+  // 엑셀 파일 관련 상태 (Zustand store 사용)
+  const { 
+    excelData,
+    isValid: isExcelValid,
+    fileName: excelFilename,
+    base64Data: excelBase64,
+    setExcelData,
+    setIsValid: setIsExcelValid,
+    setFileName: setExcelFilename,
+    setBase64Data: setExcelBase64
+  } = useExcelDataStore();
 
   // 엑셀 파일 업로드 및 검증 처리
   const handleExcelUpload = async (file: File) => {
@@ -67,24 +116,35 @@ export default function MaterialityHomePage() {
           
           // 2행의 A부터 E열까지의 값 가져오기
           const expectedHeaders = ['이름', '직책', '소속 기업', '이해관계자 구분', '이메일'];
-          const actualHeaders = [];
+          const actualHeaders: string[] = [];
           
           for (let i = 0; i < 5; i++) {
             const cellAddress = XLSX.utils.encode_cell({ r: 1, c: i }); // 2행(인덱스 1)의 각 열
             const cell = firstSheet[cellAddress];
-            actualHeaders.push(cell?.v || '');
+            const cellValue = cell?.v;
+            actualHeaders.push(typeof cellValue === 'string' ? cellValue : '');
           }
 
           // 헤더 비교
           const isValid = expectedHeaders.every((header, index) => header === actualHeaders[index]);
           setIsExcelValid(isValid);
+          setExcelFilename(file.name);
 
           if (isValid) {
-            setExcelFilename(file.name);
-            // 파일을 Base64로 변환
-            const base64 = e.target?.result as string;
-            setExcelBase64(base64.split(',')[1]);
-            alert('✅ 템플릿 검증이 완료되었습니다.');
+            // 엑셀 데이터를 JSON으로 변환
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { range: 2 }); // 3행부터 데이터 시작
+            
+            // 데이터 형식 변환 및 저장
+            const formattedData = jsonData.map((row: any) => ({
+              name: row['이름'] || '',
+              position: row['직책'] || '',
+              company: row['소속 기업'] || '',
+              stakeholderType: row['이해관계자 구분'] || '',
+              email: row['이메일'] || ''
+            }));
+
+            setExcelData(formattedData);
+            alert('✅ 템플릿 검증이 완료되었습니다.\n' + formattedData.length + '개의 데이터가 성공적으로 업로드되었습니다.');
           } else {
             alert('❌ 템플릿 형식이 올바르지 않습니다.\n2행의 열 제목이 템플릿과 일치하지 않습니다.\n\n예상된 열 제목:\n' + expectedHeaders.join(', '));
           }
@@ -1029,7 +1089,7 @@ export default function MaterialityHomePage() {
                         }
                         
                         // ESG 분류별로 막대그래프 렌더링
-                        return Object.entries(esgDistribution).map(([esgName, data]: [string, any]) => {
+                        return Object.entries(esgDistribution).map(([esgName, data]: [string, { count: number; percentage: number }]) => {
                           // ESG 분류에 따른 색상 결정
                           let barColor = 'bg-gray-500'; // 기본 색상
                           if (esgName.includes('환경')) {
