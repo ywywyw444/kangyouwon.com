@@ -91,8 +91,11 @@ export default function MaterialityHomePage() {
     updateRow,
     deleteRow,
     reset,
-    loadFromStorage
+    loadFromStorage,
+    saveToLocalStorage
   } = useExcelDataStore();
+
+
 
   // 엑셀 파일 업로드 및 검증 처리
   const handleExcelUpload = async (file: File) => {
@@ -133,6 +136,10 @@ export default function MaterialityHomePage() {
           const isValid = expectedHeaders.every((header, index) => header === actualHeaders[index]);
           setIsExcelValid(isValid);
           setExcelFilename(file.name);
+
+          // 파일을 base64로 변환하여 저장
+          const base64String = btoa(String.fromCharCode(...new Uint8Array(e.target?.result as ArrayBuffer)));
+          setExcelBase64(base64String);
 
           if (isValid) {
             // 엑셀 데이터를 JSON으로 변환 (헤더 행을 제외하고 데이터 시작)
@@ -175,6 +182,7 @@ export default function MaterialityHomePage() {
   const [issuepoolData, setIssuepoolData] = useState<IssuepoolData | null>(null);
   const [isIssuepoolLoading, setIsIssuepoolLoading] = useState(false);
   const [isAssessmentStarting, setIsAssessmentStarting] = useState(false);
+  const [assessmentResult, setAssessmentResult] = useState<any>(null);
 
   // 이전 검색 결과 자동 로드 제거 - 버튼 클릭시에만 로드하도록 변경
 
@@ -1006,8 +1014,28 @@ export default function MaterialityHomePage() {
                     );
 
                     if (response.data.success) {
-                      alert('✅ 중간 중대성 평가 완료');
-                      console.log('중대성 평가 시작 응답:', response.data);
+                      // 매칭된 카테고리 정보 확인
+                      const matchedCategories = response.data.data?.matched_categories;
+                      if (matchedCategories && matchedCategories.length > 0) {
+                        console.log('✅ 중대성 평가 완료 - 매칭된 카테고리:', matchedCategories);
+                        
+                        // 결과를 상태에 저장
+                        setAssessmentResult(response.data.data);
+                        
+                        // 상위 5개 카테고리 정보를 alert로 표시
+                        const topCategories = matchedCategories.slice(0, 5);
+                        let alertMessage = '✅ 중간 중대성 평가 완료\n\n🏆 상위 5개 카테고리:\n';
+                        
+                        topCategories.forEach((cat: any, index: number) => {
+                          const esgName = cat.esg_classification || '미분류';
+                          const issueCount = cat.total_issuepools || 0;
+                          alertMessage += `${index + 1}. ${cat.category}\n   ESG: ${esgName}\n   이슈풀: ${issueCount}개\n\n`;
+                        });
+                        
+                        alert(alertMessage);
+                      } else {
+                        alert('✅ 중간 중대성 평가 완료');
+                      }
                     } else {
                       alert('❌ 중대성 평가 시작에 실패했습니다: ' + response.data.message);
                     }
@@ -1213,9 +1241,67 @@ export default function MaterialityHomePage() {
                 <h3 className="text-lg font-semibold text-gray-800">중대성 평가 중간 결과</h3>
               </div>
               
-              <div className="text-center text-gray-500 text-sm">
-                여기에 내용을 추가하세요
-              </div>
+              {assessmentResult ? (
+                <div className="space-y-4">
+                  {/* 요약 정보 */}
+                  <div className="bg-white rounded-lg p-4 border border-green-200">
+                    <h4 className="font-medium text-gray-800 mb-2">📊 평가 요약</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">총 기사:</span>
+                        <span className="ml-2 font-medium">{assessmentResult.total_articles}개</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">부정 기사:</span>
+                        <span className="ml-2 font-medium">{assessmentResult.negative_articles}개</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">부정 비율:</span>
+                        <span className="ml-2 font-medium">{assessmentResult.negative_ratio?.toFixed(1)}%</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">카테고리:</span>
+                        <span className="ml-2 font-medium">{assessmentResult.total_categories}개</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* 상위 카테고리 */}
+                  {assessmentResult.matched_categories && assessmentResult.matched_categories.length > 0 && (
+                    <div className="bg-white rounded-lg p-4 border border-green-200">
+                      <h4 className="font-medium text-gray-800 mb-3">🏆 상위 카테고리 (Top 10)</h4>
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {assessmentResult.matched_categories.slice(0, 10).map((cat: any, index: number) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded border">
+                            <div className="flex items-center space-x-3">
+                              <span className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-medium">
+                                {cat.rank}
+                              </span>
+                              <div>
+                                <div className="font-medium text-gray-800">{cat.category}</div>
+                                <div className="text-sm text-gray-600">
+                                  ESG: {cat.esg_classification || '미분류'} | 
+                                  이슈풀: {cat.total_issuepools || 0}개
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-sm font-medium text-green-600">
+                                {cat.final_score?.toFixed(3)}
+                              </div>
+                              <div className="text-xs text-gray-500">최종점수</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 text-sm">
+                  새로운 중대성 평가를 시작하면 여기에 결과가 표시됩니다.
+                </div>
+              )}
             </div>
           </div>
 

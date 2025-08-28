@@ -5,7 +5,8 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 from app.domain.middleissue.schema import (
     MiddleIssueRequest,
-    MiddleIssueResponse
+    MiddleIssueResponse,
+    MiddleIssueAssessmentResponse
 )
 from app.domain.middleissue.controller import middleissue_controller
 import logging
@@ -27,6 +28,14 @@ async def start_middleissue_assessment(request: MiddleIssueRequest):
         result = await middleissue_controller.start_assessment(request)
         
         logger.info(f"✅ 중대성 평가 시작 응답 전송 - {result.get('success', False)}")
+        
+        # 응답 데이터 로깅 (매칭된 카테고리 정보 포함)
+        if result.get('success') and result.get('data', {}).get('matched_categories'):
+            matched_cats = result['data']['matched_categories']
+            logger.info(f"📊 매칭된 카테고리 {len(matched_cats)}개 전송:")
+            for cat in matched_cats[:5]:  # 상위 5개만 로깅
+                logger.info(f"   - {cat['rank']}위: {cat['category']} (ESG: {cat.get('esg_classification', '미분류')}, 이슈풀: {cat.get('total_issuepools', 0)}개)")
+        
         return result
         
     except Exception as e:

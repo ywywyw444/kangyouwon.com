@@ -59,3 +59,43 @@ class CorporationIssueResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
+class BaseIssuePool(BaseModel):
+    """Base 이슈풀 상세 정보 스키마"""
+    id: int
+    base_issue_pool: str
+    issue_pool: str
+    ranking: Optional[int] = None
+    esg_classification_id: Optional[int] = None
+    esg_classification_name: Optional[str] = None
+
+class MatchedCategory(BaseModel):
+    """ESG 분류 및 이슈풀이 매칭된 카테고리 스키마"""
+    rank: int
+    category: str
+    frequency_score: float
+    relevance_score: float
+    recent_score: float
+    rank_score: float
+    reference_score: float
+    negative_score: float
+    final_score: float
+    count: int
+    esg_classification: str
+    esg_classification_id: Optional[int] = None
+    base_issuepools: List[BaseIssuePool]
+    total_issuepools: int
+
+class MiddleIssueAssessmentResponse(BaseModel):
+    """중대성 평가 응답 스키마"""
+    company_id: str
+    report_period: dict
+    assessment_status: str
+    total_articles: int
+    negative_articles: int
+    negative_ratio: float
+    total_categories: int
+    matched_categories: List[MatchedCategory]
+    ranked_categories: List[dict]
+    category_scores: dict
+    analyzed_samples: List[dict]

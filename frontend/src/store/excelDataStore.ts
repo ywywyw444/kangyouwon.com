@@ -21,6 +21,7 @@ interface ExcelDataStore {
   deleteRow: (index: number) => void;
   reset: () => void;
   loadFromStorage: () => void;
+  saveToLocalStorage: () => void;
 }
 
 const saveToLocalStorage = (state: Partial<ExcelDataStore>) => {
@@ -104,6 +105,11 @@ export const useExcelDataStore = create<ExcelDataStore>((set, get) => {
         fileName: savedState.fileName || null,
         base64Data: savedState.base64Data || null,
       });
+    },
+
+    saveToLocalStorage: () => {
+      const currentState = get();
+      saveToLocalStorage(currentState);
     },
   };
 });

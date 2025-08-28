@@ -327,6 +327,83 @@ def rank_categories_by_score(category_scores: Dict[str, Dict[str, Any]]) -> List
         logger.error(f"❌ 카테고리 순위 매기기 중 오류 발생: {str(e)}")
         return []
 
+async def match_categories_with_esg_and_issuepool(
+    ranked_categories: List[Dict[str, Any]], 
+    company_id: str, 
+    search_year: int
+) -> List[Dict[str, Any]]:
+    """
+    카테고리별로 ESG 분류와 base_issuepool을 매칭
+    
+    매칭 규칙:
+    1. 카테고리 ID가 일치하는 ESG 분류 찾기
+    2. 해당 카테고리의 base_issuepool 목록 가져오기
+    3. 카테고리 하나당 ESG 분류는 하나, base_issuepool은 여러 개
+    """
+    try:
+        repository = MiddleIssueRepository()
+        matched_categories = []
+        
+        for category_info in ranked_categories:
+            category_id = category_info['category']
+            
+            # 해당 카테고리의 ESG 분류와 이슈풀 조회
+            category_details = await repository.get_category_details(
+                corporation_name=company_id,
+                category_id=category_id,
+                year=search_year
+            )
+            
+            if category_details:
+                # ESG 분류 (하나)
+                esg_classification = category_details.esg_classification_name if category_details.esg_classification_name else "미분류"
+                
+                # Base 이슈풀 (여러 개)
+                base_issuepools = []
+                if category_details.base_issuepools:
+                    for issue in category_details.base_issuepools:
+                        base_issuepools.append({
+                            "id": issue.id,
+                            "base_issue_pool": issue.base_issue_pool,
+                            "issue_pool": issue.issue_pool,
+                            "ranking": issue.ranking,
+                            "esg_classification_id": issue.esg_classification_id,
+                            "esg_classification_name": issue.esg_classification_name
+                        })
+                
+                # 매칭된 카테고리 정보 생성
+                matched_category = {
+                    **category_info,  # 기존 점수 정보 유지
+                    "esg_classification": esg_classification,
+                    "esg_classification_id": category_details.esg_classification_id,
+                    "base_issuepools": base_issuepools,
+                    "total_issuepools": len(base_issuepools)
+                }
+                
+                matched_categories.append(matched_category)
+                
+                logger.info(f"✅ 카테고리 {category_id} 매칭 완료: ESG={esg_classification}, 이슈풀={len(base_issuepools)}개")
+            else:
+                # 매칭되지 않은 경우 기본값으로 설정
+                matched_category = {
+                    **category_info,
+                    "esg_classification": "미분류",
+                    "esg_classification_id": None,
+                    "base_issuepools": [],
+                    "total_issuepools": 0
+                }
+                matched_categories.append(matched_category)
+                
+                logger.warning(f"⚠️ 카테고리 {category_id} 매칭 실패: ESG 분류 및 이슈풀 정보 없음")
+        
+        logger.info(f"🔗 총 {len(matched_categories)}개 카테고리 매칭 완료")
+        return matched_categories
+        
+    except Exception as e:
+        logger.error(f"❌ 카테고리 매칭 중 오류 발생: {str(e)}")
+        # 오류 발생 시 원본 카테고리 정보 반환
+        return ranked_categories
+
 async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
     """
     중대성 평가 시작 - 크롤링 데이터 처리 및 분석 시작
@@ -383,30 +460,39 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info("🏆 카테고리 순위 매기기 시작")
         ranked_categories = rank_categories_by_score(category_scores)
 
-                # 8) 통계/로깅
+        # 8) 카테고리별 ESG 분류 및 이슈풀 매칭
+        logger.info("🔗 카테고리별 ESG 분류 및 이슈풀 매칭 시작")
+        matched_categories = await match_categories_with_esg_and_issuepool(
+            ranked_categories, 
+            request.company_id, 
+            search_year
+        )
+
+        # 9) 통계/로깅
         negative_count = sum(1 for a in labeled_articles if a["sentiment"] == "negative")
         logger.info(f"분석된 기사 수: {len(labeled_articles)}")
         logger.info(f"부정적 기사 수: {negative_count}")
         logger.info(f"분석된 카테고리 수: {len(category_scores)}")
+        logger.info(f"매칭된 카테고리 수: {len(matched_categories)}")
 
-        # 🔥 상위 10개
-        logger.info("\n📊 상위 카테고리(Top 10):")
-        for row in ranked_categories[:10]:
+        # 🔥 상위 10개 (매칭 결과 포함)
+        logger.info("\n📊 상위 카테고리(Top 10) - ESG 분류 및 이슈풀 매칭:")
+        for row in matched_categories[:10]:
+            esg_name = row.get('esg_classification', '미분류')
+            issue_count = len(row.get('base_issuepools', []))
             logger.info(
-                f"{row['rank']:>2}위 | cat={row['category']} | final={row['final_score']:.3f} "
-                f"(freq={row['frequency_score']:.3f}, rel={row['relevance_score']:.3f}, "
-                f"recent={row['recent_score']:.3f}, rank={row['rank_score']:.1f}, "
-                f"ref={row['reference_score']:.1f}, neg={row['negative_score']:.3f})"
+                f"{row['rank']:>2}위 | cat={row['category']} | ESG={esg_name} | "
+                f"이슈풀={issue_count}개 | final={row['final_score']:.3f}"
             )
 
-        # 🔥 전체 카테고리 순위 출력
-        logger.info("\n📊 전체 카테고리 순위:")
-        for row in ranked_categories:
+        # 🔥 전체 카테고리 순위 출력 (매칭 결과 포함)
+        logger.info("\n📊 전체 카테고리 순위 - ESG 분류 및 이슈풀 매칭:")
+        for row in matched_categories:
+            esg_name = row.get('esg_classification', '미분류')
+            issue_count = len(row.get('base_issuepools', []))
             logger.info(
-                f"{row['rank']:>2}위 | cat={row['category']} | final={row['final_score']:.3f} "
-                f"(freq={row['frequency_score']:.3f}, rel={row['relevance_score']:.3f}, "
-                f"recent={row['recent_score']:.3f}, rank={row['rank_score']:.1f}, "
-                f"ref={row['reference_score']:.1f}, neg={row['negative_score']:.3f})"
+                f"{row['rank']:>2}위 | cat={row['category']} | ESG={esg_name} | "
+                f"이슈풀={issue_count}개 | final={row['final_score']:.3f}"
             )
             
 
@@ -422,7 +508,8 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
                 "negative_articles": negative_count,
                 "negative_ratio": (negative_count / len(labeled_articles))*100 if labeled_articles else 0.0,
                 "total_categories": len(category_scores),
-                "ranked_categories": ranked_categories[:20],  # 상위 20개
+                "matched_categories": matched_categories,  # ESG 분류 및 이슈풀 매칭된 카테고리
+                "ranked_categories": ranked_categories[:20],  # 상위 20개 (원본)
                 # 필요 시 프론트 디버깅/리뷰용 원자료
                 "category_scores": category_scores,
                 "analyzed_samples": labeled_articles[:3],

@@ -86,3 +86,85 @@ class MiddleIssueRepository:
         except Exception as e:
             logger.error(f"❌ 리포지토리: 기업 이슈 조회 중 오류 - {str(e)}")
             raise
+
+    async def get_category_details(self, corporation_name: str, category_id: str, year: int) -> Optional[dict]:
+        """
+        특정 카테고리의 ESG 분류와 base_issuepool 상세 정보 조회
+        
+        Args:
+            corporation_name: 기업명
+            category_id: 카테고리 ID
+            year: 검색 연도
+            
+        Returns:
+            카테고리 상세 정보 (ESG 분류, base_issuepool 목록 포함)
+        """
+        try:
+            logger.info(f"🔍 리포지토리: 카테고리 '{category_id}' 상세 정보 조회 시작")
+            
+            async for db in get_db():
+                # 1. 먼저 기업명으로 corporation_id 조회
+                corp_query = select(CorporationEntity).where(
+                    CorporationEntity.companyname == corporation_name
+                )
+                corp_result = await db.execute(corp_query)
+                corporation = corp_result.scalar_one_or_none()
+                
+                if not corporation:
+                    logger.warning(f"⚠️ 기업 '{corporation_name}'을 찾을 수 없습니다.")
+                    return None
+                
+                # 2. 해당 카테고리의 이슈풀 정보 조회 (ESG 분류 포함)
+                query = select(MiddleIssueEntity).where(
+                    and_(
+                        MiddleIssueEntity.corporation_id == corporation.id,
+                        MiddleIssueEntity.category_id == category_id,
+                        or_(
+                            MiddleIssueEntity.publish_year.is_(None),
+                            and_(
+                                MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
+                                cast(func.trim(MiddleIssueEntity.publish_year), Integer) == year
+                            )
+                        )
+                    )
+                )
+                
+                result = await db.execute(query)
+                issue_entities = result.scalars().all()
+                
+                if not issue_entities:
+                    logger.warning(f"⚠️ 카테고리 '{category_id}'에 해당하는 이슈풀을 찾을 수 없습니다.")
+                    return None
+                
+                # 3. 첫 번째 엔티티에서 ESG 분류 정보 추출 (모든 엔티티가 동일한 ESG 분류를 가짐)
+                first_entity = issue_entities[0]
+                esg_classification_id = getattr(first_entity, 'esg_classification_id', None)
+                esg_classification_name = getattr(first_entity, 'esg_classification_name', None)
+                
+                # 4. base_issuepool 목록 구성
+                base_issuepools = []
+                for entity in issue_entities:
+                    base_issuepools.append({
+                        "id": entity.id,
+                        "base_issue_pool": entity.base_issue_pool,
+                        "issue_pool": entity.issue_pool,
+                        "ranking": getattr(entity, 'ranking', None),
+                        "esg_classification_id": esg_classification_id,
+                        "esg_classification_name": esg_classification_name
+                    })
+                
+                # 5. 카테고리 상세 정보 반환
+                category_details = {
+                    "category_id": category_id,
+                    "esg_classification_id": esg_classification_id,
+                    "esg_classification_name": esg_classification_name,
+                    "base_issuepools": base_issuepools,
+                    "total_count": len(base_issuepools)
+                }
+                
+                logger.info(f"✅ 리포지토리: 카테고리 '{category_id}' 상세 정보 조회 완료 - ESG: {esg_classification_name}, 이슈풀: {len(base_issuepools)}개")
+                return category_details
+                
+        except Exception as e:
+            logger.error(f"❌ 리포지토리: 카테고리 상세 정보 조회 중 오류 - {str(e)}")
+            return None
