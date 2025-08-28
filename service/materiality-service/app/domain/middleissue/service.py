@@ -3,22 +3,23 @@ Middleissue Service - 중대성 평가 관련 비즈니스 로직 처리
 크롤링 데이터 처리, 머신러닝 모델 적용, 점수 계산 등을 담당
 """
 # 1. 크롤링한 전체 데이터 -> 머신러닝 모델로 긍부정평가
-# 2. relevance, recent, negative, rank, 기준서/평가기관 지표 판단
+# 2. relevance, recent, negative, rank(검색연도-1), reference(NULL) 라벨 부여
 # 3. 각 지표별 score 부여
 # 4. final score 계산
 # 5. frontend로 보내고 메모리 저장
 
 import logging
-import json
 import os
+import re
+import json
 import joblib
-from datetime import datetime, timedelta
+import numpy as np
+from datetime import datetime
 from typing import Dict, Any, List, Set, Tuple
+
+from dateutil import parser
 from app.domain.middleissue.schema import MiddleIssueRequest, MiddleIssueResponse, Article
 from app.domain.middleissue.repository import MiddleIssueRepository
-import re
-import numpy as np
-from dateutil import parser
 
 # 로거 설정
 logger = logging.getLogger(__name__)
@@ -54,28 +55,24 @@ _POS_RE = re.compile("|".join(map(re.escape, sorted(POSITIVE_LEXICON, key=len, r
 def parse_pubdate(date_str: str) -> datetime:
     """다양한 형식의 날짜 문자열을 datetime으로 파싱"""
     try:
-        # 1. ISO 형식 시도
+        # 1) ISO 형식
         try:
             return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
         except ValueError:
             pass
-
-        # 2. RSS 형식 시도 (예: 'Wed, 06 Aug 2023 12:30:00 +0900')
+        # 2) RSS 형식
         try:
             from email.utils import parsedate_to_datetime
             return parsedate_to_datetime(date_str)
         except Exception:
             pass
-
-        # 3. 기타 일반적인 형식들 시도
+        # 3) 일반 파서
         return parser.parse(date_str)
-
     except Exception as e:
         logger.warning(f"⚠️ 날짜 파싱 실패 ({date_str}): {str(e)}")
         return datetime.now()  # 파싱 실패 시 현재 시간 반환
 
 def extract_keywords(text: str, patt: re.Pattern) -> List[str]:
-    """텍스트에서 키워드 추출"""
     if not isinstance(text, str):
         return []
     return sorted(set(patt.findall(text)))
@@ -94,63 +91,55 @@ def load_sentiment_model():
 def analyze_sentiment(model, articles: List[Article]) -> List[Dict[str, Any]]:
     """기사 감성 분석 수행"""
     try:
-        analyzed_articles = []
-        
+        analyzed_articles: List[Dict[str, Any]] = []
         for article in articles:
             try:
-                # 1. 텍스트 준비
                 title_text = article.title
                 desc_text = article.description
                 full_text = f"{title_text} {desc_text}"
-                
-                # 2. 키워드 기반 분석
+
+                # 키워드 기반
                 neg_keywords = extract_keywords(full_text, _NEG_RE)
                 pos_keywords = extract_keywords(full_text, _POS_RE)
                 has_both = len(neg_keywords) > 0 and len(pos_keywords) > 0
-                
-                # 3. 모델 기반 분석
+
+                # 모델 기반
                 if model is not None:
                     try:
-                        # 예측 및 확률 계산
                         y_pred = model.predict([full_text])[0]
                         probas = model.predict_proba([full_text])[0]
-                        
-                        # negative 클래스의 인덱스 찾기
-                        classes = getattr(model.named_steps["clf"], "classes_", None)
+
+                        classes = getattr(model.named_steps.get("clf", model), "classes_", None)
                         if classes is None:
                             classes = getattr(model, "classes_", None)
-                        
+
                         if classes is not None and "negative" in classes:
                             neg_idx = int(np.where(classes == "negative")[0][0])
-                            neg_proba = probas[neg_idx]
+                            neg_proba = float(probas[neg_idx])
                         else:
                             neg_proba = 0.0
-                            
-                        # 부정+긍정 동시 출현 시 other로 변경
+
                         if y_pred == "negative" and has_both:
                             final_sentiment = "other"
                             final_basis = "부정+긍정 동시 출현 → other"
                         else:
                             final_sentiment = y_pred
                             final_basis = "모델 예측 유지"
-                            
                     except Exception as e:
                         logger.error(f"❌ 모델 예측 중 오류: {str(e)}")
-                        # 모델 실패 시 키워드 기반으로만 판단
                         final_sentiment = "negative" if len(neg_keywords) > len(pos_keywords) else "other"
                         final_basis = "키워드 기반 판단 (모델 실패)"
                         neg_proba = 1.0 if final_sentiment == "negative" else 0.0
                 else:
-                    # 모델이 없는 경우 키워드 기반으로만 판단
                     final_sentiment = "negative" if len(neg_keywords) > len(pos_keywords) else "other"
                     final_basis = "키워드 기반 판단 (모델 없음)"
                     neg_proba = 1.0 if final_sentiment == "negative" else 0.0
-                
+
                 analyzed_articles.append({
                     "title": title_text,
                     "description": desc_text,
                     "sentiment": final_sentiment,
-                    "sentiment_confidence": neg_proba if final_sentiment == "negative" else (1 - neg_proba),
+                    "sentiment_confidence": float(neg_proba if final_sentiment == "negative" else (1 - neg_proba)),
                     "neg_keywords": ", ".join(neg_keywords),
                     "pos_keywords": ", ".join(pos_keywords),
                     "sentiment_basis": final_basis,
@@ -159,12 +148,10 @@ def analyze_sentiment(model, articles: List[Article]) -> List[Dict[str, Any]]:
                     "pubDate": article.pubDate,
                     "originallink": article.originallink,
                     "company": article.company,
-                    "relevance_score": 0.0  # 관련성 점수 초기화
                 })
-                
+
             except Exception as e:
-                logger.error(f"❌ 기사 감성 분석 중 오류: {str(e)}")
-                logger.error(f"문제된 기사 제목: {article.title}")
+                logger.error(f"❌ 기사 감성 분석 중 오류: {str(e)}; 제목: {getattr(article, 'title', '')}")
                 continue
 
         return analyzed_articles
@@ -173,199 +160,169 @@ def analyze_sentiment(model, articles: List[Article]) -> List[Dict[str, Any]]:
         return []
 
 async def add_relevance_labels(
-    articles: List[Dict[str, Any]], 
+    articles: List[Dict[str, Any]],
     company_id: str,
     search_date: datetime,
-    year_categories: Set[str],
-    common_categories: Set[str]
+    prev_year_categories: Set[str],   # (검색 기준연도 - 1)의 category id 집합
+    reference_categories: Set[str],   # publish_year = NULL 의 category id 집합
 ) -> List[Dict[str, Any]]:
     """
-    기사에 관련성 라벨 추가 및 점수 계산
-    
-    라벨 체계:
-    - relevance: title에 기업명 포함 여부 (++ 또는 없음)
-    - recent: pubdate 최신성 (++: 3개월 이내, +: 3-6개월, 없음)
-    - rank: year-1 카테고리 매칭 여부 (++ 또는 없음)
-    - reference: publish_year null 카테고리 매칭 여부 (++ 또는 없음)
+    라벨 정의:
+    - relevance : 제목에 기업명 포함이면 '++' (True)
+    - recent    : 3개월 이내=1.0, 3~6개월=0.5, 그 외=0.0
+    - rank      : original_category ∈ prev_year_categories → True
+    - reference : original_category ∈ reference_categories → True
     """
     try:
-        for article in articles:
-            # 라벨 초기화
-            article["relevance"] = "없음"
-            article["recent"] = "없음"
-            article["rank"] = "없음"
-            article["reference"] = "없음"
-            article["label_reasons"] = []
+        for a in articles:
+            a["relevance_label"] = False
+            a["recent_value"] = 0.0
+            a["rank_label"] = False
+            a["reference_label"] = False
+            a["label_reasons"] = []
 
-            # 1. relevance: 제목에 기업명 포함 여부
-            if company_id in article["title"]:
-                article["relevance"] = "++"
-                article["label_reasons"].append("제목에 기업명 포함")
+            # relevance
+            title = a.get("title") or ""
+            if isinstance(title, str) and company_id and company_id in title:
+                a["relevance_label"] = True
+                a["label_reasons"].append("제목에 기업명 포함")
 
-            # 2. recent: 발행일 기준 최신성
-            if article["pubDate"]:
+            # recent
+            pub_str = a.get("pubDate")
+            if pub_str:
                 try:
-                    pub_date = parse_pubdate(article["pubDate"])
-                    months_diff = (search_date - pub_date).days / 30
-                    
+                    pub_dt = parse_pubdate(pub_str)
+                    months_diff = (search_date - pub_dt).days / 30
                     if months_diff <= 3:
-                        article["recent"] = "++"
-                        article["label_reasons"].append("최근 3개월 이내")
+                        a["recent_value"] = 1.0
+                        a["label_reasons"].append("최근 3개월 이내")
                     elif months_diff <= 6:
-                        article["recent"] = "+"
-                        article["label_reasons"].append("최근 3-6개월")
+                        a["recent_value"] = 0.5
+                        a["label_reasons"].append("최근 3~6개월")
                 except Exception as e:
-                    logger.warning(f"⚠️ 발행일 처리 중 오류: {str(e)}")
+                    logger.warning(f"⚠️ recent 계산 중 날짜 파싱 실패: {e}")
 
-            # 3. rank: year-1 카테고리 매칭
-            if article["original_category"] and article["original_category"] in year_categories:
-                article["rank"] = "++"
-                article["label_reasons"].append("year-1 카테고리 매칭")
+            # rank/reference (원본이 int/str 혼재 가능 → str로 비교)
+            oc = a.get("original_category")
+            oc_key = str(oc) if oc is not None else None
 
-            # 4. reference: publish_year null 카테고리 매칭
-            if article["original_category"] and article["original_category"] in common_categories:
-                article["reference"] = "++"
-                article["label_reasons"].append("공통 카테고리 매칭")
+            if oc_key is not None and oc_key in prev_year_categories:
+                a["rank_label"] = True
+                a["label_reasons"].append("이전년도 카테고리 매칭")
+
+            if oc_key is not None and oc_key in reference_categories:
+                a["reference_label"] = True
+                a["label_reasons"].append("공통 카테고리 매칭")
 
         return articles
     except Exception as e:
-        logger.error(f"❌ 관련성 라벨 추가 중 오류 발생: {str(e)}")
+        logger.error(f"❌ 라벨 부여 중 오류: {e}")
         return articles
 
 def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     """
     카테고리별 점수 계산
-    
+
     점수 체계:
     - frequency_score: 해당 카테고리 빈도 (0~1)
-    - relevance_score: relevance ++면 1점, 아니면 0점
-    - recent_score: recent ++면 1점, +면 0.5점, 아니면 0점
-    - rank_score: rank ++면 1점, 아니면 0점
-    - negative_score: 해당 카테고리의 부정적 기사 비율 (0~1)
-    - reference_score: reference ++면 1점, 아니면 0점
+    - relevance_score: 카테고리 기사들의 relevance_label 평균 (True=1, False=0)
+    - recent_score   : 카테고리 기사들의 recent_value 평균 (1/0.5/0)
+    - rank_score     : 카테고리 내 rank_label 존재 여부(0/1)  ※ 전부 동일하다는 가정
+    - negative_score : 카테고리 내 부정 기사 비율 (0~1)
+    - reference_score: 카테고리 내 reference_label 존재 여부(0/1)
+
+    최종 점수:
+    final = 0.4*frequency
+          + 0.6*relevance
+          + 0.2*recent
+          + 0.4*rank
+          + 0.6*reference
+          + 0.8*negative*(1 + 0.5*frequency + 0.5*relevance)
     """
     try:
         total_articles = len(articles)
         if total_articles == 0:
             return {}
 
-        # 카테고리별 데이터 수집
-        category_data = {}
-        
-        for article in articles:
-            category = article.get("original_category", "미분류")
-            if category not in category_data:
-                category_data[category] = {
-                    "count": 0,
-                    "relevance_count": 0,
-                    "recent_plus_plus": 0,
-                    "recent_plus": 0,
-                    "rank_count": 0,
-                    "reference_count": 0,
-                    "negative_count": 0,
-                    "articles": []
-                }
-            
-            category_data[category]["count"] += 1
-            category_data[category]["articles"].append(article)
-            
-            # 각 라벨별 카운트
-            if article.get("relevance") == "++":
-                category_data[category]["relevance_count"] += 1
-            
-            if article.get("recent") == "++":
-                category_data[category]["recent_plus_plus"] += 1
-            elif article.get("recent") == "+":
-                category_data[category]["recent_plus"] += 1
-            
-            if article.get("rank") == "++":
-                category_data[category]["rank_count"] += 1
-            
-            if article.get("reference") == "++":
-                category_data[category]["reference_count"] += 1
-            
-            if article.get("sentiment") == "negative":
-                category_data[category]["negative_count"] += 1
+        buckets: Dict[str, Dict[str, Any]] = {}
+        for a in articles:
+            cat = a.get("original_category")
+            if cat is None:
+                continue
+            key = str(cat)
+            b = buckets.setdefault(key, {
+                "count": 0,
+                "relevance_sum": 0.0,
+                "recent_sum": 0.0,
+                "negative_count": 0,
+                "rank_label": None,
+                "reference_label": None,
+                "articles": []
+            })
 
-        # 카테고리별 점수 계산
-        category_scores = {}
-        
-        for category, data in category_data.items():
-            count = data["count"]
-            
-            # 1. frequency_score: 해당 카테고리 빈도 (0~1)
-            frequency_score = count / total_articles
-            
-            # 2. relevance_score: relevance ++면 1점, 아니면 0점
-            relevance_score = 1.0 if data["relevance_count"] > 0 else 0.0
-            
-            # 3. recent_score: recent ++면 1점, +면 0.5점, 아니면 0점
-            recent_score = 0.0
-            if data["recent_plus_plus"] > 0:
-                recent_score = 1.0
-            elif data["recent_plus"] > 0:
-                recent_score = 0.5
-            
-            # 4. rank_score: rank ++면 1점, 아니면 0점
-            rank_score = 1.0 if data["rank_count"] > 0 else 0.0
-            
-            # 5. negative_score: 해당 카테고리의 부정적 기사 비율 (0~1)
-            negative_score = data["negative_count"] / count if count > 0 else 0.0
-            
-            # 6. reference_score: reference ++면 1점, 아니면 0점
-            reference_score = 1.0 if data["reference_count"] > 0 else 0.0
-            
-            # 7. final_score 계산
+            b["count"] += 1
+            b["articles"].append(a)
+            b["relevance_sum"] += 1.0 if a.get("relevance_label") else 0.0
+            b["recent_sum"] += float(a.get("recent_value", 0.0))
+            if a.get("sentiment") == "negative":
+                b["negative_count"] += 1
+            if b["rank_label"] is None:
+                b["rank_label"] = 1.0 if a.get("rank_label") else 0.0
+            if b["reference_label"] is None:
+                b["reference_label"] = 1.0 if a.get("reference_label") else 0.0
+
+        results: Dict[str, Dict[str, Any]] = {}
+        for key, b in buckets.items():
+            c = b["count"]
+            frequency = c / total_articles
+            relevance = (b["relevance_sum"] / c) if c else 0.0
+            recent = (b["recent_sum"] / c) if c else 0.0
+            rank = b["rank_label"] or 0.0
+            reference = b["reference_label"] or 0.0
+            negative = (b["negative_count"] / c) if c else 0.0
+
             final_score = (
-                0.4 * frequency_score +
-                0.6 * relevance_score +
-                0.2 * recent_score +
-                0.4 * rank_score +
-                0.6 * reference_score +
-                0.8 * negative_score * (1 + 0.5 * frequency_score + 0.5 * relevance_score)
+                0.4 * frequency
+                + 0.6 * relevance
+                + 0.2 * recent
+                + 0.4 * rank
+                + 0.6 * reference
+                + 0.8 * negative * (1 + 0.5 * frequency + 0.5 * relevance)
             )
-            
-            category_scores[category] = {
-                "count": count,
-                "frequency_score": frequency_score,
-                "relevance_score": relevance_score,
-                "recent_score": recent_score,
-                "rank_score": rank_score,
-                "negative_score": negative_score,
-                "reference_score": reference_score,
-                "final_score": final_score,
-                "articles": data["articles"]
+
+            results[key] = {
+                "count": c,
+                "frequency_score": round(frequency, 6),
+                "relevance_score": round(relevance, 6),
+                "recent_score": round(recent, 6),
+                "rank_score": round(rank, 6),
+                "reference_score": round(reference, 6),
+                "negative_score": round(negative, 6),
+                "final_score": round(final_score, 6),
+                "articles": b["articles"],
             }
-        
-        return category_scores
-        
+
+        return results
     except Exception as e:
         logger.error(f"❌ 카테고리 점수 계산 중 오류 발생: {str(e)}")
         return {}
 
 def rank_categories_by_score(category_scores: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    카테고리를 final_score 기준으로 순위 매기기
-    """
+    """카테고리를 final_score 기준으로 순위 매기기"""
     try:
-        # final_score 기준으로 내림차순 정렬
-        ranked_categories = sorted(
+        ranked = sorted(
             category_scores.items(),
             key=lambda x: x[1]["final_score"],
             reverse=True
         )
-        
-        # 순위 정보 추가
-        ranked_result = []
-        for rank, (category, scores) in enumerate(ranked_categories, 1):
-            ranked_result.append({
-                "rank": rank,
-                "category": category,
+        out: List[Dict[str, Any]] = []
+        for idx, (cat, scores) in enumerate(ranked, start=1):
+            out.append({
+                "rank": idx,
+                "category": cat,
                 **scores
             })
-        
-        return ranked_result
-        
+        return out
     except Exception as e:
         logger.error(f"❌ 카테고리 순위 매기기 중 오류 발생: {str(e)}")
         return []
@@ -373,15 +330,9 @@ def rank_categories_by_score(category_scores: Dict[str, Dict[str, Any]]) -> List
 async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
     """
     중대성 평가 시작 - 크롤링 데이터 처리 및 분석 시작
-    
-    Args:
-        request: 중대성 평가 시작 요청 데이터 (MiddleIssueRequest)
-        
-    Returns:
-        Dict[str, Any]: 중대성 평가 시작 응답
     """
     try:
-        # 1. 요청 데이터 로깅
+        # 1) 요청 로깅
         logger.info("="*50)
         logger.info("🚀 새로운 중대성 평가 시작")
         logger.info(f"기업명: {request.company_id}")
@@ -389,139 +340,77 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info(f"요청 타입: {request.request_type}")
         logger.info(f"타임스탬프: {request.timestamp}")
         logger.info(f"총 크롤링 기사 수: {request.total_results}")
-        
-        # 크롤링 데이터 구조 확인
-        logger.info("-"*50)
-        logger.info("📋 크롤링 데이터 구조 확인")
-        
-        if request.articles and len(request.articles) > 0:
-            sample_article = request.articles[0]
-            logger.info("수집된 데이터 필드:")
-            
-            # 필수 필드
-            logger.info("필수 필드:")
-            logger.info(f"- title ✓")
-            logger.info(f"- description ✓")
-            logger.info(f"- company ✓")
-            
-            # 선택적 필드 존재 여부 확인
-            logger.info("\n선택적 필드:")
-            logger.info(f"- originallink {'✓' if sample_article.originallink else '✗'}")
-            logger.info(f"- pubDate {'✓' if sample_article.pubDate else '✗'}")
-            logger.info(f"- issue {'✓' if sample_article.issue else '✗'}")
-            logger.info(f"- original_category {'✓' if sample_article.original_category else '✗'}")
-            logger.info(f"- query_kind {'✓' if sample_article.query_kind else '✗'}")
-            logger.info(f"- keyword {'✓' if sample_article.keyword else '✗'}")
-            
-            # 예시 데이터 구조
-            logger.info("\n데이터 구조 예시:")
-            logger.info(f"- title: [제목 텍스트...]")
-            logger.info(f"- description: [본문 텍스트...]")
-            logger.info(f"- company: {sample_article.company}")
-            if sample_article.original_category:
-                logger.info(f"- original_category: {sample_article.original_category}")
-            if sample_article.query_kind:
-                logger.info(f"- query_kind: {sample_article.query_kind}")
-            if sample_article.keyword:
-                logger.info(f"- keyword: {sample_article.keyword}")
-        else:
-            logger.warning("⚠️ 크롤링된 기사가 없습니다!")
-            
         logger.info("-"*50)
 
-        # 2. 감성 분석 모델 로드
+        # 2) 모델 로드
         model = load_sentiment_model()
         if not model:
             raise Exception("감성 분석 모델 로드 실패")
 
-        # 3. 크롤링 데이터 감성 분석
+        # 3) 감성 분석
         logger.info("📊 크롤링 데이터 감성 분석 시작")
         analyzed_articles = analyze_sentiment(model, request.articles)
-        
-        # 4. 카테고리 데이터 조회
+
+        # 4) (검색 기준연도 - 1) & 공통(NULL) 카테고리 조회
         repository = MiddleIssueRepository()
-        search_year = int(request.report_period["end_date"][:4])  # 검색 연도
-        corporation_issues = await repository.get_corporation_issues(
+        search_year = int(request.report_period["end_date"][:4])  # 검색 기준연도 (YYYY)
+        prev_year = search_year - 1
+
+        corp_issues_prev = await repository.get_corporation_issues(
             corporation_name=request.company_id,
-            year=search_year
+            year=prev_year
         )
+        # prev_year 기준 카테고리와 공통(NULL) 카테고리 세트
+        prev_year_categories = {str(issue.category_id) for issue in corp_issues_prev.year_issues}
+        reference_categories = {str(issue.category_id) for issue in corp_issues_prev.common_issues}
 
-        # 카테고리 세트 생성
-        year_categories = {str(issue.category_id) for issue in corporation_issues.year_issues}
-        common_categories = {str(issue.category_id) for issue in corporation_issues.common_issues}
-
-        # 5. 관련성 라벨 추가
-        logger.info("🏷️ 관련성 라벨 추가 시작")
+        # 5) 라벨 부여
+        logger.info("🏷️ 라벨(relevance/recent/rank/reference) 부여 시작")
         search_date = datetime.now()
         labeled_articles = await add_relevance_labels(
             analyzed_articles,
             request.company_id,
             search_date,
-            year_categories,
-            common_categories
+            prev_year_categories,
+            reference_categories
         )
 
-        # 6. 카테고리별 점수 계산
+        # 6) 카테고리별 점수 계산
         logger.info("📊 카테고리별 점수 계산 시작")
         category_scores = calculate_category_scores(labeled_articles)
-        
-        # 7. 카테고리 순위 매기기
+
+        # 7) 카테고리 랭킹
         logger.info("🏆 카테고리 순위 매기기 시작")
         ranked_categories = rank_categories_by_score(category_scores)
-        
-        # 8. 분석 결과 로깅
-        negative_count = sum(1 for article in labeled_articles if article["sentiment"] == "negative")
-        
+
+                # 8) 통계/로깅
+        negative_count = sum(1 for a in labeled_articles if a["sentiment"] == "negative")
         logger.info(f"분석된 기사 수: {len(labeled_articles)}")
         logger.info(f"부정적 기사 수: {negative_count}")
         logger.info(f"분석된 카테고리 수: {len(category_scores)}")
-        
-        # 9. 카테고리별 점수 상세 로깅
-        logger.info("\n📊 카테고리별 점수 상세:")
-        for rank_info in ranked_categories[:10]:  # 상위 10개만 로깅
-            logger.info(f"\n순위 {rank_info['rank']}: {rank_info['category']}")
-            logger.info(f"  기사 수: {rank_info['count']}개")
-            logger.info(f"  최종 점수: {rank_info['final_score']:.3f}")
-            logger.info(f"  세부 점수:")
-            logger.info(f"    - 빈도 점수: {rank_info['frequency_score']:.3f}")
-            logger.info(f"    - 관련성 점수: {rank_info['relevance_score']:.3f}")
-            logger.info(f"    - 최신성 점수: {rank_info['recent_score']:.3f}")
-            logger.info(f"    - 순위 점수: {rank_info['rank_score']:.3f}")
-            logger.info(f"    - 참조 점수: {rank_info['reference_score']:.3f}")
-            logger.info(f"    - 부정성 점수: {rank_info['negative_score']:.3f}")
-            logger.info("-"*30)
-        
-        # 10. 최종 카테고리 순위 요약 로깅
-                # 10. 최종 카테고리 순위 요약 로깅
-        logger.info("\n🏆 최종 카테고리 순위 요약:")
-        logger.info("순위 | 카테고리 | 최종점수 | 기사수")
-        logger.info("-" * 50)
-        for rank_info in ranked_categories[:20]:  # 상위 20개 표시
-            logger.info(f"{rank_info['rank']:2d}위 | {rank_info['category']:15s} | {rank_info['final_score']:6.3f} | {rank_info['count']:3d}개")
 
-        # ✅ 전체 카테고리 순위 로깅 추가
-        logger.info("\n📋 전체 카테고리 순위:")
-        logger.info("순위 | 카테고리 | 최종점수 | 기사수")
-        logger.info("-" * 50)
-        for rank_info in ranked_categories:  # 전체 출력
-            logger.info(f"{rank_info['rank']:2d}위 | {rank_info['category']:15s} | {rank_info['final_score']:6.3f} | {rank_info['count']:3d}개")
+        # 🔥 상위 10개
+        logger.info("\n📊 상위 카테고리(Top 10):")
+        for row in ranked_categories[:10]:
+            logger.info(
+                f"{row['rank']:>2}위 | cat={row['category']} | final={row['final_score']:.3f} "
+                f"(freq={row['frequency_score']:.3f}, rel={row['relevance_score']:.3f}, "
+                f"recent={row['recent_score']:.3f}, rank={row['rank_score']:.1f}, "
+                f"ref={row['reference_score']:.1f}, neg={row['negative_score']:.3f})"
+            )
 
-        
-        # 11. 샘플 기사 로깅 (최대 3개)
-        logger.info("\n📰 샘플 기사 분석:")
-        for idx, article in enumerate(labeled_articles[:3]):
-            logger.info(f"\n기사 {idx + 1}:")
-            logger.info(f"제목: {article['title']}")
-            logger.info(f"감성: {article['sentiment']} (신뢰도: {article['sentiment_confidence']:.2f})")
-            logger.info(f"카테고리: {article['original_category']}")
-            logger.info(f"라벨: relevance={article.get('relevance', '없음')}, recent={article.get('recent', '없음')}, rank={article.get('rank', '없음')}, reference={article.get('reference', '없음')}")
-            logger.info(f"라벨 이유: {', '.join(article.get('label_reasons', []))}")
-            logger.info("-"*30)
+        # 🔥 전체 카테고리 순위 출력
+        logger.info("\n📊 전체 카테고리 순위:")
+        for row in ranked_categories:
+            logger.info(
+                f"{row['rank']:>2}위 | cat={row['category']} | final={row['final_score']:.3f} "
+                f"(freq={row['frequency_score']:.3f}, rel={row['relevance_score']:.3f}, "
+                f"recent={row['recent_score']:.3f}, rank={row['rank_score']:.1f}, "
+                f"ref={row['reference_score']:.1f}, neg={row['negative_score']:.3f})"
+            )
+            )
 
-        if len(labeled_articles) > 5:
-            logger.info(f"... 외 {len(labeled_articles) - 5}개 기사")
-        
-        # 12. 응답 데이터 생성
+        # 9) 응답
         response_data = {
             "success": True,
             "message": "중대성 평가 데이터 분석이 완료되었습니다.",
@@ -531,26 +420,21 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
                 "assessment_status": "analyzed",
                 "total_articles": len(labeled_articles),
                 "negative_articles": negative_count,
-                "negative_ratio": (negative_count/len(labeled_articles))*100 if labeled_articles else 0,
+                "negative_ratio": (negative_count / len(labeled_articles))*100 if labeled_articles else 0.0,
                 "total_categories": len(category_scores),
-                "ranked_categories": ranked_categories[:20],  # 상위 20개 카테고리만 포함
+                "ranked_categories": ranked_categories[:20],  # 상위 20개
+                # 필요 시 프론트 디버깅/리뷰용 원자료
                 "category_scores": category_scores,
-                "analyzed_samples": labeled_articles[:3]  # 샘플 데이터만 포함
+                "analyzed_samples": labeled_articles[:3],
             }
         }
-        
+
         logger.info("✅ 데이터 분석 완료")
         logger.info("="*50)
-        
         return response_data
-        
+
     except Exception as e:
         error_msg = f"❌ 중대성 평가 시작 중 오류 발생: {str(e)}"
         logger.error(error_msg)
         logger.error("="*50)
-        
-        return {
-            "success": False,
-            "message": error_msg,
-            "data": None
-        }
+        return {"success": False, "message": error_msg, "data": None}
