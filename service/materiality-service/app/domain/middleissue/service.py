@@ -12,7 +12,7 @@ import logging
 import json
 import os
 import joblib
-from datetime import import datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Set, Tuple
 from app.domain.middleissue.schema import MiddleIssueRequest, MiddleIssueResponse, Article
 from app.domain.middleissue.repository import MiddleIssueRepository
