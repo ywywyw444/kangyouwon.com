@@ -1702,10 +1702,8 @@ export default function MaterialityHomePage() {
                     </div>
                   </div>
                   
-                  <button
-                    onClick={() => {
-                      alert('설문 미리보기 기능을 구현합니다.');
-                    }}
+                  <a
+                    href="/survey"
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
                   >
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1713,7 +1711,7 @@ export default function MaterialityHomePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
                     설문 미리보기
-                  </button>
+                  </a>
                 </div>
               </div>
               
