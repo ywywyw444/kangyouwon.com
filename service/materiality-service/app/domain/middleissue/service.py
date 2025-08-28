@@ -350,12 +350,25 @@ async def match_categories_with_esg_and_issuepool(
         for category_info in ranked_categories:
             category_id = category_info['category']
             logger.info(f"🔍 카테고리 {category_id} 매칭 시도 중...")
+            logger.info(f"🔍 카테고리 타입: {type(category_id)}, 값: {category_id}")
             
             try:
+                # 카테고리 ID 정규화 (문자열이면 숫자로 변환 시도)
+                normalized_category_id = category_id
+                if isinstance(category_id, str):
+                    if category_id.isdigit():
+                        normalized_category_id = int(category_id)
+                        logger.info(f"🔍 카테고리 ID 정규화: '{category_id}' → {normalized_category_id}")
+                    else:
+                        logger.warning(f"⚠️ 카테고리 이름이 숫자가 아님: '{category_id}'")
+                        # 카테고리 이름을 ID로 변환하는 로직이 필요하지만, 현재는 건너뛰고 계속 진행
+                        logger.info(f"🔍 카테고리 이름 '{category_id}'을 ID로 변환할 수 없어 건너뜀")
+                        continue
+                
                 # 해당 카테고리의 ESG 분류와 이슈풀 조회
                 category_details = await repository.get_category_details(
                     corporation_name=company_id,
-                    category_id=category_id,
+                    category_id=normalized_category_id,
                     year=search_year
                 )
                 

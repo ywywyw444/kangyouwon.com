@@ -42,18 +42,22 @@ class MiddleIssueRepository:
                 
                 # 2. 해당 연도의 이슈와 공통 이슈(publish_year is null) 함께 조회
                 # 안전한 TEXT -> INTEGER 캐스팅을 위한 쿼리 수정
+                year_condition = or_(
+                    MiddleIssueEntity.publish_year.is_(None),
+                    and_(
+                        # 빈 문자열이 아닌지 확인
+                        MiddleIssueEntity.publish_year != '',
+                        # 숫자로만 구성된 문자열인지 확인 (공백 허용)
+                        MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
+                        # 안전하게 trim 후 캐스팅하여 비교
+                        cast(func.trim(MiddleIssueEntity.publish_year), Integer) == target_year
+                    )
+                )
+                
                 query = select(MiddleIssueEntity).where(
                     and_(
                         MiddleIssueEntity.corporation_id == corporation.id,
-                        or_(
-                            MiddleIssueEntity.publish_year.is_(None),
-                            and_(
-                                # 숫자로만 구성된 문자열인지 확인 (공백 허용)
-                                MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
-                                # 안전하게 trim 후 캐스팅하여 비교
-                                cast(func.trim(MiddleIssueEntity.publish_year), Integer) == target_year
-                            )
-                        )
+                        year_condition
                     )
                 )
                 
@@ -93,7 +97,7 @@ class MiddleIssueRepository:
         
         Args:
             corporation_name: 기업명
-            category_id: 카테고리 ID
+            category_id: 카테고리 ID 또는 이름 (문자열)
             year: 검색 연도
             
         Returns:
@@ -102,6 +106,7 @@ class MiddleIssueRepository:
         try:
             logger.info(f"🔍 리포지토리: 카테고리 '{category_id}' 상세 정보 조회 시작")
             logger.info(f"🔍 파라미터: 기업명={corporation_name}, 카테고리ID={category_id}, 연도={year}")
+            logger.info(f"🔍 카테고리 타입: {type(category_id)}")
             
             async for db in get_db():
                 logger.info(f"🔍 데이터베이스 연결 성공")
@@ -121,18 +126,50 @@ class MiddleIssueRepository:
                 
                 logger.info(f"✅ 기업 조회 성공: ID={corporation.id}, 이름={corporation.companyname}")
                 
-                # 2. 해당 카테고리의 이슈풀 정보 조회 (ESG 분류 포함)
+                # 2. 카테고리 ID 정규화 (문자열이면 ID로 변환)
+                normalized_category_id = category_id
+                try:
+                    # 숫자로 변환 가능한 경우 정수로 변환
+                    if isinstance(category_id, str) and category_id.isdigit():
+                        normalized_category_id = int(category_id)
+                        logger.info(f"🔍 카테고리 ID 정규화 완료: {category_id} → {normalized_category_id}")
+                    elif isinstance(category_id, int):
+                        normalized_category_id = category_id
+                        logger.info(f"🔍 카테고리 ID 이미 정수: {category_id}")
+                    else:
+                        logger.warning(f"⚠️ 카테고리 ID가 숫자가 아님: {category_id} (타입: {type(category_id)})")
+                        # 문자열인 경우 쿼리에서 안전하게 처리
+                except (ValueError, TypeError) as e:
+                    logger.error(f"❌ 카테고리 ID 변환 실패: {category_id}, 오류: {e}")
+                    # 변환 실패 시 원본 값 사용하되 로그 기록
+                
+                # 3. 안전한 publish_year 비교를 위한 조건 구성
+                year_condition = None
+                if year is not None:
+                    # publish_year가 null이거나, 숫자로 변환 가능한 경우에만 비교
+                    year_condition = or_(
+                        MiddleIssueEntity.publish_year.is_(None),
+                        and_(
+                            # 빈 문자열이 아닌지 확인
+                            MiddleIssueEntity.publish_year != '',
+                            # 숫자로만 구성된 문자열인지 확인
+                            MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
+                            # 안전하게 trim 후 캐스팅하여 비교
+                            cast(func.trim(MiddleIssueEntity.publish_year), Integer) == year
+                        )
+                    )
+                    logger.info(f"🔍 연도 조건 구성: {year}년도 또는 NULL")
+                else:
+                    # year가 None이면 publish_year가 NULL인 것만 조회
+                    year_condition = MiddleIssueEntity.publish_year.is_(None)
+                    logger.info(f"🔍 연도 조건: NULL만 조회")
+                
+                # 4. 해당 카테고리의 이슈풀 정보 조회 (ESG 분류 포함)
                 query = select(MiddleIssueEntity).where(
                     and_(
                         MiddleIssueEntity.corporation_id == corporation.id,
-                        MiddleIssueEntity.category_id == category_id,
-                        or_(
-                            MiddleIssueEntity.publish_year.is_(None),
-                            and_(
-                                MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
-                                cast(func.trim(MiddleIssueEntity.publish_year), Integer) == year
-                            )
-                        )
+                        MiddleIssueEntity.category_id == normalized_category_id,
+                        year_condition
                     )
                 )
                 
@@ -147,7 +184,7 @@ class MiddleIssueRepository:
                     logger.warning(f"⚠️ 카테고리 '{category_id}'에 해당하는 이슈풀을 찾을 수 없습니다.")
                     return None
                 
-                # 3. 첫 번째 엔티티에서 ESG 분류 정보 추출 (모든 엔티티가 동일한 ESG 분류를 가짐)
+                # 5. 첫 번째 엔티티에서 ESG 분류 정보 추출 (모든 엔티티가 동일한 ESG 분류를 가짐)
                 first_entity = issue_entities[0]
                 logger.info(f"🔍 첫 번째 엔티티 정보: {first_entity}")
                 
@@ -156,7 +193,7 @@ class MiddleIssueRepository:
                 
                 logger.info(f"🔍 ESG 분류 정보: ID={esg_classification_id}, 이름={esg_classification_name}")
                 
-                # 4. base_issuepool 목록 구성
+                # 6. base_issuepool 목록 구성
                 base_issuepools = []
                 for i, entity in enumerate(issue_entities):
                     issue_data = {
@@ -170,9 +207,10 @@ class MiddleIssueRepository:
                     base_issuepools.append(issue_data)
                     logger.info(f"🔍 이슈풀 {i+1}: {issue_data}")
                 
-                # 5. 카테고리 상세 정보 반환
+                # 7. 카테고리 상세 정보 반환
                 category_details = {
                     "category_id": category_id,
+                    "normalized_category_id": normalized_category_id,
                     "esg_classification_id": esg_classification_id,
                     "esg_classification_name": esg_classification_name,
                     "base_issuepools": base_issuepools,

@@ -95,6 +95,9 @@ export default function MaterialityHomePage() {
     saveToLocalStorage
   } = useExcelDataStore();
 
+  // 화면 표시 제어를 위한 별도 상태
+  const [isDataHidden, setIsDataHidden] = useState(false);
+
 
 
   // 엑셀 파일 업로드 및 검증 처리
@@ -1318,10 +1321,10 @@ export default function MaterialityHomePage() {
               
               {assessmentResult ? (
                 <div className="space-y-4">
-                  {/* 상위 카테고리 목록 */}
+                  {/* 전체 카테고리 목록 */}
                   {assessmentResult.matched_categories && assessmentResult.matched_categories.length > 0 && (
                     <div className="space-y-2">
-                      {assessmentResult.matched_categories.slice(0, 10).map((cat: any, index: number) => (
+                      {assessmentResult.matched_categories.map((cat: any, index: number) => (
                         <div key={index} className="flex items-center text-sm">
                           <span className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                             {cat.rank}
@@ -1334,7 +1337,7 @@ export default function MaterialityHomePage() {
                         </div>
                       ))}
                       <div className="text-center text-xs text-gray-500 mt-3">
-                        총 {Math.min(assessmentResult.matched_categories.length, 10)}개 항목
+                        총 {assessmentResult.matched_categories.length}개 항목
                       </div>
                     </div>
                   )}
@@ -1403,8 +1406,8 @@ export default function MaterialityHomePage() {
 • 부정 비율: ${assessmentResult.negative_ratio?.toFixed(1)}%
 • 분석된 카테고리: ${assessmentResult.total_categories}개
 
-🏆 상위 카테고리 상세 정보
-${assessmentResult.matched_categories?.slice(0, 15).map((cat: any) => 
+🏆 전체 카테고리 상세 정보
+${assessmentResult.matched_categories?.map((cat: any) => 
   `${cat.rank}위: ${cat.category}
    ESG: ${cat.esg_classification || '미분류'}
    이슈풀: ${cat.total_issuepools || 0}개
@@ -1557,7 +1560,7 @@ ${assessmentResult.matched_categories?.slice(0, 15).map((cat: any) =>
                         const savedData = localStorage.getItem('excelUploadData');
                         console.log('localStorage 데이터:', savedData);
                         
-                        if (savedData) {
+                                                if (savedData) {
                           const parsedData = JSON.parse(savedData);
                           console.log('파싱된 데이터:', parsedData);
                           
@@ -1566,6 +1569,9 @@ ${assessmentResult.matched_categories?.slice(0, 15).map((cat: any) =>
                           setIsExcelValid(parsedData.isValid || false);
                           setExcelFilename(parsedData.fileName || null);
                           setExcelBase64(parsedData.base64Data || null);
+                          
+                          // 화면 표시 상태 복원
+                          setIsDataHidden(false);
                           
                           console.log('명단 불러오기 후 상태:', {
                             excelData: parsedData.excelData?.length || 0,
@@ -1645,7 +1651,7 @@ ${assessmentResult.matched_categories?.slice(0, 15).map((cat: any) =>
                   <h4 className="font-medium text-purple-800">🏢 설문 대상자 목록</h4>
                 </div>
                 
-                {excelFilename ? (
+                {excelFilename && !isDataHidden ? (
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead className="bg-gray-50">
@@ -1917,6 +1923,9 @@ ${assessmentResult.matched_categories?.slice(0, 15).map((cat: any) =>
                       const updatedData = [...excelData, newRow];
                       setExcelData(updatedData);
                       
+                      // 화면 표시 상태 복원
+                      setIsDataHidden(false);
+                      
                       // localStorage도 명시적으로 업데이트
                       const dataToSave = {
                         excelData: updatedData,
@@ -1938,27 +1947,16 @@ ${assessmentResult.matched_categories?.slice(0, 15).map((cat: any) =>
                   <button
                     onClick={() => {
                       if (confirm('현재 화면의 명단을 초기화하시겠습니까?\n(저장된 데이터는 "명단 불러오기"를 통해 다시 불러올 수 있습니다)')) {
-                        // Zustand store만 초기화
-                        setExcelData([]);
-                        setIsExcelValid(false);
-                        setExcelFilename(null);
-                        setExcelBase64(null);
-                        
-                        // localStorage도 명시적으로 업데이트
-                        const dataToSave = {
-                          excelData: [],
-                          isValid: false,
-                          fileName: null,
-                          base64Data: null
-                        };
-                        localStorage.setItem('excelUploadData', JSON.stringify(dataToSave));
-                        console.log('🗑️ 명단 초기화 후 localStorage 업데이트:', dataToSave);
+                        // 화면에서만 데이터 숨기기 (Zustand store는 유지)
+                        setIsDataHidden(true);
                         
                         // 파일 input 필드 초기화
                         const fileInput = document.getElementById('excel-upload') as HTMLInputElement;
                         if (fileInput) {
                           fileInput.value = '';
                         }
+                        
+                        console.log('🗑️ 명단 초기화: 화면에서만 숨김, 메모리 데이터 유지');
                         
                         alert('✅ 현재 화면의 명단이 초기화되었습니다.\n필요한 경우 "명단 불러오기"를 통해 이전 데이터를 불러올 수 있습니다.');
                       }
