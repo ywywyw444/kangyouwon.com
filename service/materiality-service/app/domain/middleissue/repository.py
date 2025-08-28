@@ -101,18 +101,25 @@ class MiddleIssueRepository:
         """
         try:
             logger.info(f"🔍 리포지토리: 카테고리 '{category_id}' 상세 정보 조회 시작")
+            logger.info(f"🔍 파라미터: 기업명={corporation_name}, 카테고리ID={category_id}, 연도={year}")
             
             async for db in get_db():
+                logger.info(f"🔍 데이터베이스 연결 성공")
+                
                 # 1. 먼저 기업명으로 corporation_id 조회
                 corp_query = select(CorporationEntity).where(
                     CorporationEntity.companyname == corporation_name
                 )
+                logger.info(f"🔍 기업 조회 쿼리: {corp_query}")
+                
                 corp_result = await db.execute(corp_query)
                 corporation = corp_result.scalar_one_or_none()
                 
                 if not corporation:
                     logger.warning(f"⚠️ 기업 '{corporation_name}'을 찾을 수 없습니다.")
                     return None
+                
+                logger.info(f"✅ 기업 조회 성공: ID={corporation.id}, 이름={corporation.companyname}")
                 
                 # 2. 해당 카테고리의 이슈풀 정보 조회 (ESG 분류 포함)
                 query = select(MiddleIssueEntity).where(
@@ -129,8 +136,12 @@ class MiddleIssueRepository:
                     )
                 )
                 
+                logger.info(f"🔍 이슈풀 조회 쿼리: {query}")
+                
                 result = await db.execute(query)
                 issue_entities = result.scalars().all()
+                
+                logger.info(f"🔍 이슈풀 조회 결과: {len(issue_entities)}개 엔티티")
                 
                 if not issue_entities:
                     logger.warning(f"⚠️ 카테고리 '{category_id}'에 해당하는 이슈풀을 찾을 수 없습니다.")
@@ -138,20 +149,26 @@ class MiddleIssueRepository:
                 
                 # 3. 첫 번째 엔티티에서 ESG 분류 정보 추출 (모든 엔티티가 동일한 ESG 분류를 가짐)
                 first_entity = issue_entities[0]
+                logger.info(f"🔍 첫 번째 엔티티 정보: {first_entity}")
+                
                 esg_classification_id = getattr(first_entity, 'esg_classification_id', None)
                 esg_classification_name = getattr(first_entity, 'esg_classification_name', None)
                 
+                logger.info(f"🔍 ESG 분류 정보: ID={esg_classification_id}, 이름={esg_classification_name}")
+                
                 # 4. base_issuepool 목록 구성
                 base_issuepools = []
-                for entity in issue_entities:
-                    base_issuepools.append({
+                for i, entity in enumerate(issue_entities):
+                    issue_data = {
                         "id": entity.id,
                         "base_issue_pool": entity.base_issue_pool,
                         "issue_pool": entity.issue_pool,
                         "ranking": getattr(entity, 'ranking', None),
                         "esg_classification_id": esg_classification_id,
                         "esg_classification_name": esg_classification_name
-                    })
+                    }
+                    base_issuepools.append(issue_data)
+                    logger.info(f"🔍 이슈풀 {i+1}: {issue_data}")
                 
                 # 5. 카테고리 상세 정보 반환
                 category_details = {
@@ -163,8 +180,12 @@ class MiddleIssueRepository:
                 }
                 
                 logger.info(f"✅ 리포지토리: 카테고리 '{category_id}' 상세 정보 조회 완료 - ESG: {esg_classification_name}, 이슈풀: {len(base_issuepools)}개")
+                logger.info(f"✅ 반환할 데이터: {category_details}")
                 return category_details
                 
         except Exception as e:
             logger.error(f"❌ 리포지토리: 카테고리 상세 정보 조회 중 오류 - {str(e)}")
+            logger.error(f"❌ 오류 상세: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
             return None
