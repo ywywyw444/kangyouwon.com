@@ -97,6 +97,9 @@ export default function MaterialityHomePage() {
 
   // 화면 표시 제어를 위한 별도 상태
   const [isDataHidden, setIsDataHidden] = useState(false);
+  
+  // 모달 상태
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
 
 
@@ -1398,32 +1401,7 @@ export default function MaterialityHomePage() {
                     <button
                       onClick={() => {
                         if (assessmentResult) {
-                          // 상세 정보를 모달이나 새로운 섹션으로 표시
-                          const detailInfo = `
-📊 평가 요약
-• 총 기사: ${assessmentResult.total_articles}개
-• 부정 기사: ${assessmentResult.negative_articles}개
-• 부정 비율: ${assessmentResult.negative_ratio?.toFixed(1)}%
-• 분석된 카테고리: ${assessmentResult.total_categories}개
-
-🏆 전체 카테고리 상세 정보
-${assessmentResult.matched_categories?.map((cat: any) => 
-  `${cat.rank}위: ${cat.category}
-   ESG: ${cat.esg_classification || '미분류'}
-   이슈풀: ${cat.total_issuepools || 0}개
-   최종점수: ${cat.final_score?.toFixed(3)}
-   빈도점수: ${cat.frequency_score?.toFixed(3)}
-   관련성점수: ${cat.relevance_score?.toFixed(3)}
-   최신성점수: ${cat.recent_score?.toFixed(3)}
-   순위점수: ${cat.rank_score?.toFixed(3)}
-   참조점수: ${cat.reference_score?.toFixed(3)}
-   부정성점수: ${cat.negative_score?.toFixed(3)}`
-).join('\n\n')}
-
-📈 점수 계산 공식
-최종점수 = 0.4×빈도점수 + 0.6×관련성점수 + 0.2×최신성점수 + 0.4×순위점수 + 0.6×참조점수 + 0.8×부정성점수×(1+0.5×빈도점수+0.5×관련성점수)
-                          `;
-                          alert(detailInfo);
+                          setIsDetailModalOpen(true);
                         }
                       }}
                       className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-white hover:bg-green-50 transition-colors duration-200"
@@ -2146,6 +2124,132 @@ ${assessmentResult.matched_categories?.map((cat: any) =>
           </div>
         </div>
       </div>
+      
+      {/* 중대성 평가 상세 정보 모달 */}
+      {isDetailModalOpen && assessmentResult && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* 배경 오버레이 */}
+          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setIsDetailModalOpen(false)}></div>
+          
+          {/* 모달 내용 */}
+          <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-2xl font-bold text-gray-900">중대성 평가 상세 정보</h3>
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+              >
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* 모달 바디 */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {/* 평가 요약 */}
+              <div className="mb-8">
+                <h4 className="text-xl font-semibold text-gray-800 mb-4">📊 평가 요약</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{assessmentResult.total_articles || 0}</div>
+                    <div className="text-sm text-blue-700">총 기사</div>
+                  </div>
+                  <div className="bg-red-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-red-600">{assessmentResult.negative_articles || 0}</div>
+                    <div className="text-sm text-red-700">부정 기사</div>
+                  </div>
+                  <div className="bg-orange-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-orange-600">
+                      {assessmentResult.negative_ratio?.toFixed(1) || 0}%
+                    </div>
+                    <div className="text-sm text-orange-700">부정 비율</div>
+                  </div>
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600">{assessmentResult.total_categories || 0}</div>
+                    <div className="text-sm text-green-700">분석된 카테고리</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* 전체 카테고리 상세 정보 */}
+              <div className="mb-8">
+                <h4 className="text-xl font-semibold text-gray-800 mb-4">🏆 전체 카테고리 상세 정보</h4>
+                <div className="space-y-4">
+                  {assessmentResult.matched_categories?.map((cat: any, index: number) => (
+                    <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className="text-lg font-semibold text-gray-800">
+                          {cat.rank}위: {cat.category}
+                        </h5>
+                        <span className="px-3 py-1 text-sm font-medium text-gray-600 bg-gray-100 rounded-full">
+                          {cat.esg_classification || '미분류'}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <span className="text-gray-600">이슈풀:</span>
+                          <span className="ml-2 font-medium">{cat.total_issuepools || 0}개</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">최종점수:</span>
+                          <span className="ml-2 font-medium text-blue-600">{cat.final_score?.toFixed(3) || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">빈도점수:</span>
+                          <span className="ml-2 font-medium">{cat.frequency_score?.toFixed(3) || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">관련성점수:</span>
+                          <span className="ml-2 font-medium">{cat.relevance_score?.toFixed(3) || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">최신성점수:</span>
+                          <span className="ml-2 font-medium">{cat.recent_score?.toFixed(3) || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">순위점수:</span>
+                          <span className="ml-2 font-medium">{cat.rank_score?.toFixed(3) || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">참조점수:</span>
+                          <span className="ml-2 font-medium">{cat.reference_score?.toFixed(3) || 0}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">부정성점수:</span>
+                          <span className="ml-2 font-medium">{cat.negative_score?.toFixed(3) || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* 점수 계산 공식 */}
+              <div className="mb-6">
+                <h4 className="text-xl font-semibold text-gray-800 mb-4">📈 점수 계산 공식</h4>
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <p className="text-sm text-gray-700 leading-relaxed">
+                    <strong>최종점수</strong> = 0.4×빈도점수 + 0.6×관련성점수 + 0.2×최신성점수 + 0.4×순위점수 + 0.6×참조점수 + 0.8×부정성점수×(1+0.5×빈도점수+0.5×관련성점수)
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* 모달 푸터 */}
+            <div className="flex justify-end p-6 border-t border-gray-200">
+              <button
+                onClick={() => setIsDetailModalOpen(false)}
+                className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

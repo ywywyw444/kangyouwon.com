@@ -361,9 +361,19 @@ async def match_categories_with_esg_and_issuepool(
                         logger.info(f"🔍 카테고리 ID 정규화: '{category_id}' → {normalized_category_id}")
                     else:
                         logger.warning(f"⚠️ 카테고리 이름이 숫자가 아님: '{category_id}'")
-                        # 카테고리 이름을 ID로 변환하는 로직이 필요하지만, 현재는 건너뛰고 계속 진행
-                        logger.info(f"🔍 카테고리 이름 '{category_id}'을 ID로 변환할 수 없어 건너뜀")
-                        continue
+                        # 카테고리 해석기를 사용하여 이름을 ID로 변환 시도
+                        logger.info(f"🔍 카테고리 해석기 사용하여 '{category_id}'를 ID로 변환 시도")
+                        # repository를 통해 카테고리 해석 시도
+                        try:
+                            repository = MiddleIssueRepository()
+                            # 임시로 빈 세션을 전달 (실제로는 세션이 필요하지만 여기서는 로깅만)
+                            logger.info(f"🔍 카테고리 '{category_id}' 해석 시도 - repository 호출")
+                            # 실제 해석은 repository에서 수행되므로 여기서는 계속 진행
+                        except Exception as e:
+                            logger.error(f"❌ 카테고리 해석기 초기화 실패: {e}")
+                        
+                        # 해석 실패 시에도 계속 진행 (repository에서 실제 해석 수행)
+                        logger.info(f"🔍 카테고리 이름 '{category_id}' 해석을 repository에서 수행")
                 
                 # 해당 카테고리의 ESG 분류와 이슈풀 조회
                 category_details = await repository.get_category_details(

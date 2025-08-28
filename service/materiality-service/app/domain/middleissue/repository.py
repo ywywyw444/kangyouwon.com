@@ -2,15 +2,125 @@
 Middleissue Repository - BaseModel을 받아서 데이터베이스 작업을 수행하는 계층
 데이터베이스 연결을 담당하며, BaseModel과 Entity 간의 변환을 처리
 """
+import re
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, cast, Integer, func, text
-from typing import List, Optional
+from typing import List, Optional, Dict
 from app.domain.middleissue.schema import MiddleIssueBase, IssueItem, CorporationIssueResponse
 from app.domain.middleissue.entity import MiddleIssueEntity, CorporationEntity
 from app.common.database.issuepool_db import get_db
 import logging
 
 logger = logging.getLogger(__name__)
+
+# 카테고리 별칭 매핑 (서비스 레벨에 임시 별칭 매핑)
+CATEGORY_SYNONYMS: Dict[str, str] = {
+    # 표준명 -> 별칭들
+    "폐기물/폐기물관리": "폐기물관리",
+    "재생에너지": "재생에너지",
+    "대기오염": "대기오염",
+    "제품안전/제품품질": "제품품질",
+    "윤리경영/준법경영/부패/뇌물수수": "윤리경영",
+    "지역사회/사회공헌": "사회공헌",
+    "환경영향/환경오염/오염물질/유해화학물질": "환경오염",
+    "고용/일자리": "고용",
+    "임금/인사제도": "임금",
+    "협력사": "협력사",
+    "원재료": "원재료",
+    "인권": "인권",
+    # 필요에 따라 더 추가
+}
+
+def _normalize_tokens(name: str) -> List[str]:
+    """슬래시 등으로 분리된 카테고리명을 토큰으로 분해"""
+    if not name:
+        return []
+    # '환경영향/환경오염/오염물질/유해화학물질' -> ['환경영향','환경오염','오염물질','유해화학물질']
+    parts = re.split(r"[/|,;]", name)
+    toks = [re.sub(r"\s+", " ", p).strip() for p in parts]
+    return [t for t in toks if t]
+
+async def resolve_category_id(session, category_value: str) -> Optional[int]:
+    """
+    문자열 카테고리명을 받아 category_id(int)로 변환.
+    1) 정확일치
+    2) 슬래시 분해 토큰 중 정확일치
+    3) 별칭 매핑 후 정확일치
+    4) (선택) ILIKE fallback
+    """
+    if not category_value or not isinstance(category_value, str):
+        return None
+
+    logger.info(f"🔍 카테고리 해석기 시작: '{category_value}'")
+
+    # 1) 정확 일치 (category_id가 문자열인 경우)
+    try:
+        cat_id = await session.scalar(
+            select(MiddleIssueEntity.category_id).where(MiddleIssueEntity.category_id == category_value)
+        )
+        if cat_id:
+            logger.info(f"✅ 정확 일치 성공: '{category_value}' → {cat_id}")
+            return cat_id
+    except Exception as e:
+        logger.warning(f"⚠️ 정확 일치 시도 중 오류: {e}")
+
+    # 2) 슬래시 등으로 분해한 토큰들 중 일치 찾기
+    tokens = _normalize_tokens(category_value)
+    logger.info(f"🔍 토큰 분해 결과: {tokens}")
+    
+    for tok in tokens:
+        try:
+            cat_id = await session.scalar(
+                select(MiddleIssueEntity.category_id).where(MiddleIssueEntity.category_id == tok)
+            )
+            if cat_id:
+                logger.info(f"✅ 토큰 일치 성공: '{tok}' → {cat_id}")
+                return cat_id
+        except Exception as e:
+            logger.warning(f"⚠️ 토큰 '{tok}' 일치 시도 중 오류: {e}")
+
+    # 3) 별칭 매핑 사용 (표준명 또는 대표 토큰으로 치환)
+    alias_key = CATEGORY_SYNONYMS.get(category_value)
+    if alias_key:
+        logger.info(f"🔍 별칭 매핑 시도: '{category_value}' → '{alias_key}'")
+        try:
+            cat_id = await session.scalar(
+                select(MiddleIssueEntity.category_id).where(MiddleIssueEntity.category_id == alias_key)
+            )
+            if cat_id:
+                logger.info(f"✅ 별칭 매핑 성공: '{category_value}' → '{alias_key}' → {cat_id}")
+                return cat_id
+        except Exception as e:
+            logger.warning(f"⚠️ 별칭 매핑 시도 중 오류: {e}")
+    else:
+        for tok in tokens:
+            alias_key = CATEGORY_SYNONYMS.get(tok)
+            if alias_key:
+                logger.info(f"🔍 토큰별 별칭 매핑 시도: '{tok}' → '{alias_key}'")
+                try:
+                    cat_id = await session.scalar(
+                        select(MiddleIssueEntity.category_id).where(MiddleIssueEntity.category_id == alias_key)
+                    )
+                    if cat_id:
+                        logger.info(f"✅ 토큰별 별칭 매핑 성공: '{tok}' → '{alias_key}' → {cat_id}")
+                        return cat_id
+                except Exception as e:
+                    logger.warning(f"⚠️ 토큰별 별칭 매핑 시도 중 오류: {e}")
+
+    # 4) (선택) 느슨한 ILIKE 매칭 (가장 긴 토큰부터)
+    for tok in sorted(tokens, key=len, reverse=True):
+        try:
+            cat_id = await session.scalar(
+                select(MiddleIssueEntity.category_id).where(MiddleIssueEntity.category_id.ilike(f"%{tok}%"))
+            )
+            if cat_id:
+                logger.info(f"✅ ILIKE 매칭 성공: '{tok}' → {cat_id}")
+                return cat_id
+        except Exception as e:
+            logger.warning(f"⚠️ ILIKE 매칭 시도 중 오류: {e}")
+
+    logger.warning(f"❌ 카테고리 해석기 실패: '{category_value}'를 ID로 변환할 수 없음")
+    return None
 
 class MiddleIssueRepository:
     """중간 이슈 리포지토리 - 이슈풀 관련 데이터베이스 작업"""
@@ -138,7 +248,15 @@ class MiddleIssueRepository:
                         logger.info(f"🔍 카테고리 ID 이미 정수: {category_id}")
                     else:
                         logger.warning(f"⚠️ 카테고리 ID가 숫자가 아님: {category_id} (타입: {type(category_id)})")
-                        # 문자열인 경우 쿼리에서 안전하게 처리
+                        # 카테고리 해석기를 사용하여 이름을 ID로 변환 시도
+                        logger.info(f"🔍 카테고리 해석기 사용하여 '{category_id}'를 ID로 변환 시도")
+                        resolved_id = await resolve_category_id(db, str(category_id))
+                        if resolved_id:
+                            normalized_category_id = resolved_id
+                            logger.info(f"✅ 카테고리 해석기 성공: '{category_id}' → {normalized_category_id}")
+                        else:
+                            logger.warning(f"⚠️ 카테고리 해석기 실패: '{category_id}'를 ID로 변환할 수 없음")
+                            # 변환 실패 시 원본 값 사용하되 로그 기록
                 except (ValueError, TypeError) as e:
                     logger.error(f"❌ 카테고리 ID 변환 실패: {category_id}, 오류: {e}")
                     # 변환 실패 시 원본 값 사용하되 로그 기록
