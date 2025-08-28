@@ -1,8 +1,7 @@
 from typing import Optional, List, Any, Dict
 from fastapi import APIRouter, FastAPI, Request, UploadFile, File, Query, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
-from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi.responses import JSONResponse
 import os
 import logging
 import sys
@@ -11,16 +10,7 @@ from contextlib import asynccontextmanager
 import httpx
 import json
 
-class AuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        # 프리플라이트는 무조건 통과
-        if request.method == "OPTIONS":
-            return Response(status_code=204)
-        # 공개 엔드포인트는 인증 우회
-        if request.url.path in ("/api/v1/auth-service/login", "/healthz"):
-            return await call_next(request)
-        # ... 나머지 인증 로직 ...
-        return await call_next(request)
+from app.www.jwt_auth_middleware import AuthMiddleware
 from app.domain.discovery.service_factory import SimpleServiceFactory
 
 # Gateway는 DB에 직접 접근하지 않음 (MSA 원칙)
@@ -73,8 +63,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# CORS 다음에 인증 미들웨어 추가
 app.add_middleware(AuthMiddleware)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://www.kangyouwon.com",
+        "https://kangyouwon.com",
+        "https://esg-mate.vercel.app",
+        "https://esg-mate-lywmmygs7-ywyw74s-projects.vercel.app",
+        "https://zustand-beta.vercel.app",
+        "https://zustand-git-main-ywyw74s-projects.vercel.app",
+        "https://zustand-owlotwu22-ywyw74s-projects.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://frontend:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=["*"],
+)
 
 # 모든 요청 로깅 미들웨어 추가
 @app.middleware("http")
@@ -82,12 +90,7 @@ async def log_all_requests(request: Request, call_next):
     logger.info(f"🌐 모든 요청 로깅: {request.method} {request.url.path}")
     logger.info(f"🌐 요청 헤더: {dict(request.headers)}")
     
-    # OPTIONS 요청은 204로 즉시 응답
-    if request.method == "OPTIONS":
-        from fastapi.responses import Response
-        return Response(status_code=204)
-    
-    # 다른 요청들은 정상 처리
+    # 응답 처리
     response = await call_next(request)
     
     logger.info(f"🌐 응답 상태: {response.status_code}")
