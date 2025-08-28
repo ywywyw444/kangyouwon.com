@@ -1165,32 +1165,6 @@ export default function MaterialityHomePage() {
                   </p>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => {
-                      const savedData = localStorage.getItem('excelUploadData');
-                      if (savedData) {
-                        try {
-                          const parsedData = JSON.parse(savedData);
-                          setExcelData(parsedData.excelData || []);
-                          setIsExcelValid(parsedData.isValid || null);
-                          setExcelFilename(parsedData.fileName || null);
-                          setExcelBase64(parsedData.base64Data || null);
-                          alert('✅ 저장된 명단을 불러왔습니다.');
-                        } catch (error) {
-                          console.error('저장된 데이터 불러오기 실패:', error);
-                          alert('❌ 저장된 데이터를 불러오는데 실패했습니다.');
-                        }
-                      } else {
-                        alert('저장된 명단이 없습니다.');
-                      }
-                    }}
-                    className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 transition-colors duration-200"
-                  >
-                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    명단 불러오기
-                  </button>
                   <a
                     href="/중대성평가 설문 대상자 템플릿.xlsx"
                     download="중대성평가 설문 대상자 템플릿.xlsx"
@@ -1285,20 +1259,35 @@ export default function MaterialityHomePage() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => {
+                      const savedData = localStorage.getItem('excelUploadData');
+                      if (savedData) {
+                        try {
+                          const parsedData = JSON.parse(savedData);
+                          setExcelData(parsedData.excelData || []);
+                          setIsExcelValid(parsedData.isValid || false);
+                          setExcelFilename(parsedData.fileName || null);
+                          setExcelBase64(parsedData.base64Data || null);
+                          alert('✅ 저장된 명단을 불러왔습니다.');
+                        } catch (error) {
+                          console.error('저장된 데이터 불러오기 실패:', error);
+                          alert('❌ 저장된 데이터를 불러오는데 실패했습니다.');
+                        }
+                      } else {
+                        alert('저장된 명단이 없습니다.');
+                      }
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    명단 불러오기
+                  </button>
                   <span className="px-3 py-1 bg-purple-100 text-purple-800 text-sm font-medium rounded-full">
                     총 {excelData.length}개 기업
                   </span>
-                  <button
-                    onClick={() => {
-                      alert('명단 새로고침 기능을 구현합니다.');
-                    }}
-                    className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors duration-200"
-                    title="명단 새로고침"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </button>
                 </div>
               </div>
               
