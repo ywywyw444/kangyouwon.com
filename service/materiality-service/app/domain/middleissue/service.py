@@ -512,7 +512,7 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info(f"   - 기업명: {request.company_id}")
         logger.info(f"   - 검색 연도: {search_year}")
         logger.info(f"   - 랭킹된 카테고리 수: {len(ranked_categories)}")
-        logger.info(f"   - 첫 번째 카테고리 예시: {ranked_categories[0] if ranked_categories else 'None'}")
+        # logger.info(f"   - 첫 번째 카테고리 예시: {ranked_categories[0] if ranked_categories else 'None'}")
         
         matched_categories = await match_categories_with_esg_and_issuepool(
             ranked_categories, 
