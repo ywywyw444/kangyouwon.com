@@ -20,6 +20,7 @@ interface ExcelDataStore {
   updateRow: (index: number, updatedData: ExcelRow) => void;
   deleteRow: (index: number) => void;
   reset: () => void;
+  loadFromStorage: () => void;
 }
 
 const saveToLocalStorage = (state: Partial<ExcelDataStore>) => {
@@ -89,9 +90,20 @@ export const useExcelDataStore = create<ExcelDataStore>((set, get) => {
       saveToLocalStorage({ ...get(), excelData: currentData });
     },
 
-               reset: () => {
-             const initialState = { excelData: [], isValid: false, fileName: null, base64Data: null };
-             set(initialState);
+    reset: () => {
+      const initialState = { excelData: [], isValid: false, fileName: null, base64Data: null };
+      set(initialState);
+      // localStorage는 지우지 않음 (명단 불러오기를 위해)
+    },
+
+    loadFromStorage: () => {
+      const savedState = loadFromLocalStorage();
+      set({
+        excelData: savedState.excelData || [],
+        isValid: savedState.isValid || false,
+        fileName: savedState.fileName || null,
+        base64Data: savedState.base64Data || null,
+      });
     },
   };
 });

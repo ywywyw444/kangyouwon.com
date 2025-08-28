@@ -90,7 +90,8 @@ export default function MaterialityHomePage() {
     setBase64Data: setExcelBase64,
     updateRow,
     deleteRow,
-    reset
+    reset,
+    loadFromStorage
   } = useExcelDataStore();
 
   // 엑셀 파일 업로드 및 검증 처리
@@ -1329,21 +1330,12 @@ export default function MaterialityHomePage() {
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={() => {
-                      const savedData = localStorage.getItem('excelUploadData');
-                      if (savedData) {
-                        try {
-                          const parsedData = JSON.parse(savedData);
-                          setExcelData(parsedData.excelData || []);
-                          setIsExcelValid(parsedData.isValid || false);
-                          setExcelFilename(parsedData.fileName || null);
-                          setExcelBase64(parsedData.base64Data || null);
-                          alert('✅ 저장된 명단을 불러왔습니다.');
-                        } catch (error) {
-                          console.error('저장된 데이터 불러오기 실패:', error);
-                          alert('❌ 저장된 데이터를 불러오는데 실패했습니다.');
-                        }
-                      } else {
-                        alert('저장된 명단이 없습니다.');
+                      try {
+                        loadFromStorage();
+                        alert('✅ 저장된 명단을 불러왔습니다.');
+                      } catch (error) {
+                        console.error('저장된 데이터 불러오기 실패:', error);
+                        alert('❌ 저장된 데이터를 불러오는데 실패했습니다.');
                       }
                     }}
                     className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 transition-colors duration-200"
