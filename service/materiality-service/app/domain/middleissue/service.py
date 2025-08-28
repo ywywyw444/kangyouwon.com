@@ -408,7 +408,7 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
                 f"recent={row['recent_score']:.3f}, rank={row['rank_score']:.1f}, "
                 f"ref={row['reference_score']:.1f}, neg={row['negative_score']:.3f})"
             )
-            )
+            
 
         # 9) 응답
         response_data = {
