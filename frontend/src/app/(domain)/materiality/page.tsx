@@ -173,6 +173,7 @@ export default function MaterialityHomePage() {
   // 중대성 평가 관련 상태
   const [issuepoolData, setIssuepoolData] = useState<IssuepoolData | null>(null);
   const [isIssuepoolLoading, setIsIssuepoolLoading] = useState(false);
+  const [isAssessmentStarting, setIsAssessmentStarting] = useState(false);
 
   // 이전 검색 결과 자동 로드 제거 - 버튼 클릭시에만 로드하도록 변경
 
@@ -967,6 +968,8 @@ export default function MaterialityHomePage() {
                   }
 
                   try {
+                    setIsAssessmentStarting(true);
+                    
                     // 기사 데이터 구조 확인 및 필요한 필드 포함
                     const formattedArticles = (searchResult.data.articles || []).map(article => ({
                       company: article.company || searchResult.data.company_id,
@@ -1010,11 +1013,28 @@ export default function MaterialityHomePage() {
                   } catch (error) {
                     console.error('중대성 평가 시작 중 오류:', error);
                     alert('❌ 중대성 평가 시작 중 오류가 발생했습니다.');
+                  } finally {
+                    setIsAssessmentStarting(false);
                   }
                 }}
-                className="flex-1 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+                disabled={isAssessmentStarting}
+                className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-xl ${
+                  isAssessmentStarting 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
               >
-                🚀 새로운 중대성 평가 시작
+                {isAssessmentStarting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <span>중대성 평가 시작 중...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🚀</span>
+                    <span>새로운 중대성 평가 시작</span>
+                  </>
+                )}
               </button>
             </div>
 
