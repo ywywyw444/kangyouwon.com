@@ -22,10 +22,8 @@ logger = logging.getLogger(__name__)
 
 # 모델 경로 설정
 MODEL_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-    'llm-service',
-    'machine_learning',
-    'output',
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    'models',
     'model_multinomialnb.joblib'
 )
 
@@ -33,6 +31,12 @@ def load_sentiment_model():
     """감성 분석 모델 로드"""
     try:
         logger.info(f"🤖 감성 분석 모델 로드 시도: {MODEL_PATH}")
+        
+        # 모델 파일이 없는 경우 기본값 반환
+        if not os.path.exists(MODEL_PATH):
+            logger.warning(f"⚠️ 모델 파일이 없습니다. 모든 텍스트를 'other'로 분류합니다.")
+            return None
+            
         model = joblib.load(MODEL_PATH)
         logger.info("✅ 감성 분석 모델 로드 성공")
         return model
@@ -43,6 +47,10 @@ def load_sentiment_model():
 def analyze_text_sentiment(model, text: str) -> Tuple[str, float]:
     """텍스트 감성 분석 수행"""
     try:
+        # 모델이 없는 경우 기본값 반환
+        if model is None:
+            return "other", 1.0
+            
         prediction = model.predict([text])[0]
         # predict_proba로 확률값도 가져옴
         probabilities = model.predict_proba([text])[0]
@@ -94,7 +102,7 @@ def analyze_sentiment(model, articles: List[Article]) -> List[Dict[str, Any]]:
                     "pubDate": article.pubDate,
                     "originallink": article.originallink,
                     "company": article.company,
-                    "relevance_score": 0  # 관련성 점수 초기화
+                    "relevance_score": 0.0  # 관련성 점수 초기화
                 })
                 
             except Exception as e:
@@ -114,16 +122,23 @@ async def add_relevance_labels(
     year_categories: Set[str],
     common_categories: Set[str]
 ) -> List[Dict[str, Any]]:
-    """기사에 관련성 라벨 추가"""
+    """
+    기사에 관련성 라벨 추가
+    
+    점수 체계:
+    - ++ : 1.0점
+    - +  : 0.5점
+    - 없음: 0점
+    """
     try:
         for article in articles:
-            score = 0
+            score = 0.0  # float으로 변경
             reasons = []
 
-            # 1. 제목 또는 본문에 기업명 포함 여부 (++)
-            if company_id in article["title"] or company_id in article["description"]:
-                score += 2
-                reasons.append("기업명 포함")
+            # 1. 제목에 기업명 포함 여부 (++)
+            if company_id in article["title"]:
+                score += 1.0
+                reasons.append("제목에 기업명 포함 (1.0)")
 
             # 2. 발행일 기준 최신성 (3개월 이내: ++, 3-6개월: +)
             if article["pubDate"]:
@@ -131,23 +146,23 @@ async def add_relevance_labels(
                 months_diff = (search_date - pub_date).days / 30
                 
                 if months_diff <= 3:
-                    score += 2
-                    reasons.append("최근 3개월 이내")
+                    score += 1.0
+                    reasons.append("최근 3개월 이내 (1.0)")
                 elif months_diff <= 6:
-                    score += 1
-                    reasons.append("최근 3-6개월")
+                    score += 0.5
+                    reasons.append("최근 3-6개월 (0.5)")
 
             # 3 & 4. 카테고리 매칭
             if article["original_category"]:
                 # 해당 연도 카테고리와 매칭 (++)
                 if article["original_category"] in year_categories:
-                    score += 2
-                    reasons.append("연도별 카테고리 매칭")
+                    score += 1.0
+                    reasons.append("연도별 카테고리 매칭 (1.0)")
                 
                 # 공통 카테고리와 매칭 (++)
                 if article["original_category"] in common_categories:
-                    score += 2
-                    reasons.append("공통 카테고리 매칭")
+                    score += 1.0
+                    reasons.append("공통 카테고리 매칭 (1.0)")
 
             # 결과 저장
             article["relevance_score"] = score
@@ -251,11 +266,11 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
 
         # 6. 분석 결과 로깅
         negative_count = sum(1 for article in labeled_articles if article["sentiment"] == "negative")
-        high_relevance_count = sum(1 for article in labeled_articles if article["relevance_score"] >= 4)
+        high_relevance_count = sum(1 for article in labeled_articles if article["relevance_score"] >= 2.0)  # 4점 만점의 절반 이상
         
         logger.info(f"분석된 기사 수: {len(labeled_articles)}")
         logger.info(f"부정적 기사 수: {negative_count}")
-        logger.info(f"높은 관련성(4점 이상) 기사 수: {high_relevance_count}")
+        logger.info(f"높은 관련성(2.0점 이상) 기사 수: {high_relevance_count}")
         
         # 7. 샘플 결과 로깅 (최대 5개)
         logger.info("\n📰 분석 결과 샘플:")
@@ -265,7 +280,7 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             logger.info(f"감성: {article['sentiment']} (신뢰도: {article['sentiment_confidence']:.2f})")
             logger.info(f"제목 감성: {article['title_sentiment']}")
             logger.info(f"본문 감성: {article['desc_sentiment']}")
-            logger.info(f"관련성 점수: {article['relevance_score']}")
+            logger.info(f"관련성 점수: {article['relevance_score']:.1f}/4.0")
             logger.info(f"관련성 이유: {', '.join(article['relevance_reasons'])}")
             logger.info(f"카테고리: {article['original_category']}")
             logger.info(f"발행일: {article['pubDate']}")
