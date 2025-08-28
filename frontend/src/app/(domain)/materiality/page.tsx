@@ -1147,120 +1147,91 @@ export default function MaterialityHomePage() {
 
           {/* 설문 대상 업로드 */}
           <div id="survey-upload" className="bg-white rounded-xl shadow-lg p-6 mb-12">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Excel 파일 업로드 */}
-              <div>
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  📊 설문 대상 업로드
-                </h2>
-                <p className="text-gray-600 mb-6">
-                  설문 대상 기업 정보가 담긴 Excel 파일을 업로드하세요.
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+                    📊 설문 대상 업로드
+                  </h2>
+                  <p className="text-gray-600">
+                    업로드된 Excel 파일의 설문 대상 기업 목록을 확인하세요
+                  </p>
+                </div>
+                <a
+                  href="/중대성평가 설문 대상자 템플릿.xlsx"
+                  download="중대성평가 설문 대상자 템플릿.xlsx"
+                  className="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Excel 템플릿 다운로드
+                </a>
+              </div>
+
+              <div 
+                className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors duration-200"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  const file = e.dataTransfer.files[0];
+                  if (file) {
+                    handleExcelUpload(file);
+                  }
+                }}
+              >
+                <div className="text-4xl text-gray-400 mb-4">📁</div>
+                <p className="text-gray-600 mb-4">
+                  Excel 파일을 여기에 드래그하거나 클릭하여 선택하세요
                 </p>
-                
-                                  <div 
-                    className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors duration-200"
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                    onDrop={async (e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      
-                      const file = e.dataTransfer.files[0];
-                      if (file) {
-                        handleExcelUpload(file);
-                      }
-                    }}
-                  >
-                    <div className="text-4xl text-gray-400 mb-4">📁</div>
-                    <p className="text-gray-600 mb-4">
-                      Excel 파일을 여기에 드래그하거나 클릭하여 선택하세요
-                    </p>
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          handleExcelUpload(file);
-                        }
-                      }}
-                      className="hidden"
-                      id="excel-upload"
-                    />
-                    <label
-                      htmlFor="excel-upload"
-                      className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg cursor-pointer transition-colors duration-200"
-                    >
-                      파일 선택
-                    </label>
-                  </div>
-                
-                                  <div className="mt-4 space-y-2">
-                    <div className="text-sm text-gray-500">
-                      지원 형식: .xlsx, .xls (최대 10MB)
-                    </div>
-                    {isExcelValid !== null && (
-                      <div className={`text-sm ${isExcelValid ? 'text-green-600' : 'text-red-600'} font-medium`}>
-                        {isExcelValid ? (
-                          <div className="flex items-center">
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            템플릿 검증 완료
-                          </div>
-                        ) : (
-                          <div className="flex items-center">
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                            템플릿 형식이 올바르지 않습니다
-                          </div>
-                        )}
+                <input
+                  type="file"
+                  accept=".xlsx,.xls"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleExcelUpload(file);
+                    }
+                  }}
+                  className="hidden"
+                  id="excel-upload"
+                />
+                <label
+                  htmlFor="excel-upload"
+                  className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg cursor-pointer transition-colors duration-200"
+                >
+                  파일 업로드
+                </label>
+              </div>
+              
+              <div className="mt-4 space-y-2">
+                <div className="text-sm text-gray-500">
+                  지원 형식: .xlsx, .xls (최대 10MB)
+                </div>
+                {isExcelValid !== null && (
+                  <div className={`text-sm ${isExcelValid ? 'text-green-600' : 'text-red-600'} font-medium`}>
+                    {isExcelValid ? (
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        템플릿 검증 완료
+                      </div>
+                    ) : (
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        템플릿 형식이 올바르지 않습니다
                       </div>
                     )}
                   </div>
-              </div>
-              
-              {/* Excel 형식 다운로드 */}
-              <div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                  📋 Excel 형식 다운로드
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  설문 대상 업로드에 필요한 Excel 형식을 다운로드하세요.
-                </p>
-                
-                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                  <div className="flex items-center mb-4">
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
-                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-gray-800">설문 대상 템플릿</h4>
-                      <p className="text-sm text-gray-500">기업 정보, 설문 항목 등이 포함된 표준 형식</p>
-                    </div>
-                  </div>
-                  
-                  <a
-                    href="/중대성평가 설문 대상자 템플릿.xlsx"
-                    download="중대성평가 설문 대상자 템플릿.xlsx"
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Excel 템플릿 다운로드
-                  </a>
-                  
-                  <div className="mt-4 text-sm text-gray-500">
-                    <p>• 기업명, 설문 항목, 평가 기준 등이 포함</p>
-                    <p>• 표준 형식으로 작성하면 자동 처리됩니다</p>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
             
