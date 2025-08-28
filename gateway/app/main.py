@@ -63,16 +63,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-if request.method == "OPTIONS":
-    return Response(status_code=204)
-
 # 모든 요청 로깅 미들웨어 추가
 @app.middleware("http")
 async def log_all_requests(request: Request, call_next):
     logger.info(f"🌐 모든 요청 로깅: {request.method} {request.url.path}")
     logger.info(f"🌐 요청 헤더: {dict(request.headers)}")
     
-    # 응답 처리
+    # OPTIONS 요청은 204로 즉시 응답
+    if request.method == "OPTIONS":
+        from fastapi.responses import Response
+        return Response(status_code=204)
+    
+    # 다른 요청들은 정상 처리
     response = await call_next(request)
     
     logger.info(f"🌐 응답 상태: {response.status_code}")
