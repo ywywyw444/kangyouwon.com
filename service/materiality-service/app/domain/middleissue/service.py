@@ -180,58 +180,195 @@ async def add_relevance_labels(
     common_categories: Set[str]
 ) -> List[Dict[str, Any]]:
     """
-    기사에 관련성 라벨 추가
+    기사에 관련성 라벨 추가 및 점수 계산
     
-    점수 체계:
-    - ++ : 1.0점
-    - +  : 0.5점
-    - 없음: 0점
+    라벨 체계:
+    - relevance: title에 기업명 포함 여부 (++ 또는 없음)
+    - recent: pubdate 최신성 (++: 3개월 이내, +: 3-6개월, 없음)
+    - rank: year-1 카테고리 매칭 여부 (++ 또는 없음)
+    - reference: publish_year null 카테고리 매칭 여부 (++ 또는 없음)
     """
     try:
         for article in articles:
-            score = 0.0
-            reasons = []
+            # 라벨 초기화
+            article["relevance"] = "없음"
+            article["recent"] = "없음"
+            article["rank"] = "없음"
+            article["reference"] = "없음"
+            article["label_reasons"] = []
 
-            # 1. 제목에 기업명 포함 여부 (++)
+            # 1. relevance: 제목에 기업명 포함 여부
             if company_id in article["title"]:
-                score += 1.0
-                reasons.append("제목에 기업명 포함 (1.0)")
+                article["relevance"] = "++"
+                article["label_reasons"].append("제목에 기업명 포함")
 
-            # 2. 발행일 기준 최신성 (3개월 이내: ++, 3-6개월: +)
+            # 2. recent: 발행일 기준 최신성
             if article["pubDate"]:
                 try:
                     pub_date = parse_pubdate(article["pubDate"])
                     months_diff = (search_date - pub_date).days / 30
                     
                     if months_diff <= 3:
-                        score += 1.0
-                        reasons.append("최근 3개월 이내 (1.0)")
+                        article["recent"] = "++"
+                        article["label_reasons"].append("최근 3개월 이내")
                     elif months_diff <= 6:
-                        score += 0.5
-                        reasons.append("최근 3-6개월 (0.5)")
+                        article["recent"] = "+"
+                        article["label_reasons"].append("최근 3-6개월")
                 except Exception as e:
                     logger.warning(f"⚠️ 발행일 처리 중 오류: {str(e)}")
 
-            # 3 & 4. 카테고리 매칭
-            if article["original_category"]:
-                # 해당 연도 카테고리와 매칭 (++)
-                if article["original_category"] in year_categories:
-                    score += 1.0
-                    reasons.append("연도별 카테고리 매칭 (1.0)")
-                
-                # 공통 카테고리와 매칭 (++)
-                if article["original_category"] in common_categories:
-                    score += 1.0
-                    reasons.append("공통 카테고리 매칭 (1.0)")
+            # 3. rank: year-1 카테고리 매칭
+            if article["original_category"] and article["original_category"] in year_categories:
+                article["rank"] = "++"
+                article["label_reasons"].append("year-1 카테고리 매칭")
 
-            # 결과 저장
-            article["relevance_score"] = score
-            article["relevance_reasons"] = reasons
+            # 4. reference: publish_year null 카테고리 매칭
+            if article["original_category"] and article["original_category"] in common_categories:
+                article["reference"] = "++"
+                article["label_reasons"].append("공통 카테고리 매칭")
 
         return articles
     except Exception as e:
         logger.error(f"❌ 관련성 라벨 추가 중 오류 발생: {str(e)}")
         return articles
+
+def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """
+    카테고리별 점수 계산
+    
+    점수 체계:
+    - frequency_score: 해당 카테고리 빈도 (0~1)
+    - relevance_score: relevance ++면 1점, 아니면 0점
+    - recent_score: recent ++면 1점, +면 0.5점, 아니면 0점
+    - rank_score: rank ++면 1점, 아니면 0점
+    - negative_score: 해당 카테고리의 부정적 기사 비율 (0~1)
+    - reference_score: reference ++면 1점, 아니면 0점
+    """
+    try:
+        total_articles = len(articles)
+        if total_articles == 0:
+            return {}
+
+        # 카테고리별 데이터 수집
+        category_data = {}
+        
+        for article in articles:
+            category = article.get("original_category", "미분류")
+            if category not in category_data:
+                category_data[category] = {
+                    "count": 0,
+                    "relevance_count": 0,
+                    "recent_plus_plus": 0,
+                    "recent_plus": 0,
+                    "rank_count": 0,
+                    "reference_count": 0,
+                    "negative_count": 0,
+                    "articles": []
+                }
+            
+            category_data[category]["count"] += 1
+            category_data[category]["articles"].append(article)
+            
+            # 각 라벨별 카운트
+            if article.get("relevance") == "++":
+                category_data[category]["relevance_count"] += 1
+            
+            if article.get("recent") == "++":
+                category_data[category]["recent_plus_plus"] += 1
+            elif article.get("recent") == "+":
+                category_data[category]["recent_plus"] += 1
+            
+            if article.get("rank") == "++":
+                category_data[category]["rank_count"] += 1
+            
+            if article.get("reference") == "++":
+                category_data[category]["reference_count"] += 1
+            
+            if article.get("sentiment") == "negative":
+                category_data[category]["negative_count"] += 1
+
+        # 카테고리별 점수 계산
+        category_scores = {}
+        
+        for category, data in category_data.items():
+            count = data["count"]
+            
+            # 1. frequency_score: 해당 카테고리 빈도 (0~1)
+            frequency_score = count / total_articles
+            
+            # 2. relevance_score: relevance ++면 1점, 아니면 0점
+            relevance_score = 1.0 if data["relevance_count"] > 0 else 0.0
+            
+            # 3. recent_score: recent ++면 1점, +면 0.5점, 아니면 0점
+            recent_score = 0.0
+            if data["recent_plus_plus"] > 0:
+                recent_score = 1.0
+            elif data["recent_plus"] > 0:
+                recent_score = 0.5
+            
+            # 4. rank_score: rank ++면 1점, 아니면 0점
+            rank_score = 1.0 if data["rank_count"] > 0 else 0.0
+            
+            # 5. negative_score: 해당 카테고리의 부정적 기사 비율 (0~1)
+            negative_score = data["negative_count"] / count if count > 0 else 0.0
+            
+            # 6. reference_score: reference ++면 1점, 아니면 0점
+            reference_score = 1.0 if data["reference_count"] > 0 else 0.0
+            
+            # 7. final_score 계산
+            final_score = (
+                0.4 * frequency_score +
+                0.6 * relevance_score +
+                0.2 * recent_score +
+                0.4 * rank_score +
+                0.6 * reference_score +
+                0.8 * negative_score * (1 + 0.5 * frequency_score + 0.5 * relevance_score)
+            )
+            
+            category_scores[category] = {
+                "count": count,
+                "frequency_score": frequency_score,
+                "relevance_score": relevance_score,
+                "recent_score": recent_score,
+                "rank_score": rank_score,
+                "negative_score": negative_score,
+                "reference_score": reference_score,
+                "final_score": final_score,
+                "articles": data["articles"]
+            }
+        
+        return category_scores
+        
+    except Exception as e:
+        logger.error(f"❌ 카테고리 점수 계산 중 오류 발생: {str(e)}")
+        return {}
+
+def rank_categories_by_score(category_scores: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    카테고리를 final_score 기준으로 순위 매기기
+    """
+    try:
+        # final_score 기준으로 내림차순 정렬
+        ranked_categories = sorted(
+            category_scores.items(),
+            key=lambda x: x[1]["final_score"],
+            reverse=True
+        )
+        
+        # 순위 정보 추가
+        ranked_result = []
+        for rank, (category, scores) in enumerate(ranked_categories, 1):
+            ranked_result.append({
+                "rank": rank,
+                "category": category,
+                **scores
+            })
+        
+        return ranked_result
+        
+    except Exception as e:
+        logger.error(f"❌ 카테고리 순위 매기기 중 오류 발생: {str(e)}")
+        return []
 
 async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
     """
@@ -324,30 +461,58 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             common_categories
         )
 
-        # 6. 분석 결과 로깅
+        # 6. 카테고리별 점수 계산
+        logger.info("📊 카테고리별 점수 계산 시작")
+        category_scores = calculate_category_scores(labeled_articles)
+        
+        # 7. 카테고리 순위 매기기
+        logger.info("🏆 카테고리 순위 매기기 시작")
+        ranked_categories = rank_categories_by_score(category_scores)
+        
+        # 8. 분석 결과 로깅
         negative_count = sum(1 for article in labeled_articles if article["sentiment"] == "negative")
-        high_relevance_count = sum(1 for article in labeled_articles if article["relevance_score"] >= 2.0)  # 4점 만점의 절반 이상
         
         logger.info(f"분석된 기사 수: {len(labeled_articles)}")
         logger.info(f"부정적 기사 수: {negative_count}")
-        logger.info(f"높은 관련성(2.0점 이상) 기사 수: {high_relevance_count}")
+        logger.info(f"분석된 카테고리 수: {len(category_scores)}")
         
-        # 7. 샘플 결과 로깅 (최대 5개)
-        logger.info("\n📰 분석 결과 샘플:")
-        for idx, article in enumerate(labeled_articles[:5]):
+        # 9. 카테고리별 점수 상세 로깅
+        logger.info("\n📊 카테고리별 점수 상세:")
+        for rank_info in ranked_categories[:10]:  # 상위 10개만 로깅
+            logger.info(f"\n순위 {rank_info['rank']}: {rank_info['category']}")
+            logger.info(f"  기사 수: {rank_info['count']}개")
+            logger.info(f"  최종 점수: {rank_info['final_score']:.3f}")
+            logger.info(f"  세부 점수:")
+            logger.info(f"    - 빈도 점수: {rank_info['frequency_score']:.3f}")
+            logger.info(f"    - 관련성 점수: {rank_info['relevance_score']:.3f}")
+            logger.info(f"    - 최신성 점수: {rank_info['recent_score']:.3f}")
+            logger.info(f"    - 순위 점수: {rank_info['rank_score']:.3f}")
+            logger.info(f"    - 참조 점수: {rank_info['reference_score']:.3f}")
+            logger.info(f"    - 부정성 점수: {rank_info['negative_score']:.3f}")
+            logger.info("-"*30)
+        
+        # 10. 최종 카테고리 순위 요약 로깅
+        logger.info("\n🏆 최종 카테고리 순위 요약:")
+        logger.info("순위 | 카테고리 | 최종점수 | 기사수")
+        logger.info("-" * 50)
+        for rank_info in ranked_categories[:20]:  # 상위 20개 표시
+            logger.info(f"{rank_info['rank']:2d}위 | {rank_info['category']:15s} | {rank_info['final_score']:6.3f} | {rank_info['count']:3d}개")
+        
+        # 11. 샘플 기사 로깅 (최대 3개)
+        logger.info("\n📰 샘플 기사 분석:")
+        for idx, article in enumerate(labeled_articles[:3]):
             logger.info(f"\n기사 {idx + 1}:")
             logger.info(f"제목: {article['title']}")
             logger.info(f"감성: {article['sentiment']} (신뢰도: {article['sentiment_confidence']:.2f})")
-            logger.info(f"관련성 점수: {article['relevance_score']:.1f}/4.0")
-            logger.info(f"관련성 이유: {', '.join(article['relevance_reasons'])}")
             logger.info(f"카테고리: {article['original_category']}")
-            logger.info(f"발행일: {article['pubDate']}")
+            logger.info(f"라벨: relevance={article.get('relevance', '없음')}, recent={article.get('recent', '없음')}, rank={article.get('rank', '없음')}, reference={article.get('reference', '없음')}")
+            logger.info(f"라벨 이유: {', '.join(article.get('label_reasons', []))}")
             logger.info("-"*30)
 
         if len(labeled_articles) > 5:
             logger.info(f"... 외 {len(labeled_articles) - 5}개 기사")
         
-        # 8. 응답 데이터 생성
+        # 12. 응답 데이터 생성
         response_data = {
             "success": True,
             "message": "중대성 평가 데이터 분석이 완료되었습니다.",
@@ -357,9 +522,11 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
                 "assessment_status": "analyzed",
                 "total_articles": len(labeled_articles),
                 "negative_articles": negative_count,
-                "high_relevance_articles": high_relevance_count,
                 "negative_ratio": (negative_count/len(labeled_articles))*100 if labeled_articles else 0,
-                "analyzed_samples": labeled_articles[:5]  # 샘플 데이터만 포함
+                "total_categories": len(category_scores),
+                "ranked_categories": ranked_categories[:20],  # 상위 20개 카테고리만 포함
+                "category_scores": category_scores,
+                "analyzed_samples": labeled_articles[:3]  # 샘플 데이터만 포함
             }
         }
         
