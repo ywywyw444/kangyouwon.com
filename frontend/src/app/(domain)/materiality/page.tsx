@@ -7,6 +7,7 @@ import IndexBar from '@/component/IndexBar';
 import { useMediaStore } from '@/store/mediaStore';
 import { SearchResult, IssuepoolData } from "../../lib/types";
 import axios from 'axios';
+import * as XLSX from 'xlsx';
 
 export default function MaterialityHomePage() {
   // Zustand store 사용
@@ -38,6 +39,69 @@ export default function MaterialityHomePage() {
   // 엑셀 파일 관련 상태
   const [excelFilename, setExcelFilename] = useState<string | null>(null);
   const [excelBase64, setExcelBase64] = useState<string | null>(null);
+  const [isExcelValid, setIsExcelValid] = useState<boolean | null>(null);
+
+  // 엑셀 파일 업로드 및 검증 처리
+  const handleExcelUpload = async (file: File) => {
+    try {
+      // 파일 크기 체크 (10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('파일 크기는 10MB를 초과할 수 없습니다.');
+        return;
+      }
+
+      // 파일 확장자 체크
+      if (!file.name.match(/\.(xlsx|xls)$/)) {
+        alert('Excel 파일(.xlsx, .xls)만 업로드 가능합니다.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          
+          // 첫 번째 시트 가져오기
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          
+          // 2행의 A부터 E열까지의 값 가져오기
+          const expectedHeaders = ['이름', '직책', '소속 기업', '이해관계자 구분', '이메일'];
+          const actualHeaders = [];
+          
+          for (let i = 0; i < 5; i++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: 1, c: i }); // 2행(인덱스 1)의 각 열
+            const cell = firstSheet[cellAddress];
+            actualHeaders.push(cell?.v || '');
+          }
+
+          // 헤더 비교
+          const isValid = expectedHeaders.every((header, index) => header === actualHeaders[index]);
+          setIsExcelValid(isValid);
+
+          if (isValid) {
+            setExcelFilename(file.name);
+            // 파일을 Base64로 변환
+            const base64 = e.target?.result as string;
+            setExcelBase64(base64.split(',')[1]);
+            alert('✅ 템플릿 검증이 완료되었습니다.');
+          } else {
+            alert('❌ 템플릿 형식이 올바르지 않습니다.\n2행의 열 제목이 템플릿과 일치하지 않습니다.\n\n예상된 열 제목:\n' + expectedHeaders.join(', '));
+          }
+        } catch (error) {
+          console.error('Excel 파일 처리 중 오류 발생:', error);
+          alert('Excel 파일 처리 중 오류가 발생했습니다.');
+          setIsExcelValid(false);
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    } catch (error) {
+      console.error('파일 업로드 중 오류 발생:', error);
+      alert('파일 업로드 중 오류가 발생했습니다.');
+      setIsExcelValid(false);
+    }
+  };
 
   // 중대성 평가 관련 상태
   const [issuepoolData, setIssuepoolData] = useState<IssuepoolData | null>(null);
@@ -1033,35 +1097,70 @@ export default function MaterialityHomePage() {
                   설문 대상 기업 정보가 담긴 Excel 파일을 업로드하세요.
                 </p>
                 
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors duration-200">
-                  <div className="text-4xl text-gray-400 mb-4">📁</div>
-                  <p className="text-gray-600 mb-4">
-                    Excel 파일을 여기에 드래그하거나 클릭하여 선택하세요
-                  </p>
-                  <input
-                    type="file"
-                    accept=".xlsx,.xls"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
+                                  <div 
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors duration-200"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      
+                      const file = e.dataTransfer.files[0];
                       if (file) {
-                        console.log('선택된 파일:', file.name);
-                        // 파일 처리 로직 추가 예정
+                        handleExcelUpload(file);
                       }
                     }}
-                    className="hidden"
-                    id="excel-upload"
-                  />
-                  <label
-                    htmlFor="excel-upload"
-                    className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg cursor-pointer transition-colors duration-200"
                   >
-                    파일 선택
-                  </label>
-                </div>
+                    <div className="text-4xl text-gray-400 mb-4">📁</div>
+                    <p className="text-gray-600 mb-4">
+                      Excel 파일을 여기에 드래그하거나 클릭하여 선택하세요
+                    </p>
+                    <input
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleExcelUpload(file);
+                        }
+                      }}
+                      className="hidden"
+                      id="excel-upload"
+                    />
+                    <label
+                      htmlFor="excel-upload"
+                      className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg cursor-pointer transition-colors duration-200"
+                    >
+                      파일 선택
+                    </label>
+                  </div>
                 
-                <div className="mt-4 text-sm text-gray-500">
-                  지원 형식: .xlsx, .xls (최대 10MB)
-                </div>
+                                  <div className="mt-4 space-y-2">
+                    <div className="text-sm text-gray-500">
+                      지원 형식: .xlsx, .xls (최대 10MB)
+                    </div>
+                    {isExcelValid !== null && (
+                      <div className={`text-sm ${isExcelValid ? 'text-green-600' : 'text-red-600'} font-medium`}>
+                        {isExcelValid ? (
+                          <div className="flex items-center">
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            템플릿 검증 완료
+                          </div>
+                        ) : (
+                          <div className="flex items-center">
+                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            템플릿 형식이 올바르지 않습니다
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
               </div>
               
               {/* Excel 형식 다운로드 */}
