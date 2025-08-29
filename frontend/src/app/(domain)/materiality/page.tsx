@@ -98,8 +98,31 @@ export default function MaterialityHomePage() {
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [allCategories, setAllCategories] = useState<any[]>([]);
   const [selectedNewCategory, setSelectedNewCategory] = useState<string>('');
+  
+  // 지난 중대성 평가 목록 상태
+  const [previousAssessments, setPreviousAssessments] = useState<any[]>([]);
+  const [isPreviousAssessmentsCollapsed, setIsPreviousAssessmentsCollapsed] = useState(false);
   const [newCategoryRank, setNewCategoryRank] = useState<string>('');
   const [newBaseIssuePool, setNewBaseIssuePool] = useState<string>('');
+  
+  // 세션 스토리지 관련 함수들
+  const saveToSessionStorage = (key: string, data: any) => {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.error('세션 스토리지 저장 실패:', error);
+    }
+  };
+  
+  const loadFromSessionStorage = (key: string) => {
+    try {
+      const data = sessionStorage.getItem(key);
+      return data ? JSON.parse(data) : null;
+    } catch (error) {
+      console.error('세션 스토리지 로드 실패:', error);
+      return null;
+    }
+  };
   const [isCustomBaseIssuePool, setIsCustomBaseIssuePool] = useState(false);
   const [customBaseIssuePoolText, setCustomBaseIssuePoolText] = useState<string>('');
 
@@ -223,6 +246,62 @@ export default function MaterialityHomePage() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+  
+  // 세션 스토리지에서 데이터 복원
+  useEffect(() => {
+    const savedSearchResult = loadFromSessionStorage('materiality_searchResult');
+    const savedPreviousAssessments = loadFromSessionStorage('materiality_previousAssessments');
+    const savedSearchResultCollapsed = loadFromSessionStorage('materiality_searchResultCollapsed');
+    const savedFullResultCollapsed = loadFromSessionStorage('materiality_fullResultCollapsed');
+    const savedPreviousAssessmentsCollapsed = loadFromSessionStorage('materiality_previousAssessmentsCollapsed');
+    
+    if (savedSearchResult) {
+      setSearchResult(savedSearchResult);
+      console.log('🔍 세션에서 검색 결과 복원됨');
+    }
+    
+    if (savedPreviousAssessments) {
+      setPreviousAssessments(savedPreviousAssessments);
+      console.log('📋 세션에서 지난 중대성 평가 목록 복원됨');
+    }
+    
+    if (savedSearchResultCollapsed !== null) {
+      setIsSearchResultCollapsed(savedSearchResultCollapsed);
+    }
+    
+    if (savedFullResultCollapsed !== null) {
+      setIsFullResultCollapsed(savedFullResultCollapsed);
+    }
+    
+    if (savedPreviousAssessmentsCollapsed !== null) {
+      setIsPreviousAssessmentsCollapsed(savedPreviousAssessmentsCollapsed);
+    }
+  }, []);
+  
+  // 상태 변화 시 세션 스토리지에 저장
+  useEffect(() => {
+    if (searchResult) {
+      saveToSessionStorage('materiality_searchResult', searchResult);
+    }
+  }, [searchResult]);
+  
+  useEffect(() => {
+    if (previousAssessments.length > 0) {
+      saveToSessionStorage('materiality_previousAssessments', previousAssessments);
+    }
+  }, [previousAssessments]);
+  
+  useEffect(() => {
+    saveToSessionStorage('materiality_searchResultCollapsed', isSearchResultCollapsed);
+  }, [isSearchResultCollapsed]);
+  
+  useEffect(() => {
+    saveToSessionStorage('materiality_fullResultCollapsed', isFullResultCollapsed);
+  }, [isFullResultCollapsed]);
+  
+  useEffect(() => {
+    saveToSessionStorage('materiality_previousAssessmentsCollapsed', isPreviousAssessmentsCollapsed);
+  }, [isPreviousAssessmentsCollapsed]);
 
   // 검색어에 따라 기업 목록 필터링
   const filteredCompanies = companies.filter(company =>
@@ -233,6 +312,47 @@ export default function MaterialityHomePage() {
   const handleCompanySearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     setCompanySearchTerm(e.target.value);
     setIsCompanyDropdownOpen(true);
+  };
+  
+  // 지난 중대성 평가 목록 가져오기
+  const loadPreviousAssessments = async () => {
+    try {
+      // 실제 API 호출 대신 임시 데이터 생성 (나중에 실제 API로 교체)
+      const mockAssessments = [
+        {
+          id: 1,
+          company: 'CV',
+          year: '2023',
+          status: '완료',
+          categories: 15,
+          score: 85,
+          date: '2023-12-15'
+        },
+        {
+          id: 2,
+          company: 'CV',
+          year: '2022',
+          status: '완료',
+          categories: 12,
+          score: 78,
+          date: '2022-12-10'
+        },
+        {
+          id: 3,
+          company: 'CV',
+          year: '2021',
+          status: '진행중',
+          categories: 8,
+          score: 65,
+          date: '2021-11-20'
+        }
+      ];
+      
+      setPreviousAssessments(mockAssessments);
+      console.log('📋 지난 중대성 평가 목록 로드 완료');
+    } catch (error) {
+      console.error('❌ 지난 중대성 평가 목록 로드 실패:', error);
+    }
   };
 
   return (
@@ -296,8 +416,94 @@ export default function MaterialityHomePage() {
               setSearchPeriod={setSearchPeriod}
             />
           )}
+          
+          {/* 지난 중대성 평가 목록 */}
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">지난 중대성 평가 목록</h3>
+                  <p className="text-gray-600 text-sm">이전 평가 결과를 확인하고 비교할 수 있습니다</p>
+                </div>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={loadPreviousAssessments}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2zm0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  목록 새로고침
+                </button>
+                <button
+                  onClick={() => setIsPreviousAssessmentsCollapsed(!isPreviousAssessmentsCollapsed)}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                  {isPreviousAssessmentsCollapsed ? '펼치기' : '접기'}
+                </button>
+              </div>
+            </div>
+            
+            {!isPreviousAssessmentsCollapsed && (
+              <div className="space-y-4">
+                {previousAssessments.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {previousAssessments.map((assessment) => (
+                      <div key={assessment.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-purple-300 transition-colors duration-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm font-medium text-gray-600">{assessment.company}</span>
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            assessment.status === '완료' ? 'bg-green-100 text-green-700' :
+                            assessment.status === '진행중' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {assessment.status}
+                          </span>
+                        </div>
+                        <h4 className="text-lg font-semibold text-gray-900 mb-2">{assessment.year}년</h4>
+                        <div className="space-y-2 text-sm text-gray-600">
+                          <div className="flex justify-between">
+                            <span>카테고리:</span>
+                            <span className="font-medium">{assessment.categories}개</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>점수:</span>
+                            <span className="font-medium">{assessment.score}점</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>평가일:</span>
+                            <span className="font-medium">{assessment.date}</span>
+                          </div>
+                        </div>
+                        <button className="w-full mt-3 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors duration-200">
+                          상세 보기
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2zm0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <p className="text-lg font-medium mb-2">지난 중대성 평가가 없습니다</p>
+                    <p className="text-sm">새로운 평가를 시작하거나 목록을 새로고침해보세요</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
   
-                    {/* 지난 중대성 평가 목록 */}
+          {/* 지난 중대성 평가 목록 */}
           <FirstAssessment
             companyId={companyId || ''}
             searchResult={searchResult}
