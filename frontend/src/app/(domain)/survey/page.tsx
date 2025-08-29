@@ -12,15 +12,12 @@ interface SurveyItem {
 }
 
 export default function SurveyPage() {
-  // 현재 설문 단계
-  const [currentStep, setCurrentStep] = useState<number>(1);
-  
-  // 응답자 유형 상태
+  // 응답자 정보
   const [respondentType, setRespondentType] = useState<string>('');
   
-  // 설문 접근 경로 상태
-  const [accessPath, setAccessPath] = useState<string>('');
-
+  // 현재 단계
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  
   // Environmental 섹션 상태
   const [environmentalItems, setEnvironmentalItems] = useState<SurveyItem[]>([
     {
@@ -300,10 +297,6 @@ export default function SurveyPage() {
         alert('응답자 정보를 선택해주세요.');
         return;
       }
-      if (!accessPath) {
-        alert('설문 접근 경로를 선택해주세요.');
-        return;
-      }
     } else if (currentStep === 2) {
       const isAllAnswered = environmentalItems.every(
         item => item.outsideScore !== null && item.insideScore !== null
@@ -372,65 +365,57 @@ export default function SurveyPage() {
             {/* 단계 1: 응답자 정보 */}
             {currentStep === 1 && (
               <>
-                <div className="mb-8">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    Q0. 귀하의 소속을 선택해 주시기 바랍니다.
-                    <span className="text-red-500 ml-1">*</span>
-                  </h2>
-                  <div className="space-y-3">
-                    {[
-                      '임직원',
-                      '고객',
-                      '정부/자자체/유관기관',
-                      '지역사회',
-                      '협력회사',
-                      '전문가/전문기관(대학, 연구소)',
-                      '투자자/투자기관',
-                      '주주',
-                      '언론/미디어',
-                      '기타'
-                    ].map((type) => (
-                      <label key={type} className="flex items-center">
-                        <input
-                          type="radio"
-                          name="respondentType"
-                          value={type}
-                          checked={respondentType === type}
-                          onChange={(e) => setRespondentType(e.target.value)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="ml-3 text-gray-700">{type}</span>
-                      </label>
-                    ))}
+                  {/* 응답자 정보 선택 */}
+                  <div className="mb-8">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                      귀하의 소속을 선택해 주시기 바랍니다.
+                      <span className="text-red-500 ml-1">*</span>
+                    </h2>
+                    <div className="space-y-3">
+                      {[
+                        '임직원',
+                        '고객',
+                        '정부/자자체/유관기관',
+                        '지역사회',
+                        '협력회사',
+                        '전문가/전문기관(대학, 연구소)',
+                        '투자자/투자기관',
+                        '주주',
+                        '언론/미디어',
+                        '기타'
+                      ].map((type) => (
+                        <label key={type} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-3 rounded-lg">
+                          <input
+                            type="radio"
+                            name="respondentType"
+                            value={type}
+                            checked={respondentType === type}
+                            onChange={(e) => setRespondentType(e.target.value)}
+                            className="text-blue-600 focus:ring-blue-500"
+                            required
+                          />
+                          <span className="text-gray-700">{type}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                <div className="mb-8">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    설문에 참여하게 된 경로를 선택해 주시기 바랍니다.
-                    <span className="text-red-500 ml-1">*</span>
-                  </h2>
-                  <div className="space-y-3">
-                    {[
-                      '한국중부발전 홈페이지',
-                      '한국중부발전 네이버 블로그',
-                      '한국중부발전 인스타그램',
-                      '문자 (URL)'
-                    ].map((path) => (
-                      <label key={path} className="flex items-center">
-                        <input
-                          type="radio"
-                          name="accessPath"
-                          value={path}
-                          checked={accessPath === path}
-                          onChange={(e) => setAccessPath(e.target.value)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="ml-3 text-gray-700">{path}</span>
-                      </label>
-                    ))}
+                  {/* 안내 문구 */}
+                  <div className="mb-8 p-6 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 className="text-lg font-semibold text-blue-800 mb-3">📋 설문 안내</h3>
+                    <p className="text-blue-700 text-sm leading-relaxed mb-3">
+                      본 설문은 각 항목마다 아래 두 가지를 평가합니다.
+                    </p>
+                    <ul className="text-blue-700 text-sm space-y-2">
+                      <li>• <strong>기업 재무 중요도(Outside-in):</strong> 외부 환경·규제·시장 변화가 회사의 재무성과/기회/위험에 미치는 중요도</li>
+                      <li>• <strong>환경/사회 중요도(Inside-out):</strong> 회사 활동이 환경·사회에 미칠 수 있는 긍정/부정 영향의 중요도</li>
+                    </ul>
+                    <div className="mt-4 p-3 bg-white rounded border border-blue-300">
+                      <p className="text-blue-800 font-medium text-sm">
+                        공통 척도: 1 전혀 중요하지 않음 / 2 낮음 / 3 보통 / 4 높음 / 5 매우 높음 / (선택) N/A 잘 모르겠음
+                      </p>
+                    </div>
                   </div>
-                </div>
               </>
             )}
 

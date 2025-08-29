@@ -1109,30 +1109,42 @@ export default function MaterialityHomePage() {
                     <div className="mt-8 mb-8">
                       <button
                         onClick={() => {
-                          // Zustand store에 검색 결과 저장
-                          setCompanyId(searchResult.data?.company_id);
-                          setSearchPeriod({
-                            start_date: searchResult.data?.search_period?.start_date,
-                            end_date: searchResult.data?.search_period?.end_date
-                          });
-                          // localStorage에도 저장
-                          const dataToSave = {
-                            company_id: searchResult.data?.company_id,
-                            search_period: {
-                              start_date: searchResult.data?.search_period?.start_date,
-                              end_date: searchResult.data?.search_period?.end_date
-                            },
-                            articles: searchResult.data?.articles,
-                            total_results: searchResult.data?.total_results,
-                            data: {
-                              excel_filename: excelFilename,
-                              excel_base64: excelBase64
-                            },
-                            timestamp: new Date().toISOString()
-                          };
-                          console.log('Saving to localStorage:', dataToSave);
-                          localStorage.setItem('savedMediaSearch', JSON.stringify(dataToSave));
-                          alert('✅ 검색 결과가 저장되었습니다.');
+                          // 기존에 저장된 정보를 지우고 현재 검색된 정보를 저장
+                          if (searchResult?.data) {
+                            // 기존 저장된 정보 삭제
+                            localStorage.removeItem('savedMediaSearch');
+                            
+                            // 현재 검색된 정보를 새로운 키로 저장
+                            const dataToSave = {
+                              company_id: searchResult.data.company_id,
+                              search_period: {
+                                start_date: searchResult.data.search_period.start_date,
+                                end_date: searchResult.data.search_period.end_date
+                              },
+                              articles: searchResult.data.articles,
+                              total_results: searchResult.data.total_results,
+                              data: {
+                                excel_filename: excelFilename,
+                                excel_base64: excelBase64
+                              },
+                              timestamp: new Date().toISOString()
+                            };
+                            
+                            // 새로운 검색 결과 저장
+                            localStorage.setItem('savedMediaSearch', JSON.stringify(dataToSave));
+                            
+                            // Zustand store에도 검색 결과 저장
+                            setCompanyId(searchResult.data.company_id);
+                            setSearchPeriod({
+                              start_date: searchResult.data.search_period.start_date,
+                              end_date: searchResult.data.search_period.end_date
+                            });
+                            
+                            console.log('🔄 기존 저장 정보 삭제 후 새로운 검색 결과 저장:', dataToSave);
+                            alert('✅ 기존 저장 정보를 지우고 새로운 검색 결과가 저장되었습니다.');
+                          } else {
+                            alert('❌ 저장할 검색 결과가 없습니다.');
+                          }
                         }}
                         className="w-full inline-flex items-center justify-center px-4 py-3 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 transition-colors duration-200"
                       >
@@ -1217,7 +1229,7 @@ export default function MaterialityHomePage() {
           {/* 지난 중대성 평가 목록 */}
           <div id="first-assessment" className="bg-white rounded-xl shadow-lg p-6 mb-12">
             <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-              📑 중대성 평가 중간 결과 보기
+              📑 {companyId ? `${companyId} 중대성 평가 중간 결과 보기` : '중대성 평가 중간 결과 보기'}
             </h2>
 
             {/* 액션 버튼들 */}
@@ -1576,7 +1588,7 @@ export default function MaterialityHomePage() {
                       return (
                         <div className="space-y-2">
                           {categories.map((cat: any, index: number) => (
-                            <div key={index} className="flex items-center text-sm">
+                            <div key={index} className="flex items-center text-sm group">
                               <span className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                                 {cat.rank || index + 1}
                               </span>
@@ -1622,6 +1634,46 @@ export default function MaterialityHomePage() {
                               <span className="ml-2 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">
                                 {cat.esg_classification || "미분류"}
                               </span>
+                              {/* 삭제 버튼 */}
+                              <button
+                                onClick={() => {
+                                  if (confirm(`정말로 "${cat.category}" 카테고리를 삭제하시겠습니까?`)) {
+                                    // 해당 카테고리 삭제
+                                    const resultData = assessmentResult?.data || assessmentResult;
+                                    const updatedCategories = [...(resultData?.matched_categories || [])];
+                                    updatedCategories.splice(index, 1);
+                                    
+                                    // 순위 재정렬
+                                    updatedCategories.forEach((category, idx) => {
+                                      category.rank = idx + 1;
+                                    });
+                                    
+                                    // 상태 업데이트
+                                    if (assessmentResult?.data) {
+                                      setAssessmentResult({
+                                        ...assessmentResult,
+                                        data: {
+                                          ...assessmentResult.data,
+                                          matched_categories: updatedCategories
+                                        }
+                                      });
+                                    } else {
+                                      setAssessmentResult({
+                                        ...assessmentResult,
+                                        matched_categories: updatedCategories
+                                      });
+                                    }
+                                    
+                                    alert(`✅ "${cat.category}" 카테고리가 삭제되었습니다.`);
+                                  }
+                                }}
+                                className="ml-3 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all duration-200"
+                                title="이 카테고리 삭제"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
                             </div>
                           ))}
                           <div className="text-center text-xs text-gray-500 mt-3">
@@ -1702,40 +1754,6 @@ export default function MaterialityHomePage() {
                   {/* 더보기 버튼 */}
                   <div className="mt-4 text-center">
                     <div className="flex items-center justify-center space-x-3">
-                      <button
-                        onClick={() => {
-                          // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
-                          const resultData = assessmentResult?.data || assessmentResult;
-                          const categories = resultData?.matched_categories || [];
-                          
-                          if (categories.length > 0) {
-                            setIsDetailModalOpen(true);
-                          }
-                        }}
-                        disabled={(() => {
-                          // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
-                          const resultData = assessmentResult?.data || assessmentResult;
-                          const categories = resultData?.matched_categories || [];
-                          return categories.length === 0;
-                        })()}
-                        className={`inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md transition-colors duration-200 ${
-                          (() => {
-                            // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
-                            const resultData = assessmentResult?.data || assessmentResult;
-                            const categories = resultData?.matched_categories || [];
-                            return categories.length > 0;
-                          })()
-                            ? 'text-green-700 bg-white hover:bg-green-50'
-                            : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                        }`}
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                        더보기
-                      </button>
-                      
                       {/* 저장 버튼 */}
                       <button
                         onClick={saveAssessmentResult}
@@ -1764,10 +1782,8 @@ export default function MaterialityHomePage() {
                         </svg>
                         불러오기
                       </button>
-                    </div>
-                    
-                    {/* 추가하기 버튼 */}
-                    <div className="mt-3">
+                      
+                      {/* 추가하기 버튼 */}
                       <button
                         onClick={() => {
                           fetchAllCategories();
@@ -1780,6 +1796,43 @@ export default function MaterialityHomePage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                         추가하기
+                      </button>
+                    </div>
+                    
+                    {/* 중간 평가 과정 확인하기 버튼 */}
+                    <div className="mt-3">
+                      <button
+                        onClick={() => {
+                          // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                          const resultData = assessmentResult?.data || assessmentResult;
+                          const categories = resultData?.matched_categories || [];
+                          
+                          if (categories.length > 0) {
+                            setIsDetailModalOpen(true);
+                          }
+                        }}
+                        disabled={(() => {
+                          // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                          const resultData = assessmentResult?.data || assessmentResult;
+                          const categories = resultData?.matched_categories || [];
+                          return categories.length === 0;
+                        })()}
+                        className={`inline-flex items-center px-6 py-3 border border-green-300 text-sm font-medium rounded-md transition-colors duration-200 ${
+                          (() => {
+                            // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                            const resultData = assessmentResult?.data || assessmentResult;
+                            const categories = resultData?.matched_categories || [];
+                            return categories.length > 0;
+                          })()
+                            ? 'text-green-700 bg-white hover:bg-green-50'
+                            : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                        }`}
+                      >
+                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        중간 평가 과정 확인하기
                       </button>
                     </div>
                   </div>
@@ -2693,6 +2746,27 @@ export default function MaterialityHomePage() {
                     <p>이 카테고리에 매칭되는 base issue pool이 없습니다.</p>
                   </div>
                 )}
+                
+                {/* 새로운 항목 추가 섹션 */}
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <h4 className="text-md font-semibold text-gray-700 mb-3">➕ 새로운 항목 추가</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        새로운 Base Issue Pool
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={`${selectedCategory.category} 관련 새로운 항목을 입력하세요`}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onChange={(e) => setSelectedBaseIssuePool(e.target.value)}
+                      />
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      💡 원하는 항목이 목록에 없다면 직접 입력할 수 있습니다.
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             
