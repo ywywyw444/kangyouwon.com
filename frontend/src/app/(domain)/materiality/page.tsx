@@ -100,6 +100,13 @@ export default function MaterialityHomePage() {
   
   // 모달 상태
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  
+  // base issue pool 선택 모달 상태
+  const [isBaseIssuePoolModalOpen, setIsBaseIssuePoolModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<any>(null);
+  const [baseIssuePoolOptions, setBaseIssuePoolOptions] = useState<string[]>([]);
+  const [selectedBaseIssuePool, setSelectedBaseIssuePool] = useState<string>('');
+  const [editingCategoryIndex, setEditingCategoryIndex] = useState<number>(-1);
 
 
 
@@ -247,6 +254,63 @@ export default function MaterialityHomePage() {
       console.log('💾 엑셀 데이터 자동 저장:', dataToSave);
     }
   }, [excelData, isExcelValid, excelFilename, excelBase64]);
+
+  // 중대성 평가 결과 저장 함수
+  const saveAssessmentResult = () => {
+    if (!assessmentResult) {
+      alert('저장할 중대성 평가 결과가 없습니다.');
+      return;
+    }
+
+    try {
+      const dataToSave = {
+        assessmentResult,
+        timestamp: new Date().toISOString(),
+        companyId: companyId,
+        searchPeriod: searchPeriod
+      };
+      
+      localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+      console.log('💾 중대성 평가 결과 저장 완료:', dataToSave);
+      alert('✅ 중대성 평가 결과가 성공적으로 저장되었습니다.');
+    } catch (error) {
+      console.error('❌ 중대성 평가 결과 저장 실패:', error);
+      alert('❌ 중대성 평가 결과 저장에 실패했습니다.');
+    }
+  };
+
+  // 저장된 중대성 평가 결과 불러오기 함수
+  const loadAssessmentResult = () => {
+    try {
+      const savedData = localStorage.getItem('materialityAssessmentResult');
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        console.log('📂 저장된 중대성 평가 결과 불러오기:', parsedData);
+        
+        if (parsedData.assessmentResult) {
+          setAssessmentResult(parsedData.assessmentResult);
+          
+          // 기업 정보와 검색 기간도 복원
+          if (parsedData.companyId) {
+            setCompanyId(parsedData.companyId);
+            setCompanySearchTerm(parsedData.companyId);
+          }
+          if (parsedData.searchPeriod) {
+            setSearchPeriod(parsedData.searchPeriod);
+          }
+          
+          alert('✅ 저장된 중대성 평가 결과를 불러왔습니다.');
+        } else {
+          alert('⚠️ 저장된 중대성 평가 결과가 없습니다.');
+        }
+      } else {
+        alert('⚠️ 저장된 중대성 평가 결과가 없습니다.');
+      }
+    } catch (error) {
+      console.error('❌ 저장된 중대성 평가 결과 불러오기 실패:', error);
+      alert('❌ 저장된 중대성 평가 결과를 불러오는데 실패했습니다.');
+    }
+  };
 
   // 로그인한 사용자의 기업 정보 가져오기
   useEffect(() => {
@@ -1188,7 +1252,7 @@ export default function MaterialityHomePage() {
                 {isAssessmentStarting ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    <span>중대성 평가 진행 중...</span>
+                    <span>중간 중대성 평가 진행 중</span>
                   </>
                 ) : (
                   <>
@@ -1391,7 +1455,44 @@ export default function MaterialityHomePage() {
                               <span className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                                 {cat.rank || index + 1}
                               </span>
-                              <span className="text-gray-700 flex-1 truncate">{cat.category || '카테고리명 없음'}</span>
+                              <div className="flex-1">
+                                <span 
+                                  className="text-gray-700 cursor-pointer hover:text-blue-600 hover:underline font-medium"
+                                  onClick={() => {
+                                    // 카테고리 클릭 시 base issue pool 선택 모달 열기
+                                    setSelectedCategory(cat);
+                                    setEditingCategoryIndex(index);
+                                    
+                                    // 실제 데이터에서 base issue pool 옵션 가져오기
+                                    const baseIssuePools = cat.base_issuepools || [];
+                                    if (baseIssuePools.length > 0) {
+                                      // base_issue_pool 필드가 있는 경우 해당 값들을 사용
+                                      const options = baseIssuePools.map((item: any) => 
+                                        item.base_issue_pool || item.issue || '항목명 없음'
+                                      );
+                                      setBaseIssuePoolOptions(options);
+                                    } else {
+                                      // base_issuepools가 없는 경우 기본 옵션 제공
+                                      setBaseIssuePoolOptions([
+                                        `${cat.category} 관련 이슈 1`,
+                                        `${cat.category} 관련 이슈 2`,
+                                        `${cat.category} 관련 이슈 3`
+                                      ]);
+                                    }
+                                    setSelectedBaseIssuePool('');
+                                    setIsBaseIssuePoolModalOpen(true);
+                                  }}
+                                  title="클릭하여 base issue pool 선택"
+                                >
+                                  {cat.category || '카테고리명 없음'}
+                                </span>
+                                {/* 선택된 base issue pool 표시 */}
+                                {cat.selected_base_issue_pool && (
+                                  <div className="text-xs text-blue-600 mt-1">
+                                    📋 선택된 항목: {cat.selected_base_issue_pool}
+                                  </div>
+                                )}
+                              </div>
                               {/* ESG Classification 라벨 추가 */}
                               <span className="ml-2 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">
                                 {cat.esg_classification || "미분류"}
@@ -1418,10 +1519,16 @@ export default function MaterialityHomePage() {
                         <div className="mt-6 pt-4 border-t border-gray-200">
                           <h4 className="text-md font-semibold text-gray-700 mb-3">ESG 분류 비율</h4>
                           {(() => {
-                            // ESG 분류별로 카운트 계산
+                            // ESG 분류별로 카운트 계산 (지배구조와 경제를 합침)
                             const esgCounts: { [key: string]: number } = {};
                             categories.forEach((cat: any) => {
-                              const esgName = cat.esg_classification || '미분류';
+                              let esgName = cat.esg_classification || '미분류';
+                              
+                              // 지배구조와 경제를 지배구조/경제로 통합
+                              if (esgName.includes('지배구조') || esgName.includes('경제')) {
+                                esgName = '지배구조/경제';
+                              }
+                              
                               esgCounts[esgName] = (esgCounts[esgName] || 0) + 1;
                             });
 
@@ -1441,7 +1548,7 @@ export default function MaterialityHomePage() {
                                 barColor = 'bg-green-500';
                               } else if (data.name.includes('사회')) {
                                 barColor = 'bg-orange-500';
-                              } else if (data.name.includes('지배구조') || data.name.includes('경제')) {
+                              } else if (data.name.includes('지배구조/경제')) {
                                 barColor = 'bg-blue-500';
                               }
                               
@@ -1469,39 +1576,70 @@ export default function MaterialityHomePage() {
 
                   {/* 더보기 버튼 */}
                   <div className="mt-4 text-center">
-                    <button
-                      onClick={() => {
-                        // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
-                        const resultData = assessmentResult?.data || assessmentResult;
-                        const categories = resultData?.matched_categories || [];
-                        
-                        if (categories.length > 0) {
-                          setIsDetailModalOpen(true);
-                        }
-                      }}
-                      disabled={(() => {
-                        // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
-                        const resultData = assessmentResult?.data || assessmentResult;
-                        const categories = resultData?.matched_categories || [];
-                        return categories.length === 0;
-                      })()}
-                      className={`inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md transition-colors duration-200 ${
-                        (() => {
+                    <div className="flex items-center justify-center space-x-3">
+                      <button
+                        onClick={() => {
                           // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
                           const resultData = assessmentResult?.data || assessmentResult;
                           const categories = resultData?.matched_categories || [];
-                          return categories.length > 0;
-                        })()
-                          ? 'text-green-700 bg-white hover:bg-green-50'
-                          : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                      }`}
-                    >
-                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      더보기
-                    </button>
+                          
+                          if (categories.length > 0) {
+                            setIsDetailModalOpen(true);
+                          }
+                        }}
+                        disabled={(() => {
+                          // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                          const resultData = assessmentResult?.data || assessmentResult;
+                          const categories = resultData?.matched_categories || [];
+                          return categories.length === 0;
+                        })()}
+                        className={`inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md transition-colors duration-200 ${
+                          (() => {
+                            // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                            const resultData = assessmentResult?.data || assessmentResult;
+                            const categories = resultData?.matched_categories || [];
+                            return categories.length > 0;
+                          })()
+                            ? 'text-green-700 bg-white hover:bg-green-50'
+                            : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                        }`}
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        더보기
+                      </button>
+                      
+                      {/* 저장 버튼 */}
+                      <button
+                        onClick={saveAssessmentResult}
+                        disabled={!assessmentResult}
+                        className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md transition-colors duration-200 ${
+                          assessmentResult
+                            ? 'border-blue-300 text-blue-700 bg-white hover:bg-blue-50'
+                            : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed'
+                        }`}
+                        title={assessmentResult ? '중대성 평가 결과를 저장합니다' : '저장할 결과가 없습니다'}
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                        </svg>
+                        저장
+                      </button>
+                      
+                      {/* 불러오기 버튼 */}
+                      <button
+                        onClick={loadAssessmentResult}
+                        className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
+                        title="저장된 중대성 평가 결과를 불러옵니다"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        불러오기
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1684,7 +1822,8 @@ export default function MaterialityHomePage() {
                     <span className="font-medium text-gray-800">업로드된 파일</span>
                   </div>
                   <p className="text-sm text-gray-600">
-                    {excelFilename ? excelFilename : '파일이 업로드되지 않았습니다'}
+                    {/* 설문 대상 업로드 박스를 통해 업로드된 파일만 표시 */}
+                    {excelFilename && excelFilename !== 'media_search_한온시스템_20250828_110609.xlsx' ? excelFilename : '파일이 업로드되지 않았습니다'}
                   </p>
                 </div>
                 
@@ -2351,6 +2490,121 @@ export default function MaterialityHomePage() {
                   className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
                 >
                   닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Base Issue Pool 선택 모달 */}
+      {isBaseIssuePoolModalOpen && selectedCategory && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* 배경 오버레이 */}
+          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setIsBaseIssuePoolModalOpen(false)}></div>
+          
+          {/* 모달 내용 */}
+          <div className="relative bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4">
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
+              <h3 className="text-xl font-bold text-gray-900">
+                Base Issue Pool 선택 - {selectedCategory.category}
+              </h3>
+              <button
+                onClick={() => setIsBaseIssuePoolModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* 모달 바디 */}
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-gray-600 mb-4">
+                  <strong>{selectedCategory.category}</strong> 카테고리에 매칭되는 base issue pool을 선택하세요.
+                </p>
+                
+                {baseIssuePoolOptions.length > 0 ? (
+                  <div className="space-y-3">
+                    {baseIssuePoolOptions.map((option, index) => (
+                      <label key={index} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-3 rounded-lg">
+                        <input
+                          type="radio"
+                          name="baseIssuePool"
+                          value={option}
+                          checked={selectedBaseIssuePool === option}
+                          onChange={(e) => setSelectedBaseIssuePool(e.target.value)}
+                          className="text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-700">{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-500 py-8">
+                    <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <p>이 카테고리에 매칭되는 base issue pool이 없습니다.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* 모달 푸터 */}
+            <div className="flex justify-end p-6 border-t border-gray-200 bg-white">
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setIsBaseIssuePoolModalOpen(false)}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedBaseIssuePool && editingCategoryIndex >= 0) {
+                      // 선택된 base issue pool로 카테고리 업데이트
+                      const resultData = assessmentResult?.data || assessmentResult;
+                      const updatedCategories = [...(resultData?.matched_categories || [])];
+                      
+                      if (updatedCategories[editingCategoryIndex]) {
+                        updatedCategories[editingCategoryIndex] = {
+                          ...updatedCategories[editingCategoryIndex],
+                          selected_base_issue_pool: selectedBaseIssuePool
+                        };
+                        
+                        // 상태 업데이트
+                        if (assessmentResult?.data) {
+                          setAssessmentResult({
+                            ...assessmentResult,
+                            data: {
+                              ...assessmentResult.data,
+                              matched_categories: updatedCategories
+                            }
+                          });
+                        } else {
+                          setAssessmentResult({
+                            ...assessmentResult,
+                            matched_categories: updatedCategories
+                          });
+                        }
+                        
+                        alert(`✅ ${selectedCategory.category} 카테고리가 "${selectedBaseIssuePool}"로 업데이트되었습니다.`);
+                      }
+                    }
+                    setIsBaseIssuePoolModalOpen(false);
+                  }}
+                  disabled={!selectedBaseIssuePool}
+                  className={`px-4 py-2 font-medium rounded-lg transition-colors duration-200 ${
+                    selectedBaseIssuePool
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  선택 완료
                 </button>
               </div>
             </div>
