@@ -221,9 +221,15 @@ class ServiceFactory:
             resp = await client.request(**req_kwargs)
             logger.info(f"⬅️  {self.service_name} status: {resp.status_code}")
             return await _as_starlette_response(resp)
+        except httpx.ReadTimeout as e:
+            logger.error(f"⏰ {self.service_name} 타임아웃 발생: {e}")
+            return JSONResponse(status_code=504, content={"error": True, "detail": f"Upstream timeout ({self.service_name})"})
+        except httpx.ConnectTimeout as e:
+            logger.error(f"🔌 {self.service_name} 연결 타임아웃: {e}")
+            return JSONResponse(status_code=504, content={"error": True, "detail": f"Connection timeout ({self.service_name})"})
         except Exception as e:
             logger.exception(f"Request failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            return JSONResponse(status_code=500, content={"error": True, "detail": str(e)})
 
 # ─────────────────────────────────────────────────────────────────────────────
 # SimpleServiceFactory: 게이트웨이 경로를 보고 라우팅/프록시

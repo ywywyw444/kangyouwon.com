@@ -135,13 +135,8 @@ async def proxy_get(
             headers=headers
         )
         
-        if response.get("error"):
-            return JSONResponse(
-                content={"detail": response.get("detail", "Unknown error")},
-                status_code=response.get("status_code", 500)
-            )
-        
-        return JSONResponse(content=response.get("data", {}), status_code=response.get("status_code", 200))
+        # 이제 response는 Starlette Response이므로 직접 반환
+        return response
     except Exception as e:
         logger.error(f"Error in GET proxy: {str(e)}")
         return JSONResponse(
@@ -221,13 +216,8 @@ async def proxy_put(service: str, path: str, request: Request):
             body=await request.body()
         )
         
-        if response.get("error"):
-            return JSONResponse(
-                content={"detail": response.get("detail", "Unknown error")},
-                status_code=response.get("status_code", 500)
-            )
-        
-        return JSONResponse(content=response.get("data", {}), status_code=response.get("status_code", 200))
+        # 이제 response는 Starlette Response이므로 직접 반환
+        return response
     except Exception as e:
         logger.error(f"Error in PUT proxy: {str(e)}")
         return JSONResponse(
