@@ -568,12 +568,16 @@ async def _fallback_individual_matching(
                     if category_name.isdigit():
                         # ID로 조회하되 company_id, 연도 조건 제거
                         category_details = await repository.get_category_details(
-                            category_id=int(category_name)
+                            corporation_name="",  # 빈 문자열로 전달 (내부에서 무시됨)
+                            category_id=int(category_name),
+                            year=0  # 0으로 전달 (내부에서 무시됨)
                         )
                     else:
                         # 이름으로 직접 조회하되 company_id, 연도 조건 제거
                         category_details = await repository.get_category_by_name_direct(
-                            category_name=category_name
+                            corporation_name="",  # 빈 문자열로 전달 (내부에서 무시됨)
+                            category_name=category_name,
+                            year=0  # 0으로 전달 (내부에서 무시됨)
                         )
                     
                     if category_details and category_details.base_issuepools:
@@ -706,31 +710,37 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             company_name = request.company_id.replace(" ", "_").replace("/", "_")
             
-            # 절대 경로로 저장 (서버의 /tmp 디렉토리 또는 현재 작업 디렉토리)
+            # /tmp 디렉토리에 저장 (권한 문제 해결)
             import os
-            current_dir = os.getcwd()
-            logger.info(f"📁 현재 작업 디렉토리: {current_dir}")
+            tmp_dir = "/tmp"
+            if not os.path.exists(tmp_dir):
+                # Windows 환경에서는 현재 디렉토리 사용
+                tmp_dir = os.getcwd()
+            
+            logger.info(f"📁 Excel 파일 저장 디렉토리: {tmp_dir}")
             
             # 1. 통합 분석 Excel (라벨링 + 점수)
-            combined_filename = os.path.join(current_dir, f"combined_analysis_{company_name}_{timestamp}.xlsx")
+            combined_filename = os.path.join(tmp_dir, f"combined_analysis_{company_name}_{timestamp}.xlsx")
             export_combined_analysis_to_excel(labeled_articles, category_scores, combined_filename)
             
             # 2. 라벨링된 기사 Excel
-            labeled_filename = os.path.join(current_dir, f"labeled_articles_{company_name}_{timestamp}.xlsx")
+            labeled_filename = os.path.join(tmp_dir, f"labeled_articles_{company_name}_{timestamp}.xlsx")
             export_labeled_articles_to_excel(labeled_articles, labeled_filename)
             
             # 3. 카테고리 점수 Excel
-            scores_filename = os.path.join(current_dir, f"category_scores_{company_name}_{timestamp}.xlsx")
+            scores_filename = os.path.join(tmp_dir, f"category_scores_{company_name}_{timestamp}.xlsx")
             export_category_scores_to_excel(category_scores, scores_filename)
             
             logger.info(f"📊 디버깅용 Excel 파일 생성 완료:")
             logger.info(f"   - 통합 분석: {combined_filename}")
             logger.info(f"   - 라벨링 기사: {labeled_filename}")
             logger.info(f"   - 카테고리 점수: {scores_filename}")
-            logger.info(f"📁 파일 저장 위치: {current_dir}")
+            logger.info(f"📁 파일 저장 위치: {tmp_dir}")
             
         except Exception as e:
             logger.warning(f"⚠️ Excel 파일 생성 실패: {str(e)}")
+            import traceback
+            logger.warning(f"⚠️ Excel 파일 생성 실패 상세: {traceback.format_exc()}")
         
         excel_time = (datetime.now() - excel_start).total_seconds()
         logger.info(f"⏱️ Excel 파일 생성 완료: {excel_time:.2f}초")
