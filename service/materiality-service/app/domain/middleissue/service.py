@@ -422,61 +422,42 @@ def rank_categories_by_score(category_scores: Dict[str, Dict[str, Any]]) -> List
         return []
 
 async def match_categories_with_esg_and_issuepool(
-    ranked_categories: List[Dict[str, Any]], 
-    company_id: str, 
-    search_year: int
+    ranked_categories: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """
     카테고리별로 ESG 분류와 base_issuepool을 배치 쿼리로 매칭
     
     매칭 규칙:
-    1. materiality_category DB에서 모든 카테고리 ESG 분류를 배치로 조회 (연도 조건 없음)
-    2. base_issuepool은 새로운 배치 조회 메서드 사용 (연도 조건 없음 - 카테고리만 매칭)
+    1. materiality_category DB에서 카테고리별 ESG 분류 조회 (company_id, 연도 조건 없음)
+    2. issuepool DB에서 카테고리별 base_issue_pool 조회 (company_id, 연도 조건 없음)
     3. 카테고리 하나당 ESG 분류는 하나, base_issuepool은 여러 개
-    4. 중복 제거는 공백을 포함한 문자 그대로 비교
     """
     try:
         repository = MiddleIssueRepository()
         
-        logger.info(f"🔍 배치 카테고리 매칭 시작 - 기업: {company_id}, 연도: {search_year}")
-        logger.info(f"🔍 매칭할 카테고리 수: {len(ranked_categories)}")
+        logger.warning(f"🔍 배치 카테고리 매칭 시작")
+        logger.warning(f"🔍 매칭할 카테고리 수: {len(ranked_categories)}")
         
         # 1. 모든 카테고리 키 수집
         category_keys = [str(cat['category']) for cat in ranked_categories]
         
-        # 2. 배치로 ESG 분류 조회 (한 번에 모든 카테고리)
-        logger.info(f"🔍 배치 ESG 분류 조회 시작: {len(category_keys)}개 카테고리")
-        esg_mapping = {}
-        for category_key in category_keys:
-            try:
-                esg_classification = await repository.get_category_esg_direct(category_key)
-                esg_mapping[category_key] = esg_classification or '미분류'
-            except Exception as e:
-                logger.warning(f"⚠️ 카테고리 '{category_key}' ESG 분류 조회 실패: {str(e)}")
-                esg_mapping[category_key] = '미분류'
-        
-        logger.info(f"✅ 배치 ESG 분류 조회 완료: {len(esg_mapping)}개 카테고리")
-        
-        # 3. 🔥 새로운 배치 조회 메서드 사용 (N+1 문제 해결)
-        logger.warning(f"🔍 배치 Base IssuePool 조회 시작 (새로운 메서드)")
-        details_map = {}
+        # 2. 🔥 새로운 배치 조회 메서드 사용 (N+1 문제 해결)
+        logger.warning(f"🔍 배치 카테고리 조회 시작: {len(category_keys)}개 카테고리")
         
         try:
-            # 새로운 배치 조회 메서드 사용 (연도 조건 없음)
-            details_map = await repository.get_categories_details_batch(
-                corporation_name=company_id,
-                categories=category_keys,
-                year=search_year  # year는 전달하되 내부에서 무시됨
+            # 새로운 배치 조회 메서드 사용 (company_id, 연도 조건 없음)
+            details_map = await repository.get_categories_by_names_batch(
+                category_names=category_keys
             )
             
-            logger.warning(f"✅ 배치 Base IssuePool 조회 완료: {len(details_map)}개 카테고리")
+            logger.warning(f"✅ 배치 카테고리 조회 완료: {len(details_map)}개 카테고리")
             
         except Exception as e:
-            logger.error(f"❌ 배치 Base IssuePool 조회 실패: {str(e)}")
+            logger.error(f"❌ 배치 카테고리 조회 실패: {str(e)}")
             # 모든 카테고리에 대해 빈 배열로 설정
             details_map = {name: None for name in category_keys}
         
-        # 4. 결과 조합 (빠른 처리)
+        # 3. 결과 조합 (빠른 처리)
         logger.warning(f"🔍 결과 조합 시작")
         matched_categories = []
         
@@ -488,7 +469,7 @@ async def match_categories_with_esg_and_issuepool(
             
             if details:
                 # 배치 조회에서 가져온 데이터 사용
-                esg_classification = details.esg_classification_name or esg_mapping.get(category_key, '미분류')
+                esg_classification = details.esg_classification_name or '미분류'
                 esg_classification_id = details.esg_classification_id
                 base_issuepools = []
                 
@@ -506,7 +487,7 @@ async def match_categories_with_esg_and_issuepool(
                 total_issuepools = len(base_issuepools)
             else:
                 # 배치 조회에서 데이터가 없는 경우 기본값
-                esg_classification = esg_mapping.get(category_key, '미분류')
+                esg_classification = '미분류'
                 esg_classification_id = None
                 base_issuepools = []
                 total_issuepools = 0
@@ -521,44 +502,19 @@ async def match_categories_with_esg_and_issuepool(
             
             matched_categories.append(matched_category)
         
-        # 5. 요약 로깅 (성능 향상을 위해 간소화)
+        # 4. 요약 로깅 (성능 향상을 위해 간소화)
         total_issuepools = sum(len(cat.get('base_issuepools', [])) for cat in matched_categories)
+        
+        # ESG 분포 계산
         esg_distribution = {}
-        for esg in esg_mapping.values():
+        for cat in matched_categories:
+            esg = cat.get('esg_classification', '미분류')
             esg_distribution[esg] = esg_distribution.get(esg, 0) + 1
         
         logger.warning(f"🔗 배치 매칭 완료:")
         logger.warning(f"   - 총 카테고리: {len(matched_categories)}개")
         logger.warning(f"   - 총 IssuePool: {total_issuepools}개")
         logger.warning(f"   - ESG 분포: {esg_distribution}")
-        
-        # 🔍 base_issue_pool 내용 상세 확인 (상위 5개 카테고리만)
-        logger.warning(f"🔍 base_issue_pool 상세 내용 확인 (상위 5개 카테고리):")
-        for i, category_info in enumerate(matched_categories[:5]):
-            category_key = str(category_info['category'])
-            base_issuepools = category_info.get('base_issuepools', [])
-            esg_name = category_info.get('esg_classification', '미분류')
-            
-            logger.warning(f"   {i+1}. 카테고리 '{category_key}' (ESG: {esg_name}):")
-            logger.warning(f"      - base_issue_pool 수: {len(base_issuepools)}개")
-            
-            if base_issuepools:
-                # 상위 3개만 상세 로깅
-                for j, pool in enumerate(base_issuepools[:3]):
-                    logger.warning(f"        {j+1}. {pool.get('base_issue_pool', 'N/A')}")
-                    logger.warning(f"           issue_pool: {pool.get('issue_pool', 'N/A')}")
-                    logger.warning(f"           ranking: {pool.get('ranking', 'N/A')}")
-                
-                if len(base_issuepools) > 3:
-                    logger.warning(f"        ... 외 {len(base_issuepools) - 3}개")
-            else:
-                logger.warning(f"        - base_issue_pool 없음")
-        
-        # 나머지 카테고리는 요약만
-        if len(matched_categories) > 5:
-            remaining_categories = matched_categories[5:]
-            remaining_issuepools = sum(len(cat.get('base_issuepools', [])) for cat in remaining_categories)
-            logger.warning(f"   ... 나머지 {len(remaining_categories)}개 카테고리: 총 {remaining_issuepools}개 base_issue_pool")
         
         # 🔍 base_issue_pool 매칭 결과 요약 (핵심만)
         matched_count = sum(1 for cat in matched_categories if cat.get('total_issuepools', 0) > 0)
@@ -582,13 +538,11 @@ async def match_categories_with_esg_and_issuepool(
         
         # 오류 발생 시 기존 개별 처리 방식으로 fallback
         logger.info(f"🔄 기존 개별 처리 방식으로 fallback")
-        return await _fallback_individual_matching(ranked_categories, company_id, search_year)
+        return await _fallback_individual_matching(ranked_categories)
 
 
 async def _fallback_individual_matching(
-    ranked_categories: List[Dict[str, Any]], 
-    company_id: str, 
-    search_year: int
+    ranked_categories: List[Dict[str, Any]]
 ) -> List[Dict[str, Any]]:
     """
     Fallback: 기존 개별 처리 방식 (배치 처리 실패 시 사용)
@@ -603,27 +557,23 @@ async def _fallback_individual_matching(
             category_name = str(category_info['category'])
             
             try:
-                # 1. materiality_category DB에서 ESG 분류 조회 (연도 조건 없음)
+                # 1. materiality_category DB에서 ESG 분류 조회 (company_id, 연도 조건 없음)
                 esg_classification = await repository.get_category_esg_direct(category_name)
                 if not esg_classification:
                     esg_classification = '미분류'
                 
-                # 2. base_issuepool 정보 조회 (연도 조건 없음 - 카테고리만 매칭)
+                # 2. base_issuepool 정보 조회 (company_id, 연도 조건 없음 - 카테고리만 매칭)
                 base_issuepools = []
                 try:
                     if category_name.isdigit():
-                        # ID로 조회하되 연도 조건 제거
+                        # ID로 조회하되 company_id, 연도 조건 제거
                         category_details = await repository.get_category_details(
-                            corporation_name=company_id,
-                            category_id=int(category_name),
-                            year=search_year,  # year는 전달하되 내부에서 무시됨
+                            category_id=int(category_name)
                         )
                     else:
-                        # 이름으로 직접 조회하되 연도 조건 제거
+                        # 이름으로 직접 조회하되 company_id, 연도 조건 제거
                         category_details = await repository.get_category_by_name_direct(
-                            corporation_name=company_id,
-                            category_name=category_name,
-                            year=search_year,  # year는 전달하되 내부에서 무시됨
+                            category_name=category_name
                         )
                     
                     if category_details and category_details.base_issuepools:
@@ -796,9 +746,7 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         matching_start = datetime.now()
         logger.info("🔗 카테고리별 ESG 분류 및 이슈풀 매칭 시작 (배치 처리)")
         matched_categories = await match_categories_with_esg_and_issuepool(
-            ranked_categories, 
-            request.company_id, 
-            search_year
+            ranked_categories
         )
         matching_time = (datetime.now() - matching_start).total_seconds()
         logger.info(f"⏱️ ESG/이슈풀 매칭 완료: {matching_time:.2f}초")

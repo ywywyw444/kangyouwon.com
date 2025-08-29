@@ -88,17 +88,21 @@ class MiddleIssueRepository:
                 # 2. 해당 연도의 이슈와 공통 이슈(publish_year is null) 함께 조회
                 # 안전한 TEXT -> INTEGER 캐스팅을 위한 쿼리 수정
                 year_condition = or_(
-                    MiddleIssueEntity.publish_year.is_(None),
-                    MiddleIssueEntity.publish_year == '',  # 빈 문자열도 공통 이슈로 처리
-                    MiddleIssueEntity.publish_year == '0',  # '0'도 공통 이슈로 처리
+                    # 연도별 이슈: 숫자인 경우만 (year-1)과 정확히 일치
                     and_(
-                        # 빈 문자열이 아닌지 확인
+                        MiddleIssueEntity.publish_year.isnot(None),
                         MiddleIssueEntity.publish_year != '',
                         MiddleIssueEntity.publish_year != '0',
                         # 숫자로만 구성된 문자열인지 확인 (공백 허용)
                         MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
                         # 안전하게 trim 후 캐스팅하여 비교
                         cast(func.trim(MiddleIssueEntity.publish_year), Integer) == target_year
+                    ),
+                    # 공통 이슈: NULL/''/'0' (reference score 전용)
+                    or_(
+                        MiddleIssueEntity.publish_year.is_(None),
+                        MiddleIssueEntity.publish_year == '',
+                        MiddleIssueEntity.publish_year == '0'
                     )
                 )
                 
@@ -681,3 +685,76 @@ class MiddleIssueRepository:
             import traceback
             logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
             return None
+
+    async def get_categories_by_names_batch(
+        self, 
+        category_names: List[str]
+    ) -> Dict[str, CategoryDetailsResponse]:
+        """
+        배치로 카테고리별 ESG 분류 및 base_issue_pool 조회
+        - materiality_category DB에서 ESG 분류 조회 (company_id, 연도 조건 없음)
+        - issuepool DB에서 base_issue_pool 조회 (카테고리만 매칭, company_id, 연도 조건 없음)
+        """
+        try:
+            # 배치 쿼리: 카테고리명으로 한 번에 조회
+            query = (
+                select(
+                    CategoryEntity.category_name,
+                    CategoryEntity.id.label('category_id'),
+                    ESGClassificationEntity.esg.label('esg_classification_name'),
+                    ESGClassificationEntity.id.label('esg_classification_id'),
+                    MiddleIssueEntity.id,
+                    MiddleIssueEntity.base_issue_pool,
+                    MiddleIssueEntity.issue_pool,
+                    MiddleIssueEntity.ranking
+                )
+                .select_from(CategoryEntity)
+                .outerjoin(ESGClassificationEntity, CategoryEntity.esg_classification_id == ESGClassificationEntity.id)
+                .outerjoin(MiddleIssueEntity, CategoryEntity.id == MiddleIssueEntity.category_id)
+                .where(
+                    CategoryEntity.category_name.in_(category_names)
+                    # company_id 조건 제거
+                    # 연도 조건 제거
+                )
+                .order_by(CategoryEntity.category_name, MiddleIssueEntity.ranking)
+            )
+            
+            # statement timeout 설정 (30초)
+            query = query.execution_options(statement_timeout=30000)
+            
+            result = await self.session.execute(query)
+            rows = result.fetchall()
+            
+            # 결과를 카테고리별로 그룹화
+            categories_map: Dict[str, CategoryDetailsResponse] = {}
+            
+            for row in rows:
+                category_name = row.category_name
+                
+                if category_name not in categories_map:
+                    categories_map[category_name] = CategoryDetailsResponse(
+                        category_name=category_name,
+                        category_id=row.category_id,
+                        esg_classification_name=row.esg_classification_name or '미분류',
+                        esg_classification_id=row.esg_classification_id,
+                        base_issuepools=[]
+                    )
+                
+                # base_issue_pool이 있는 경우만 추가
+                if row.base_issue_pool:
+                    base_issue_pool = BaseIssuePool(
+                        id=row.id,
+                        base_issue_pool=row.base_issue_pool,
+                        issue_pool=row.issue_pool,
+                        ranking=row.ranking,
+                        esg_classification_id=row.esg_classification_id
+                    )
+                    categories_map[category_name].base_issuepools.append(base_issue_pool)
+            
+            logger.warning(f"✅ 배치 조회 완료: {len(categories_map)}개 카테고리, 총 {sum(len(cat.base_issuepools) for cat in categories_map.values())}개 base_issue_pool")
+            
+            return categories_map
+            
+        except Exception as e:
+            logger.error(f"❌ 배치 카테고리 조회 실패: {str(e)}")
+            return {}
