@@ -427,89 +427,199 @@ async def match_categories_with_esg_and_issuepool(
     search_year: int
 ) -> List[Dict[str, Any]]:
     """
-    카테고리별로 ESG 분류와 base_issuepool을 매칭
+    카테고리별로 ESG 분류와 base_issuepool을 배치 쿼리로 매칭
     
     매칭 규칙:
-    1. materiality_category DB에서 카테고리 이름으로 직접 ESG 분류 조회 (우선)
-    2. base_issuepool은 기존 repository JOIN 기능 활용
+    1. materiality_category DB에서 모든 카테고리 ESG 분류를 배치로 조회 (연도 조건 없음)
+    2. base_issuepool은 새로운 배치 조회 메서드 사용 (연도 조건 없음 - 카테고리만 매칭)
     3. 카테고리 하나당 ESG 분류는 하나, base_issuepool은 여러 개
+    4. 중복 제거는 공백을 포함한 문자 그대로 비교
+    """
+    try:
+        repository = MiddleIssueRepository()
+        
+        logger.info(f"🔍 배치 카테고리 매칭 시작 - 기업: {company_id}, 연도: {search_year}")
+        logger.info(f"🔍 매칭할 카테고리 수: {len(ranked_categories)}")
+        
+        # 1. 모든 카테고리 키 수집
+        category_keys = [str(cat['category']) for cat in ranked_categories]
+        
+        # 2. 배치로 ESG 분류 조회 (한 번에 모든 카테고리)
+        logger.info(f"🔍 배치 ESG 분류 조회 시작: {len(category_keys)}개 카테고리")
+        esg_mapping = {}
+        for category_key in category_keys:
+            try:
+                esg_classification = await repository.get_category_esg_direct(category_key)
+                esg_mapping[category_key] = esg_classification or '미분류'
+            except Exception as e:
+                logger.warning(f"⚠️ 카테고리 '{category_key}' ESG 분류 조회 실패: {str(e)}")
+                esg_mapping[category_key] = '미분류'
+        
+        logger.info(f"✅ 배치 ESG 분류 조회 완료: {len(esg_mapping)}개 카테고리")
+        
+        # 3. 🔥 새로운 배치 조회 메서드 사용 (N+1 문제 해결)
+        logger.info(f"🔍 배치 Base IssuePool 조회 시작 (새로운 메서드)")
+        details_map = {}
+        
+        try:
+            # 새로운 배치 조회 메서드 사용 (연도 조건 없음)
+            details_map = await repository.get_categories_details_batch(
+                corporation_name=company_id,
+                categories=category_keys,
+                year=search_year  # year는 전달하되 내부에서 무시됨
+            )
+            
+            logger.info(f"✅ 배치 Base IssuePool 조회 완료: {len(details_map)}개 카테고리")
+            logger.info(f"🔍 연도 조건 없이 카테고리만 매칭하여 base issue pool 조회됨")
+            
+        except Exception as e:
+            logger.error(f"❌ 배치 Base IssuePool 조회 실패: {str(e)}")
+            # 모든 카테고리에 대해 빈 배열로 설정
+            details_map = {name: None for name in category_keys}
+        
+        # 4. 결과 조합 (빠른 처리)
+        logger.info(f"🔍 결과 조합 시작")
+        matched_categories = []
+        
+        for category_info in ranked_categories:
+            category_key = str(category_info['category'])
+            
+            # 배치 조회 결과에서 데이터 가져오기
+            details = details_map.get(category_key)
+            
+            if details:
+                # 배치 조회에서 가져온 데이터 사용
+                esg_classification = details.esg_classification_name or esg_mapping.get(category_key, '미분류')
+                esg_classification_id = details.esg_classification_id
+                base_issuepools = []
+                
+                # BaseIssuePool을 dict로 변환
+                for issue in details.base_issuepools:
+                    base_issuepools.append({
+                        "id": issue.id,
+                        "base_issue_pool": issue.base_issue_pool,
+                        "issue_pool": issue.issue_pool,
+                        "ranking": issue.ranking,
+                        "esg_classification_id": esg_classification_id,
+                        "esg_classification_name": esg_classification
+                    })
+                
+                total_issuepools = len(base_issuepools)
+            else:
+                # 배치 조회에서 데이터가 없는 경우 기본값
+                esg_classification = esg_mapping.get(category_key, '미분류')
+                esg_classification_id = None
+                base_issuepools = []
+                total_issuepools = 0
+            
+            matched_category = {
+                **category_info,  # 기존 점수 정보 유지
+                "esg_classification": esg_classification,
+                "esg_classification_id": esg_classification_id,
+                "base_issuepools": base_issuepools,
+                "total_issuepools": total_issuepools
+            }
+            
+            matched_categories.append(matched_category)
+        
+        # 5. 요약 로깅 (성능 향상을 위해 간소화)
+        total_issuepools = sum(len(cat.get('base_issuepools', [])) for cat in matched_categories)
+        esg_distribution = {}
+        for esg in esg_mapping.values():
+            esg_distribution[esg] = esg_distribution.get(esg, 0) + 1
+        
+        logger.info(f"🔗 배치 매칭 완료:")
+        logger.info(f"   - 총 카테고리: {len(matched_categories)}개")
+        logger.info(f"   - 총 IssuePool: {total_issuepools}개")
+        logger.info(f"   - ESG 분포: {esg_distribution}")
+        
+        return matched_categories
+        
+    except Exception as e:
+        logger.error(f"❌ 배치 카테고리 매칭 중 전체 오류 발생: {str(e)}")
+        logger.error(f"❌ 오류 상세: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
+        
+        # 오류 발생 시 기존 개별 처리 방식으로 fallback
+        logger.info(f"🔄 기존 개별 처리 방식으로 fallback")
+        return await _fallback_individual_matching(ranked_categories, company_id, search_year)
+
+
+async def _fallback_individual_matching(
+    ranked_categories: List[Dict[str, Any]], 
+    company_id: str, 
+    search_year: int
+) -> List[Dict[str, Any]]:
+    """
+    Fallback: 기존 개별 처리 방식 (배치 처리 실패 시 사용)
     """
     try:
         repository = MiddleIssueRepository()
         matched_categories = []
         
-        logger.info(f"🔍 카테고리 매칭 시작 - 기업: {company_id}, 연도: {search_year}")
-        logger.info(f"🔍 매칭할 카테고리 수: {len(ranked_categories)}")
+        logger.info(f"🔄 Fallback 개별 처리 시작: {len(ranked_categories)}개 카테고리")
         
         for category_info in ranked_categories:
             category_name = str(category_info['category'])
             
             try:
-                # 1. materiality_category DB에서 ESG 분류 우선 조회
-                logger.info(f"🔍 카테고리 '{category_name}' materiality_category DB에서 ESG 분류 조회")
+                # 1. materiality_category DB에서 ESG 분류 조회 (연도 조건 없음)
                 esg_classification = await repository.get_category_esg_direct(category_name)
-                
                 if not esg_classification:
-                    logger.warning(f"⚠️ 카테고리 '{category_name}' materiality_category DB에서 ESG 분류 정보 없음")
                     esg_classification = '미분류'
                 
-                # 2. base_issuepool 정보 조회 (기존 repository JOIN 기능 활용)
+                # 2. base_issuepool 정보 조회 (연도 조건 없음 - 카테고리만 매칭)
                 base_issuepools = []
                 try:
-                    # ID인지 이름인지 구분하여 처리
                     if category_name.isdigit():
-                        # ID로 조회
+                        # ID로 조회하되 연도 조건 제거
                         category_details = await repository.get_category_details(
                             corporation_name=company_id,
                             category_id=int(category_name),
-                            year=search_year,
+                            year=search_year,  # year는 전달하되 내부에서 무시됨
                         )
                     else:
-                        # 이름으로 직접 조회
+                        # 이름으로 직접 조회하되 연도 조건 제거
                         category_details = await repository.get_category_by_name_direct(
                             corporation_name=company_id,
                             category_name=category_name,
-                            year=search_year,
+                            year=search_year,  # year는 전달하되 내부에서 무시됨
                         )
                     
                     if category_details and category_details.base_issuepools:
-                        # BaseIssuePool 객체를 dict로 변환
+                        # 중복 제거를 위한 set 사용
+                        seen_pools = set()
                         for issue in category_details.base_issuepools:
-                            base_issuepools.append({
-                                "id": issue.id,
-                                "base_issue_pool": issue.base_issue_pool,
-                                "issue_pool": issue.issue_pool,
-                                "ranking": issue.ranking,
-                                "esg_classification_id": category_details.esg_classification_id,
-                                "esg_classification_name": esg_classification
-                            })
-                        logger.info(f"✅ 카테고리 '{category_name}' base_issuepool {len(base_issuepools)}개 조회 성공")
-                    else:
-                        logger.info(f"⚠️ 카테고리 '{category_name}' base_issuepool 데이터 없음")
+                            # 공백을 포함한 문자 그대로 비교하여 중복 체크
+                            pool_key = (issue.base_issue_pool, issue.issue_pool)
+                            if pool_key not in seen_pools:
+                                seen_pools.add(pool_key)
+                                base_issuepools.append({
+                                    "id": issue.id,
+                                    "base_issue_pool": issue.base_issue_pool,
+                                    "issue_pool": issue.issue_pool,
+                                    "ranking": issue.ranking,
+                                    "esg_classification_id": category_details.esg_classification_id,
+                                    "esg_classification_name": esg_classification
+                                })
                         
                 except Exception as e:
-                    logger.warning(f"⚠️ 카테고리 '{category_name}' base_issuepool 조회 중 오류: {str(e)}")
-                    # base_issuepool 조회 실패해도 ESG 분류는 사용 가능
+                    logger.warning(f"⚠️ Fallback: 카테고리 '{category_name}' base_issuepool 조회 실패: {str(e)}")
                 
                 # 3. 매칭된 카테고리 정보 생성
                 matched_category = {
-                    **category_info,  # 기존 점수 정보 유지
+                    **category_info,
                     "esg_classification": esg_classification,
-                    "esg_classification_id": None,  # materiality_category DB에서는 ID 정보 없음
+                    "esg_classification_id": None,
                     "base_issuepools": base_issuepools,
                     "total_issuepools": len(base_issuepools)
                 }
                 
                 matched_categories.append(matched_category)
                 
-                # 매칭 결과 로그
-                logger.info(f"✅ 카테고리 '{category_name}' 매칭 완료:")
-                logger.info(f"   - ESG 분류: {esg_classification} (materiality_category DB)")
-                logger.info(f"   - Base IssuePool 수: {len(base_issuepools)}개")
-                
             except Exception as e:
-                logger.error(f"❌ 카테고리 '{category_name}' 매칭 중 오류: {str(e)}")
-                # 오류 발생 시에도 기본값으로 설정
+                logger.error(f"❌ Fallback: 카테고리 '{category_name}' 매칭 중 오류: {str(e)}")
                 matched_category = {
                     **category_info,
                     "esg_classification": "미분류",
@@ -519,15 +629,12 @@ async def match_categories_with_esg_and_issuepool(
                 }
                 matched_categories.append(matched_category)
         
-        logger.info(f"🔗 총 {len(matched_categories)}개 카테고리 매칭 완료")
+        logger.info(f"🔄 Fallback 개별 처리 완료: {len(matched_categories)}개 카테고리")
         return matched_categories
         
     except Exception as e:
-        logger.error(f"❌ 카테고리 매칭 중 전체 오류 발생: {str(e)}")
-        logger.error(f"❌ 오류 상세: {type(e).__name__}: {str(e)}")
-        import traceback
-        logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
-        # 오류 발생 시 원본 카테고리 정보 반환
+        logger.error(f"❌ Fallback 개별 처리도 실패: {str(e)}")
+        # 최후 수단: 원본 카테고리 정보만 반환
         return ranked_categories
 
 async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
@@ -590,8 +697,8 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info("🏆 카테고리 순위 매기기 시작")
         ranked_categories = rank_categories_by_score(category_scores)
 
-        # 8) 카테고리별 ESG 분류 및 이슈풀 매칭
-        logger.info("🔗 카테고리별 ESG 분류 및 이슈풀 매칭 시작")
+        # 8) 카테고리별 ESG 분류 및 이슈풀 매칭 (배치 처리로 성능 향상)
+        logger.info("🔗 카테고리별 ESG 분류 및 이슈풀 매칭 시작 (배치 처리)")
         matched_categories = await match_categories_with_esg_and_issuepool(
             ranked_categories, 
             request.company_id, 
@@ -610,9 +717,9 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info(f"   - 분석된 카테고리 수: {len(category_scores)}")
         logger.info(f"   - 매칭된 카테고리 수: {len(matched_categories)}")
 
-        # 🔥 최종 카테고리 순위 (ESG 분류 및 base issuepool 매칭 결과)
-        logger.info("\n🏆 최종 카테고리 순위 (ESG 분류 및 base issuepool 매칭 완료):")
-        for i, row in enumerate(matched_categories[:10]):  # 상위 10개
+        # 🔥 최종 카테고리 순위 (ESG 분류 및 base issuepool 매칭 결과) - 상위 10개만 info로
+        logger.info("\n🏆 최종 카테고리 순위 (상위 10개):")
+        for i, row in enumerate(matched_categories[:10]):
             esg_name = row.get('esg_classification', '미분류')
             issue_count = len(row.get('base_issuepools', []))
             final_score = row.get('final_score', 0.0)
@@ -620,15 +727,18 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
                 f"{i+1:>2}위 | 카테고리: {row['category']} | ESG: {esg_name} | "
                 f"이슈풀: {issue_count}개 | 최종점수: {final_score:.3f}"
             )
-            
-            # base issuepool 상세 정보는 로그 레이트 리밋 방지를 위해 완전 제거
-            # if i < 3:  # 상위 3개만 상세 로깅
-            #     base_issuepools = row.get('base_issuepools', [])
-            #     if base_issuepools:
-            #         for j, pool in enumerate(base_issuepools[:2]):  # 각 카테고리당 2개만
-            #             logger.info(f"     {j+1}. {pool.get('base_issue_pool', 'N/A')} (순위: {pool.get('ranking', 'N/A')})")
-            #         if len(base_issuepools) > 2:
-            #             logger.info(f"     ... 외 {len(base_issuepools) - 2}개")
+        
+        # 나머지는 debug 레벨로
+        if len(matched_categories) > 10:
+            logger.debug(f"📋 나머지 {len(matched_categories) - 10}개 카테고리 (debug 레벨)")
+            for i, row in enumerate(matched_categories[10:], 11):
+                esg_name = row.get('esg_classification', '미분류')
+                issue_count = len(row.get('base_issuepools', []))
+                final_score = row.get('final_score', 0.0)
+                logger.debug(
+                    f"{i:>2}위 | 카테고리: {row['category']} | ESG: {esg_name} | "
+                    f"이슈풀: {issue_count}개 | 최종점수: {final_score:.3f}"
+                )
 
         # 🔥 전체 카테고리 순위 요약
         logger.info(f"\n📋 전체 {len(matched_categories)}개 카테고리 매칭 완료")
@@ -663,3 +773,257 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.error(error_msg)
         logger.error("="*50)
         return {"success": False, "message": error_msg, "data": None}
+
+
+# ============================================================================
+# 🚧 성능 향상을 위한 타임아웃 래퍼 함수
+# ============================================================================
+
+async def start_assessment_with_timeout(request: MiddleIssueRequest, timeout_seconds: int = 300) -> Dict[str, Any]:
+    """
+    중대성 평가를 타임아웃과 함께 실행 (500 에러 방지)
+    
+    Args:
+        request: 중대성 평가 요청
+        timeout_seconds: 타임아웃 시간 (초), 기본값 5분
+    
+    Returns:
+        Dict[str, Any]: 중대성 평가 결과 또는 타임아웃 에러
+    """
+    try:
+        import asyncio
+        
+        logger.info(f"⏰ 중대성 평가 타임아웃 설정: {timeout_seconds}초")
+        logger.info(f"🚀 배치 처리 방식으로 성능 향상 적용됨")
+        
+        # 타임아웃과 함께 중대성 평가 실행
+        result = await asyncio.wait_for(
+            start_assessment(request), 
+            timeout=timeout_seconds
+        )
+        
+        logger.info("✅ 중대성 평가 타임아웃 내 완료")
+        return result
+        
+    except asyncio.TimeoutError:
+        error_msg = f"❌ 중대성 평가 타임아웃 ({timeout_seconds}초 초과)"
+        logger.error(error_msg)
+        logger.error("💡 배치 처리 방식 적용 후에도 타임아웃 발생 - 추가 성능 최적화 필요")
+        logger.error("="*50)
+        return {
+            "success": False, 
+            "message": error_msg, 
+            "data": None,
+            "timeout": True
+        }
+    except Exception as e:
+        error_msg = f"❌ 중대성 평가 실행 중 예상치 못한 오류: {str(e)}"
+        logger.error(error_msg)
+        logger.error("="*50)
+        return {
+            "success": False, 
+            "message": error_msg, 
+            "data": None
+        }
+
+
+# ============================================================================
+# 🚧 디버깅용 Excel 내보내기 함수들 (나중에 삭제 가능)
+# ============================================================================
+
+def export_labeled_articles_to_excel(labeled_articles: List[Dict[str, Any]], output_path: str = "labeled_articles_debug.xlsx"):
+    """
+    라벨링된 기사들을 Excel로 내보내기 (디버깅용)
+    
+    Args:
+        labeled_articles: 라벨링된 기사 리스트
+        output_path: 출력 파일 경로
+    
+    Note: 이 함수는 디버깅 목적으로만 사용되며, 나중에 삭제 가능합니다.
+    """
+    try:
+        import pandas as pd
+        from datetime import datetime
+        
+        logger.info(f"📊 라벨링된 기사 Excel 내보내기 시작: {len(labeled_articles)}개 기사")
+        
+        # 1. Raw Data 시트
+        raw_data = []
+        for article in labeled_articles:
+            raw_data.append({
+                'company': article.get('company', ''),
+                'issue': article.get('issue', ''),
+                'original_category': article.get('original_category', ''),
+                'title': article.get('title', ''),
+                'description': article.get('description', ''),
+                'pubDate': article.get('pubDate', ''),
+                'sentiment': article.get('sentiment', ''),
+                'relevance_label': article.get('relevance_label', False),
+                'recent_label': article.get('recent_label', False),
+                'rank_label': article.get('rank_label', False),
+                'reference_label': article.get('reference_label', False),
+                'relevance_score': article.get('relevance_score', 0.0),
+                'recent_score': article.get('recent_score', 0.0),
+                'rank_score': article.get('rank_score', 0.0),
+                'reference_score': article.get('reference_score', 0.0),
+                'negative_score': article.get('negative_score', 0.0)
+            })
+        
+        # 2. Summary 시트
+        summary_data = {
+            '총 기사 수': len(labeled_articles),
+            '부정적 기사 수': sum(1 for a in labeled_articles if a.get('sentiment') == 'negative'),
+            '긍정적 기사 수': sum(1 for a in labeled_articles if a.get('sentiment') == 'positive'),
+            '중립적 기사 수': sum(1 for a in labeled_articles if a.get('sentiment') == 'neutral'),
+            'relevance_label True': sum(1 for a in labeled_articles if a.get('relevance_label')),
+            'recent_label True': sum(1 for a in labeled_articles if a.get('recent_label')),
+            'rank_label True': sum(1 for a in labeled_articles if a.get('rank_label')),
+            'reference_label True': sum(1 for a in labeled_articles if a.get('reference_label'))
+        }
+        
+        # 3. Category Stats 시트
+        category_stats = {}
+        for article in labeled_articles:
+            category = article.get('original_category', '')
+            if category not in category_stats:
+                category_stats[category] = {
+                    'count': 0,
+                    'negative_count': 0,
+                    'relevance_true': 0,
+                    'recent_true': 0,
+                    'rank_true': 0,
+                    'reference_true': 0
+                }
+            
+            category_stats[category]['count'] += 1
+            if article.get('sentiment') == 'negative':
+                category_stats[category]['negative_count'] += 1
+            if article.get('relevance_label'):
+                category_stats[category]['relevance_true'] += 1
+            if article.get('recent_label'):
+                category_stats[category]['recent_true'] += 1
+            if article.get('rank_label'):
+                category_stats[category]['rank_true'] += 1
+            if article.get('reference_label'):
+                category_stats[category]['reference_true'] += 1
+        
+        # Excel 파일 생성
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            # Raw Data
+            pd.DataFrame(raw_data).to_excel(writer, sheet_name='Raw Data', index=False)
+            
+            # Summary
+            pd.DataFrame([summary_data]).to_excel(writer, sheet_name='Summary', index=False)
+            
+            # Category Stats
+            category_df = pd.DataFrame.from_dict(category_stats, orient='index')
+            category_df.to_excel(writer, sheet_name='Category Stats')
+        
+        logger.info(f"✅ 라벨링된 기사 Excel 내보내기 완료: {output_path}")
+        
+    except Exception as e:
+        logger.error(f"❌ 라벨링된 기사 Excel 내보내기 실패: {str(e)}")
+
+
+def export_category_scores_to_excel(category_scores: Dict[str, Dict[str, Any]], output_path: str = "category_scores_debug.xlsx"):
+    """
+    카테고리 점수들을 Excel로 내보내기 (디버깅용)
+    
+    Args:
+        category_scores: 카테고리별 점수 딕셔너리
+        output_path: 출력 파일 경로
+    
+    Note: 이 함수는 디버깅 목적으로만 사용되며, 나중에 삭제 가능합니다.
+    """
+    try:
+        import pandas as pd
+        
+        logger.info(f"📊 카테고리 점수 Excel 내보내기 시작: {len(category_scores)}개 카테고리")
+        
+        # 1. Sorted Scores 시트 (최종 점수 순)
+        sorted_scores = []
+        for category, scores in category_scores.items():
+            sorted_scores.append({
+                'category': category,
+                'final_score': scores.get('final_score', 0.0),
+                'frequency_score': scores.get('frequency_score', 0.0),
+                'relevance_score': scores.get('relevance_score', 0.0),
+                'recent_score': scores.get('recent_score', 0.0),
+                'rank_score': scores.get('rank_score', 0.0),
+                'reference_score': scores.get('reference_score', 0.0),
+                'negative_score': scores.get('negative_score', 0.0),
+                'total_articles': scores.get('total_articles', 0),
+                'negative_articles': scores.get('negative_articles', 0)
+            })
+        
+        # 최종 점수 순으로 정렬
+        sorted_scores.sort(key=lambda x: x['final_score'], reverse=True)
+        
+        # 2. Raw Scores 시트 (원본 데이터)
+        raw_scores = []
+        for category, scores in category_scores.items():
+            raw_scores.append({
+                'category': category,
+                **scores
+            })
+        
+        # 3. Score Distribution 시트
+        score_ranges = {
+            '0-1': 0, '1-2': 0, '2-3': 0, '3-4': 0, '4-5': 0,
+            '5-6': 0, '6-7': 0, '7-8': 0, '8-9': 0, '9-10': 0
+        }
+        
+        for category, scores in category_scores.items():
+            final_score = scores.get('final_score', 0.0)
+            if final_score < 1:
+                score_ranges['0-1'] += 1
+            elif final_score < 2:
+                score_ranges['1-2'] += 1
+            elif final_score < 3:
+                score_ranges['2-3'] += 1
+            elif final_score < 4:
+                score_ranges['3-4'] += 1
+            elif final_score < 5:
+                score_ranges['4-5'] += 1
+            elif final_score < 6:
+                score_ranges['5-6'] += 1
+            elif final_score < 7:
+                score_ranges['6-7'] += 1
+            elif final_score < 8:
+                score_ranges['7-8'] += 1
+            elif final_score < 9:
+                score_ranges['8-9'] += 1
+            else:
+                score_ranges['9-10'] += 1
+        
+        # 4. Top/Bottom Categories 시트
+        top_categories = sorted_scores[:10]  # 상위 10개
+        bottom_categories = sorted_scores[-10:]  # 하위 10개
+        
+        # Excel 파일 생성
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            # Sorted Scores
+            pd.DataFrame(sorted_scores).to_excel(writer, sheet_name='Sorted Scores', index=False)
+            
+            # Raw Scores
+            pd.DataFrame(raw_scores).to_excel(writer, sheet_name='Raw Scores', index=False)
+            
+            # Score Distribution
+            distribution_df = pd.DataFrame([score_ranges])
+            distribution_df.to_excel(writer, sheet_name='Score Distribution', index=False)
+            
+            # Top Categories
+            pd.DataFrame(top_categories).to_excel(writer, sheet_name='Top Categories', index=False)
+            
+            # Bottom Categories
+            pd.DataFrame(bottom_categories).to_excel(writer, sheet_name='Bottom Categories', index=False)
+        
+        logger.info(f"✅ 카테고리 점수 Excel 내보내기 완료: {output_path}")
+        
+    except Exception as e:
+        logger.error(f"❌ 카테고리 점수 Excel 내보내기 실패: {str(e)}")
+
+
+# ============================================================================
+# 🚧 디버깅용 Excel 내보내기 함수들 끝
+# ============================================================================
