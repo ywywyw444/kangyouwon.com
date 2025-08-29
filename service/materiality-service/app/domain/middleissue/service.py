@@ -528,6 +528,18 @@ async def match_categories_with_esg_and_issuepool(
             unmatched_categories = [cat['category'] for cat in matched_categories if cat.get('total_issuepools', 0) == 0]
             logger.warning(f"   - 매칭 실패 카테고리: {unmatched_categories}")
         
+        # 🔍 ESG 분류 매핑 상태 간단 확인
+        esg_mapped_count = sum(1 for cat in matched_categories if cat.get('esg_classification') and cat.get('esg_classification') != '미분류')
+        esg_unmapped_count = len(matched_categories) - esg_mapped_count
+        
+        logger.warning(f"🔍 ESG 분류 매핑 상태:")
+        logger.warning(f"   - ESG 매핑 성공: {esg_mapped_count}개 카테고리")
+        logger.warning(f"   - ESG 매핑 실패: {esg_unmapped_count}개 카테고리")
+        
+        if esg_unmapped_count > 0:
+            unmapped_esg_categories = [cat['category'] for cat in matched_categories if not cat.get('esg_classification') or cat.get('esg_classification') == '미분류']
+            logger.warning(f"   - ESG 매핑 실패 카테고리: {unmapped_esg_categories}")
+        
         return matched_categories
         
     except Exception as e:
@@ -851,8 +863,9 @@ async def start_assessment_with_timeout(request: MiddleIssueRequest, timeout_sec
     try:
         import asyncio
         
-        logger.info(f"⏰ 중대성 평가 타임아웃 설정: {timeout_seconds}초")
-        logger.info(f"🚀 배치 처리 방식으로 성능 향상 적용됨")
+        logger.warning(f"⏰ 중대성 평가 타임아웃 설정: {timeout_seconds}초")
+        logger.warning(f"🚀 배치 처리 방식으로 성능 향상 적용됨")
+        logger.warning(f"🔍 요청 정보: 기업={request.company_id}, 기사수={len(request.articles)}")
         
         # 타임아웃과 함께 중대성 평가 실행
         result = await asyncio.wait_for(
@@ -860,28 +873,46 @@ async def start_assessment_with_timeout(request: MiddleIssueRequest, timeout_sec
             timeout=timeout_seconds
         )
         
-        logger.info("✅ 중대성 평가 타임아웃 내 완료")
+        logger.warning("✅ 중대성 평가 타임아웃 내 완료")
         return result
         
     except asyncio.TimeoutError:
         error_msg = f"❌ 중대성 평가 타임아웃 ({timeout_seconds}초 초과)"
         logger.error(error_msg)
+        logger.error(f"🔍 타임아웃 발생 요청 정보:")
+        logger.error(f"   - 기업: {request.company_id}")
+        logger.error(f"   - 기사 수: {len(request.articles)}")
+        logger.error(f"   - 요청 크기: {len(str(request))} bytes")
         logger.error("💡 배치 처리 방식 적용 후에도 타임아웃 발생 - 추가 성능 최적화 필요")
         logger.error("="*50)
         return {
             "success": False, 
             "message": error_msg, 
             "data": None,
-            "timeout": True
+            "timeout": True,
+            "request_info": {
+                "company_id": request.company_id,
+                "article_count": len(request.articles),
+                "timeout_seconds": timeout_seconds
+            }
         }
     except Exception as e:
         error_msg = f"❌ 중대성 평가 실행 중 예상치 못한 오류: {str(e)}"
         logger.error(error_msg)
+        logger.error(f"🔍 오류 발생 요청 정보:")
+        logger.error(f"   - 기업: {request.company_id}")
+        logger.error(f"   - 기사 수: {len(request.articles)}")
+        logger.error(f"   - 오류 타입: {type(e).__name__}")
         logger.error("="*50)
         return {
             "success": False, 
             "message": error_msg, 
-            "data": None
+            "data": None,
+            "error_type": type(e).__name__,
+            "request_info": {
+                "company_id": request.company_id,
+                "article_count": len(request.articles)
+            }
         }
 
 

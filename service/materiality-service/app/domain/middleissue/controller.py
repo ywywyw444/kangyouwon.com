@@ -4,7 +4,7 @@ Middleissue Controller - MVC 구조에서 BaseModel을 MiddleissueService로 전
 """
 import logging
 from app.domain.middleissue.schema import MiddleIssueRequest, MiddleIssueResponse
-from app.domain.middleissue.service import start_assessment
+from app.domain.middleissue.service import start_assessment_with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ class MiddleIssueController:
     
     async def start_assessment(self, request: MiddleIssueRequest) -> MiddleIssueResponse:
         """
-        중대성 평가 시작 요청을 MiddleissueService로 전달
+        중대성 평가 시작 요청을 MiddleissueService로 전달 (타임아웃 적용)
         
         Args:
             request: 중대성 평가 시작 요청 데이터 (MiddleIssueRequest)
@@ -27,8 +27,8 @@ class MiddleIssueController:
         try:
             logger.info(f"🔍 컨트롤러: 중대성 평가 시작 요청을 Service로 전달 - 기업: {request.company_id}")
             
-            # Service로 요청 전달
-            result = await start_assessment(request)
+            # Service로 요청 전달 (타임아웃 5분 적용)
+            result = await start_assessment_with_timeout(request, timeout_seconds=300)
             
             logger.info(f"✅ 컨트롤러: Service 응답 수신 - {result.get('success', False)}")
             return result

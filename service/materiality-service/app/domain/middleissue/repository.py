@@ -702,6 +702,10 @@ class MiddleIssueRepository:
         """
         try:
             async for db in get_db():
+                # 성능 최적화를 위한 설정
+                await db.execute(text("SET LOCAL statement_timeout = '30000ms'"))
+                await db.execute(text("SET LOCAL work_mem = '256MB'"))
+                
                 # 배치 쿼리: 카테고리명으로 한 번에 조회
                 query = (
                     select(
@@ -728,8 +732,14 @@ class MiddleIssueRepository:
                 # statement timeout 설정 (30초)
                 query = query.execution_options(statement_timeout=30000)
                 
+                logger.warning(f"🔍 배치 쿼리 실행 시작: {len(category_names)}개 카테고리")
+                start_time = __import__('time').time()
+                
                 result = await db.execute(query)
                 rows = result.fetchall()
+                
+                query_time = __import__('time').time() - start_time
+                logger.warning(f"⏱️ 배치 쿼리 실행 완료: {query_time:.2f}초, {len(rows)}개 행")
                 
                 # 결과를 카테고리별로 그룹화
                 categories_map: Dict[str, CategoryDetailsResponse] = {}
@@ -757,10 +767,14 @@ class MiddleIssueRepository:
                         )
                         categories_map[category_name].base_issuepools.append(base_issue_pool)
                 
-                logger.warning(f"✅ 배치 조회 완료: {len(categories_map)}개 카테고리, 총 {sum(len(cat.base_issuepools) for cat in categories_map.values())}개 base_issue_pool")
+                total_issuepools = sum(len(cat.base_issuepools) for cat in categories_map.values())
+                logger.warning(f"✅ 배치 조회 완료: {len(categories_map)}개 카테고리, 총 {total_issuepools}개 base_issue_pool")
+                logger.warning(f"⏱️ 전체 처리 시간: {query_time:.2f}초")
                 
                 return categories_map
                 
         except Exception as e:
             logger.error(f"❌ 배치 카테고리 조회 실패: {str(e)}")
+            import traceback
+            logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
             return {}
