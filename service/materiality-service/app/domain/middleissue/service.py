@@ -25,14 +25,16 @@ from app.domain.middleissue.schema import (
 from app.domain.middleissue.repository import MiddleIssueRepository
 
 # Railway 환경에서 로그 레이트 리밋 방지를 위한 로깅 설정
-if os.getenv('RAILWAY_ENVIRONMENT'):
+if os.getenv('RAILWAY_ENVIRONMENT') or True:  # 즉시 적용을 위해 True로 설정
     # Railway 환경에서는 로깅 레벨을 WARNING으로 설정
     logging.getLogger('app.domain.middleissue.service').setLevel(logging.WARNING)
     logging.getLogger('app.domain.middleissue.repository').setLevel(logging.WARNING)
     print("🚨 Railway 환경 감지: 로깅 레벨을 WARNING으로 설정하여 로그 레이트 리밋 방지")
 
-# 로거 설정
 logger = logging.getLogger(__name__)
+
+# 로깅 레벨 강제 설정 (즉시 적용)
+logger.setLevel(logging.WARNING)
 
 NEGATIVE_LEXICON = {
     "감소","하락","부진","악화","오염","위반","담합","부패","뇌물","횡령","배임","사기",
@@ -383,16 +385,16 @@ def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[
                 "articles": b["articles"],
             }
             
-            # 디버깅을 위한 상세 로그 (로그 레이트 리밋 방지를 위해 INFO 레벨로 조정)
-            if logger.isEnabledFor(logging.INFO):
-                logger.info(f"🔍 카테고리 '{key}' 점수 계산 상세:")
-                logger.info(f"   - 빈도: {c}/{total_articles} = {frequency:.4f}")
-                logger.info(f"   - 관련성: {b['relevance_sum']}/{c} = {relevance:.4f}")
-                logger.info(f"   - 최신성: {b['recent_sum']}/{c} = {recent:.4f}")
-                logger.info(f"   - 순위: {b['rank_sum']}/{c} = {rank:.4f}")
-                logger.info(f"   - 참조: {b['reference_sum']}/{c} = {reference:.4f}")
-                logger.info(f"   - 부정성: {b['negative_count']}/{c} = {negative:.4f}")
-                logger.info(f"   - 최종점수: {final_score:.6f}")
+            # 디버깅을 위한 상세 로그 (로그 레이트 리밋 방지를 위해 제거)
+            # if logger.isEnabledFor(logging.INFO):
+            #     logger.info(f"🔍 카테고리 '{key}' 점수 계산 상세:")
+            #     logger.info(f"   - 빈도: {c}/{total_articles} = {frequency:.4f}")
+            #     logger.info(f"   - 관련성: {b['relevance_sum']}/{c} = {relevance:.4f}")
+            #     logger.info(f"   - 최신성: {b['recent_sum']}/{c} = {recent:.4f}")
+            #     logger.info(f"   - 순위: {b['rank_sum']}/{c} = {rank:.4f}")
+            #     logger.info(f"   - 참조: {b['reference_sum']}/{c} = {reference:.4f}")
+            #     logger.info(f"   - 부정성: {b['negative_count']}/{c} = {negative:.4f}")
+            #     logger.info(f"   - 최종점수: {final_score:.6f}")
 
         return results
     except Exception as e:
@@ -428,8 +430,8 @@ async def match_categories_with_esg_and_issuepool(
     카테고리별로 ESG 분류와 base_issuepool을 매칭
     
     매칭 규칙:
-    1. 카테고리 이름으로 직접 조회 (토큰화/별칭 매핑 없음)
-    2. repository의 JOIN 기능을 활용하여 모든 정보를 한 번에 가져오기
+    1. materiality_category DB에서 카테고리 이름으로 직접 ESG 분류 조회 (우선)
+    2. base_issuepool은 기존 repository JOIN 기능 활용
     3. 카테고리 하나당 ESG 분류는 하나, base_issuepool은 여러 개
     """
     try:
@@ -440,96 +442,73 @@ async def match_categories_with_esg_and_issuepool(
         logger.info(f"🔍 매칭할 카테고리 수: {len(ranked_categories)}")
         
         for category_info in ranked_categories:
-            name_or_id = str(category_info['category'])
+            category_name = str(category_info['category'])
             
             try:
-                # ID인지 이름인지 구분하여 처리
-                if name_or_id.isdigit():
-                    # ID로 조회
-                    category_details = await repository.get_category_details(
-                        corporation_name=company_id,
-                        category_id=int(name_or_id),
-                        year=search_year,   # repo가 내부에서 -1 처리
-                    )
-                else:
-                    # 이름으로 직접 조회
-                    category_details = await repository.get_category_by_name_direct(
-                        corporation_name=company_id,
-                        category_name=name_or_id,
-                        year=search_year,   # repo가 내부에서 -1 처리하도록 위에서 수정
-                    )
+                # 1. materiality_category DB에서 ESG 분류 우선 조회
+                logger.info(f"🔍 카테고리 '{category_name}' materiality_category DB에서 ESG 분류 조회")
+                esg_classification = await repository.get_category_esg_direct(category_name)
                 
-                if category_details:
-                    # materiality_category DB에서 ESG 분류 정보 우선 사용
-                    esg_classification = category_details.esg_classification_name or '미분류'
-                    esg_classification_id = category_details.esg_classification_id
+                if not esg_classification:
+                    logger.warning(f"⚠️ 카테고리 '{category_name}' materiality_category DB에서 ESG 분류 정보 없음")
+                    esg_classification = '미분류'
+                
+                # 2. base_issuepool 정보 조회 (기존 repository JOIN 기능 활용)
+                base_issuepools = []
+                try:
+                    # ID인지 이름인지 구분하여 처리
+                    if category_name.isdigit():
+                        # ID로 조회
+                        category_details = await repository.get_category_details(
+                            corporation_name=company_id,
+                            category_id=int(category_name),
+                            year=search_year,
+                        )
+                    else:
+                        # 이름으로 직접 조회
+                        category_details = await repository.get_category_by_name_direct(
+                            corporation_name=company_id,
+                            category_name=category_name,
+                            year=search_year,
+                        )
                     
-                    # BaseIssuePool 객체를 dict로 변환
-                    base_issuepools = []
-                    if category_details.base_issuepools:
+                    if category_details and category_details.base_issuepools:
+                        # BaseIssuePool 객체를 dict로 변환
                         for issue in category_details.base_issuepools:
-                            # BaseIssuePool 객체의 속성에 직접 접근
                             base_issuepools.append({
                                 "id": issue.id,
                                 "base_issue_pool": issue.base_issue_pool,
                                 "issue_pool": issue.issue_pool,
                                 "ranking": issue.ranking,
-                                "esg_classification_id": esg_classification_id,
+                                "esg_classification_id": category_details.esg_classification_id,
                                 "esg_classification_name": esg_classification
                             })
-                    
-                    # 매칭된 카테고리 정보 생성
-                    matched_category = {
-                        **category_info,  # 기존 점수 정보 유지
-                        "esg_classification": esg_classification,
-                        "esg_classification_id": esg_classification_id,
-                        "base_issuepools": base_issuepools,
-                        "total_issuepools": len(base_issuepools)
-                    }
-                    
-                    matched_categories.append(matched_category)
-                    
-                    # 카테고리-ESG 매핑 및 base issuepool 매핑 결과 로그
-                    logger.info(f"✅ 카테고리 '{name_or_id}' 매칭 완료 (materiality_category DB 사용):")
-                    logger.info(f"   - ESG 분류: {esg_classification} (ID: {esg_classification_id})")
-                    logger.info(f"   - Base IssuePool 수: {len(base_issuepools)}개")
-                    if base_issuepools:
-                        for i, pool in enumerate(base_issuepools[:3]):  # 상위 3개만 표시
-                            logger.info(f"     {i+1}. {pool['base_issue_pool']} (순위: {pool['ranking']})")
-                        if len(base_issuepools) > 3:
-                            logger.info(f"     ... 외 {len(base_issuepools) - 3}개")
-                else:
-                    # materiality_category DB에서 직접 ESG 분류 조회 시도
-                    logger.info(f"🔍 카테고리 '{name_or_id}' materiality_category DB에서 직접 ESG 분류 조회 시도")
-                    direct_esg = await repository.get_category_esg_direct(name_or_id)
-                    
-                    if direct_esg:
-                        # materiality_category DB에서 ESG 분류는 찾았지만 이슈풀은 없는 경우
-                        matched_category = {
-                            **category_info,
-                            "esg_classification": direct_esg,
-                            "esg_classification_id": None,  # ID는 별도 조회 필요
-                            "base_issuepools": [],
-                            "total_issuepools": 0
-                        }
-                        matched_categories.append(matched_category)
-                        
-                        logger.info(f"✅ 카테고리 '{name_or_id}' ESG 분류만 매칭 (materiality_category DB): {direct_esg}")
+                        logger.info(f"✅ 카테고리 '{category_name}' base_issuepool {len(base_issuepools)}개 조회 성공")
                     else:
-                        # 매칭되지 않은 경우 기본값으로 설정
-                        matched_category = {
-                            **category_info,
-                            "esg_classification": "미분류",
-                            "esg_classification_id": None,
-                            "base_issuepools": [],
-                            "total_issuepools": 0
-                        }
-                        matched_categories.append(matched_category)
+                        logger.info(f"⚠️ 카테고리 '{category_name}' base_issuepool 데이터 없음")
                         
-                        logger.warning(f"⚠️ 카테고리 '{name_or_id}' 매칭 실패: materiality_category DB에서도 ESG 분류 정보 없음")
-                    
+                except Exception as e:
+                    logger.warning(f"⚠️ 카테고리 '{category_name}' base_issuepool 조회 중 오류: {str(e)}")
+                    # base_issuepool 조회 실패해도 ESG 분류는 사용 가능
+                
+                # 3. 매칭된 카테고리 정보 생성
+                matched_category = {
+                    **category_info,  # 기존 점수 정보 유지
+                    "esg_classification": esg_classification,
+                    "esg_classification_id": None,  # materiality_category DB에서는 ID 정보 없음
+                    "base_issuepools": base_issuepools,
+                    "total_issuepools": len(base_issuepools)
+                }
+                
+                matched_categories.append(matched_category)
+                
+                # 매칭 결과 로그
+                logger.info(f"✅ 카테고리 '{category_name}' 매칭 완료:")
+                logger.info(f"   - ESG 분류: {esg_classification} (materiality_category DB)")
+                logger.info(f"   - Base IssuePool 수: {len(base_issuepools)}개")
+                
             except Exception as e:
-                logger.error(f"❌ 카테고리 '{name_or_id}' 매칭 중 오류: {str(e)}")
+                logger.error(f"❌ 카테고리 '{category_name}' 매칭 중 오류: {str(e)}")
                 # 오류 발생 시에도 기본값으로 설정
                 matched_category = {
                     **category_info,
@@ -572,7 +551,7 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             raise Exception("감성 분석 모델 로드 실패")
 
         # 3) 감성 분석
-        logger.info("�� 크롤링 데이터 감성 분석 시작")
+        logger.info("🔥 크롤링 데이터 감성 분석 시작")
         analyzed_articles = analyze_sentiment(model, request.articles)
 
         # 4) (검색 기준연도 - 1) & 공통(NULL) 카테고리 조회
@@ -620,36 +599,8 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         )
 
         # 6) 최종 순위 결정 및 ESG 분류 매칭
-        logger.info(f"🔍 최종 순위 결정 및 ESG 분류 매칭 시작")
-        
-        # materiality_category DB에서 카테고리별 ESG 분류 정보 조회
-        category_esg_mapping = {}
-        for category_info in matched_categories:
-            category_name = category_info.get('category')
-            if category_name:
-                try:
-                    # materiality_category DB에서 카테고리 이름으로 직접 ESG 분류 조회
-                    # (기업과 무관하게 카테고리 자체의 ESG 분류)
-                    category_esg = await repository.get_category_esg_direct(category_name)
-                    
-                    if category_esg:
-                        category_esg_mapping[category_name] = category_esg
-                        logger.info(f"✅ 카테고리 '{category_name}' ESG 분류 매칭: {category_esg}")
-                    else:
-                        category_esg_mapping[category_name] = '미분류'
-                        logger.warning(f"⚠️ 카테고리 '{category_name}' ESG 분류 없음 → '미분류'로 설정")
-                        
-                except Exception as e:
-                    logger.error(f"❌ 카테고리 '{category_name}' ESG 분류 조회 중 오류: {e}")
-                    category_esg_mapping[category_name] = '미분류'
-        
-        # 최종 결과에 ESG 분류 정보 추가
-        for category_info in matched_categories:
-            category_name = category_info.get('category')
-            if category_name:
-                category_info['esg_classification'] = category_esg_mapping.get(category_name, '미분류')
-        
-        logger.info(f"✅ ESG 분류 매칭 완료: {len(category_esg_mapping)}개 카테고리")
+        logger.info(f"🔍 최종 순위 결정 및 ESG 분류 매칭 완료")
+        logger.info(f"✅ match_categories_with_esg_and_issuepool에서 이미 ESG 분류 매칭 완료")
 
         # 9) 통계/로깅
         negative_count = sum(1 for a in labeled_articles if a["sentiment"] == "negative")
@@ -670,14 +621,14 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
                 f"이슈풀: {issue_count}개 | 최종점수: {final_score:.3f}"
             )
             
-            # base issuepool 상세 정보는 로그 레이트 리밋 방지를 위해 제한
-            if i < 3:  # 상위 3개만 상세 로깅
-                base_issuepools = row.get('base_issuepools', [])
-                if base_issuepools:
-                    for j, pool in enumerate(base_issuepools[:2]):  # 각 카테고리당 2개만
-                        logger.info(f"     {j+1}. {pool.get('base_issue_pool', 'N/A')} (순위: {pool.get('ranking', 'N/A')})")
-                    if len(base_issuepools) > 2:
-                        logger.info(f"     ... 외 {len(base_issuepools) - 2}개")
+            # base issuepool 상세 정보는 로그 레이트 리밋 방지를 위해 완전 제거
+            # if i < 3:  # 상위 3개만 상세 로깅
+            #     base_issuepools = row.get('base_issuepools', [])
+            #     if base_issuepools:
+            #         for j, pool in enumerate(base_issuepools[:2]):  # 각 카테고리당 2개만
+            #             logger.info(f"     {j+1}. {pool.get('base_issue_pool', 'N/A')} (순위: {pool.get('ranking', 'N/A')})")
+            #         if len(base_issuepools) > 2:
+            #             logger.info(f"     ... 외 {len(base_issuepools) - 2}개")
 
         # 🔥 전체 카테고리 순위 요약
         logger.info(f"\n📋 전체 {len(matched_categories)}개 카테고리 매칭 완료")

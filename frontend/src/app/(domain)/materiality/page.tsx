@@ -1058,26 +1058,36 @@ export default function MaterialityHomePage() {
               
               <button
                 onClick={async () => {
+                  // 1. 데이터 검증 강화
                   if (!searchResult?.data) {
                     alert('먼저 미디어 검색을 완료해주세요.');
+                    return;
+                  }
+
+                  // 2. articles 데이터 존재 여부 확인
+                  if (!searchResult.data.articles || searchResult.data.articles.length === 0) {
+                    alert('검색된 기사가 없습니다. 미디어 검색을 먼저 완료해주세요.');
                     return;
                   }
 
                   try {
                     setIsAssessmentStarting(true);
                     
-                    // 기사 데이터 구조 확인 및 필요한 필드 포함
-                    const formattedArticles = (searchResult.data.articles || []).map(article => ({
-                      company: article.company || searchResult.data.company_id,
-                      issue: article.issue || '',
-                      original_category: article.original_category || '',
-                      query_kind: article.query_kind || '',
-                      keyword: article.keyword || '',
-                      title: article.title || '',
-                      description: article.description || '',
-                      pubDate: article.pubDate || '',
-                      originallink: article.originallink || ''
-                    }));
+                    // 3. 기사 데이터 구조 검증 및 안전한 매핑
+                    const formattedArticles = searchResult.data.articles.map(article => {
+                      // article 객체의 각 필드가 undefined일 수 있으므로 안전하게 처리
+                      return {
+                        company: article?.company || searchResult.data.company_id || '',
+                        issue: article?.issue || '',
+                        original_category: article?.original_category || '',
+                        query_kind: article?.query_kind || '',
+                        keyword: article?.keyword || '',
+                        title: article?.title || '',
+                        description: article?.description || '',
+                        pubDate: article?.pubDate || '',
+                        originallink: article?.originallink || ''
+                      };
+                    });
 
                     const requestData = {
                       company_id: searchResult.data.company_id,
@@ -1104,20 +1114,21 @@ export default function MaterialityHomePage() {
                     );
 
                     if (response.data.success) {
-                      // 디버깅을 위한 전체 응답 로깅
+                      // 4. 응답 데이터 구조 통일 - response.data.data가 우선, 없으면 response.data 사용
+                      const responseData = response.data.data || response.data;
                       console.log('🔍 전체 응답 데이터:', response.data);
-                      console.log('🔍 response.data.data:', response.data.data);
+                      console.log('🔍 사용할 응답 데이터:', responseData);
                       
                       // 매칭된 카테고리 정보 확인
-                      const matchedCategories = response.data.data?.matched_categories;
+                      const matchedCategories = responseData.matched_categories || [];
                       console.log('🔍 matched_categories:', matchedCategories);
                       
                       if (matchedCategories && matchedCategories.length > 0) {
                         console.log('✅ 중대성 평가 완료 - 매칭된 카테고리:', matchedCategories);
                         
-                        // 결과를 상태에 저장 (response.data.data가 아닌 response.data)
-                        setAssessmentResult(response.data);
-                        console.log('🔍 assessmentResult 상태 설정:', response.data);
+                        // 5. 통일된 데이터 구조로 상태 저장
+                        setAssessmentResult(responseData);
+                        console.log('🔍 assessmentResult 상태 설정:', responseData);
                         
                         // 상위 5개 카테고리 정보를 alert로 표시
                         const topCategories = matchedCategories.slice(0, 5);
@@ -1132,11 +1143,13 @@ export default function MaterialityHomePage() {
                         alert(alertMessage);
                       } else {
                         console.log('⚠️ matched_categories가 비어있음');
-                        alert('✅ 중간 중대성 평가 완료');
+                        // 6. 빈 결과도 상태에 저장하여 UI에서 처리할 수 있도록 함
+                        setAssessmentResult(responseData);
+                        alert('✅ 중간 중대성 평가 완료\n\n매칭된 카테고리가 없습니다.');
                       }
                     } else {
                       console.log('❌ 응답 실패:', response.data);
-                      alert('❌ 중대성 평가 시작에 실패했습니다: ' + response.data.message);
+                      alert('❌ 중대성 평가 시작에 실패했습니다: ' + (response.data.message || '알 수 없는 오류'));
                     }
                   } catch (error: any) {
                     console.error('❌ 중대성 평가 시작 중 오류:', error);
@@ -1366,16 +1379,19 @@ export default function MaterialityHomePage() {
                   
                   {/* 전체 카테고리 목록 */}
                   {(() => {
-                    const categories = assessmentResult?.matched_categories || assessmentResult?.data?.matched_categories || [];
+                    // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                    const resultData = assessmentResult?.data || assessmentResult;
+                    const categories = resultData?.matched_categories || [];
+                    
                     if (categories.length > 0) {
                       return (
                         <div className="space-y-2">
                           {categories.map((cat: any, index: number) => (
                             <div key={index} className="flex items-center text-sm">
                               <span className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">
-                                {cat.rank}
+                                {cat.rank || index + 1}
                               </span>
-                              <span className="text-gray-700 flex-1 truncate">{cat.category}</span>
+                              <span className="text-gray-700 flex-1 truncate">{cat.category || '카테고리명 없음'}</span>
                               {/* ESG Classification 라벨 추가 */}
                               <span className="ml-2 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">
                                 {cat.esg_classification || "미분류"}
@@ -1393,7 +1409,10 @@ export default function MaterialityHomePage() {
 
                   {/* ESG 분류 막대그래프 */}
                   {(() => {
-                    const categories = assessmentResult?.matched_categories || assessmentResult?.data?.matched_categories || [];
+                    // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                    const resultData = assessmentResult?.data || assessmentResult;
+                    const categories = resultData?.matched_categories || [];
+                    
                     if (categories.length > 0) {
                       return (
                         <div className="mt-6 pt-4 border-t border-gray-200">
@@ -1452,18 +1471,25 @@ export default function MaterialityHomePage() {
                   <div className="mt-4 text-center">
                     <button
                       onClick={() => {
-                        const categories = assessmentResult?.matched_categories || assessmentResult?.data?.matched_categories || [];
+                        // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                        const resultData = assessmentResult?.data || assessmentResult;
+                        const categories = resultData?.matched_categories || [];
+                        
                         if (categories.length > 0) {
                           setIsDetailModalOpen(true);
                         }
                       }}
                       disabled={(() => {
-                        const categories = assessmentResult?.matched_categories || assessmentResult?.data?.matched_categories || [];
+                        // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                        const resultData = assessmentResult?.data || assessmentResult;
+                        const categories = resultData?.matched_categories || [];
                         return categories.length === 0;
                       })()}
                       className={`inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md transition-colors duration-200 ${
                         (() => {
-                          const categories = assessmentResult?.matched_categories || assessmentResult?.data?.matched_categories || [];
+                          // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                          const resultData = assessmentResult?.data || assessmentResult;
+                          const categories = resultData?.matched_categories || [];
                           return categories.length > 0;
                         })()
                           ? 'text-green-700 bg-white hover:bg-green-50'
