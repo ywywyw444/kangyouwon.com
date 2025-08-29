@@ -718,6 +718,11 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                     const resultData = assessmentResult?.data || assessmentResult;
                     const categories = resultData?.matched_categories || [];
                     
+                    console.log('🔍 설문 진행 버튼 클릭됨');
+                    console.log('🔍 assessmentResult:', assessmentResult);
+                    console.log('🔍 resultData:', resultData);
+                    console.log('🔍 categories:', categories);
+                    
                     if (categories.length > 0) {
                       // 설문 진행용 JSON 데이터 생성
                       const surveyData = {
@@ -726,25 +731,25 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                         total_categories: categories.length,
                         categories: categories.map((cat: any) => ({
                           rank: cat.rank,
-                          category: cat.category,
-                          selected_base_issue_pool: cat.selected_base_issue_pool,
-                          esg_classification: cat.esg_classification,
-                          final_score: cat.final_score,
-                          frequency_score: cat.frequency_score,
-                          relevance_score: cat.relevance_score,
-                          recent_score: cat.recent_score,
-                          rank_score: cat.rank_score,
-                          reference_score: cat.reference_score,
-                          negative_score: cat.negative_score
+                          category: cat.category || '카테고리명 없음',
+                          selected_base_issue_pool: cat.selected_base_issue_pool || '',
+                          esg_classification: cat.esg_classification || '미분류',
+                          final_score: cat.final_score || 0,
+                          frequency_score: cat.frequency_score || 0,
+                          relevance_score: cat.relevance_score || 0,
+                          recent_score: cat.recent_score || 0,
+                          rank_score: cat.rank_score || 0,
+                          reference_score: cat.reference_score || 0,
+                          negative_score: cat.negative_score || 0
                         })),
                         excel_data: excelData.length > 0 ? {
                           total_companies: excelData.length,
                           companies: excelData.map((row: any) => ({
-                            name: row.name,
-                            position: row.position,
-                            company: row.company,
-                            stakeholder_type: row.stakeholderType,
-                            email: row.email
+                            name: row.name || '',
+                            position: row.position || '',
+                            company: row.company || '',
+                            stakeholder_type: row.stakeholderType || '',
+                            email: row.email || ''
                           }))
                         } : null
                       };
@@ -770,30 +775,17 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                         alert(`✅ 설문 진행용 데이터가 다운로드되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n🏢 총 ${excelData.length}개 기업\n\n파일명: 설문진행데이터_${companyId || 'unknown'}_${new Date().toISOString().split('T')[0]}.json`);
                       });
                     } else {
-                      alert('❌ 설문을 진행할 수 있는 카테고리 데이터가 없습니다.\n먼저 중대성 평가를 완료해주세요.');
+                      alert('❌ 설문을 진행할 수 있는 카테고리 데이터가 없습니다.\n\n현재 상태:\n- assessmentResult: ' + (assessmentResult ? '있음' : '없음') + '\n- categories: ' + categories.length + '개\n\n먼저 중대성 평가를 완료해주세요.');
                     }
                   }}
-                  disabled={(() => {
-                    // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
-                    const resultData = assessmentResult?.data || assessmentResult;
-                    const categories = resultData?.matched_categories || [];
-                    return categories.length === 0;
-                  })()}
-                  className={`inline-flex items-center px-6 py-3 border border-blue-300 text-sm font-medium rounded-md transition-colors duration-200 ${
-                    (() => {
-                      // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
-                      const resultData = assessmentResult?.data || assessmentResult;
-                      const categories = resultData?.matched_categories || [];
-                      return categories.length > 0;
-                    })()
-                      ? 'text-blue-700 bg-white hover:bg-blue-50'
-                      : 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                  }`}
+                  // 임시로 항상 활성화 (테스트용)
+                  disabled={false}
+                  className="inline-flex items-center px-6 py-3 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-white hover:bg-blue-50 transition-colors duration-200"
                 >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  설문 진행하기
+                  설문 진행하기 (테스트)
                 </button>
               </div>
             </div>
