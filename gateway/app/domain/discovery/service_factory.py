@@ -67,7 +67,7 @@ async def get_client() -> httpx.AsyncClient:
     global _CLIENT
     if _CLIENT is None:
         _CLIENT = httpx.AsyncClient(
-            timeout=httpx.Timeout(30.0),
+            timeout=httpx.Timeout(connect=5.0, read=120.0),  # read 타임아웃을 120초로 증가
             limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
         )
     return _CLIENT
@@ -265,6 +265,12 @@ class SimpleServiceFactory:
             logger.info(f"⬅️  {service_name} status: {resp.status_code}")
 
             return await self._to_dict_response(resp)
+        except httpx.ReadTimeout as e:
+            logger.error(f"⏰ {service_name} 타임아웃 발생: {e}")
+            return {"error": True, "status_code": 504, "detail": f"Upstream timeout ({service_name})"}
+        except httpx.ConnectTimeout as e:
+            logger.error(f"🔌 {service_name} 연결 타임아웃: {e}")
+            return {"error": True, "status_code": 504, "detail": f"Connection timeout ({service_name})"}
         except Exception as e:
             logger.exception(f"❌ {service_name} request failed: {e}")
             return {"error": True, "detail": str(e)}

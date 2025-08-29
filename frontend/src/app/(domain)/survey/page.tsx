@@ -25,29 +25,85 @@ export default function SurveyPage() {
   const [environmentalItems, setEnvironmentalItems] = useState<SurveyItem[]>([
     {
       id: 'env1',
-      title: '1) 기후변화 대응 및 온실가스 감축',
-      description: '- 환승용량 달성을 위한 개비넥스 및 전략 수립, 리스크 관리\n- 청정전력 효율 향상 및 국내외 CDM 사업* 등의 온실가스 감축 활동\n* CDM (Clean Development Mechanism) 사업: 선진국이 개도국에서의 온실가스감축분을 자국의 감축목표 달성에 활용할 수 있도록 하는 제도',
+      title: 'Q1-1. 기후변화',
+      description: '• 기후변화이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 기후변화에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     },
     {
       id: 'env2',
-      title: '2) 신재생에너지 사업 확대',
-      description: '- 태양광, 바이오, 연료전지 등 신재생에너지원을 이용한 전력 생산 확대 및 신규 사업 개발\n- 청정수소 생산플랜트 개발 등 미래에너지 관련 사업(그린사업) 확대',
+      title: 'Q1-2. 탄소배출',
+      description: '• 탄소배출이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 탄소배출에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     },
     {
       id: 'env3',
-      title: '3) 용수 및 폐기물 관리',
-      description: '- 용수 사용량 절감, 미이용 수자원 발굴, 재이용 시설 등 수자원 관리\n- 폐기물 발생량 절감 및 환경 영향 최소화, 재사용 재활용을 통한 자원순환 실행 등의 폐기물 관리',
+      title: 'Q1-3. 대기오염',
+      description: '• 대기오염이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 대기오염에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     },
     {
       id: 'env4',
-      title: '4) 생물다양성 보전',
-      description: '- 생물다양성 가치가 높은 보호지역 또는 인근에서 소유·임대·운영하는 사업장, 사업운영, 제품 및 서비스가 생물다양성에 미치는 영향 분석\n- 서식지 보호 또는 복구 활동',
+      title: 'Q1-4. 생물다양성/산림보호',
+      description: '• 생물다양성/산림보호이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 생물다양성/산림보호에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'env5',
+      title: 'Q1-5. 폐기물/폐기물관리',
+      description: '• 폐기물/폐기물관리이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 폐기물/폐기물관리와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'env6',
+      title: 'Q1-6. 에너지',
+      description: '• 에너지가 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 에너지와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'env7',
+      title: 'Q1-7. 재생에너지',
+      description: '• 재생에너지가 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 재생에너지에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'env8',
+      title: 'Q1-8. 자원순환/자원효율/원자재관리',
+      description: '• 자원순환/자원효율/원자재관리이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 자원순환/자원효율/원자재관리에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'env9',
+      title: 'Q1-9. 온실가스',
+      description: '• 온실가스가 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 온실가스와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'env10',
+      title: 'Q1-10. 원재료',
+      description: '• 원재료가 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 원재료와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'env11',
+      title: 'Q1-11. 환경영향/환경오염/오염물질/유해화학물질',
+      description: '• 환경영향/환경오염/오염물질/유해화학물질이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 환경영향/환경오염/오염물질/유해화학물질에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'env12',
+      title: 'Q1-12. 친환경',
+      description: '• 친환경이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 친환경과 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     }
@@ -57,61 +113,138 @@ export default function SurveyPage() {
   const [socialItems, setSocialItems] = useState<SurveyItem[]>([
     {
       id: 'soc1',
-      title: '1) 산업안전보건 관리체계 고도화',
-      description: '- 안전보건 경영시스템 인증 취득 및 관리\n- 안전보건 관리체계 구축 및 이행 수준 향상\n- 협력사 안전관리 강화 및 안전문화 확산',
+      title: 'Q2-1. 노사관계',
+      description: '• 노사관계이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 노사관계와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     },
     {
       id: 'soc2',
-      title: '2) 임직원 역량 강화',
-      description: '- 임직원 교육훈련 체계 구축 및 운영\n- 직무역량 향상을 위한 교육 프로그램 운영\n- 성과평가 및 보상체계 운영',
+      title: 'Q2-2. 제품안전/제품품질',
+      description: '• 제품안전/제품품질이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 제품안전/제품품질에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     },
     {
       id: 'soc3',
-      title: '3) 일과 삶의 균형',
-      description: '- 유연근무제 확대 및 휴가사용 활성화\n- 육아휴직 등 가족친화 제도 운영\n- 직장 내 괴롭힘 방지 등 건전한 조직문화 조성',
+      title: 'Q2-3. 고용/일자리',
+      description: '• 고용/일자리이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 고용/일자리에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     },
     {
       id: 'soc4',
-      title: '4) 지역사회 상생협력',
-      description: '- 지역주민 소통채널 운영 및 의견수렴\n- 지역사회 문제해결을 위한 사회공헌활동 추진\n- 발전소 주변지역 지원사업 시행',
+      title: 'Q2-4. 공급망',
+      description: '• 공급망이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 공급망과 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'soc5',
+      title: 'Q2-5. 임금/인사제도',
+      description: '• 임금/인사제도이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 임금/인사제도에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'soc6',
+      title: 'Q2-6. 임직원',
+      description: '• 임직원이 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 임직원과 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'soc7',
+      title: 'Q2-7. 인권',
+      description: '• 인권이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 인권과 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'soc8',
+      title: 'Q2-8. 안전보건',
+      description: '• 안전보건이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 안전보건에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'soc9',
+      title: 'Q2-9. 폐수관리',
+      description: '• 폐수관리이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 폐수관리에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'soc10',
+      title: 'Q2-10. 인재관리/인재',
+      description: '• 인재관리/인재이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 인재관리/인재에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'soc11',
+      title: 'Q2-11. 지역사회/사회공헌',
+      description: '• 지역사회/사회공헌이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 지역사회/사회공헌에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'soc12',
+      title: 'Q2-12. 협력사',
+      description: '• 협력사이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 협력사와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'soc13',
+      title: 'Q2-13. 조직문화/기업문화',
+      description: '• 조직문화/기업문화이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 조직문화/기업문화에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     }
   ]);
 
-  // Governance 섹션 상태
+  // Governance & Economic 섹션 상태
   const [governanceItems, setGovernanceItems] = useState<SurveyItem[]>([
     {
       id: 'gov1',
-      title: '1) 이사회 독립성 및 전문성',
-      description: '- 이사회 구성의 독립성 및 다양성 확보\n- 사외이사 전문성 강화\n- 이사회 운영의 투명성 제고',
+      title: 'Q3-1. 성장',
+      description: '• 성장이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 성장과 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     },
     {
       id: 'gov2',
-      title: '2) 윤리경영 및 반부패',
-      description: '- 윤리경영 체계 구축 및 모니터링\n- 임직원 윤리교육 강화\n- 내부신고제도 운영 및 신고자 보호',
+      title: 'Q3-2. 연구개발/R&D',
+      description: '• 연구개발/R&D이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 연구개발/R&D에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     },
     {
       id: 'gov3',
-      title: '3) 리스크 관리',
-      description: '- 전사적 리스크 관리체계 구축\n- 재무/비재무 리스크 식별 및 대응\n- 리스크 모니터링 및 보고체계 운영',
+      title: 'Q3-3. 시장경쟁/시장점유/경제성과/재무성과',
+      description: '• 시장경쟁/시장점유/경제성과/재무성과이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 시장경쟁/시장점유/경제성과/재무성과에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     },
     {
       id: 'gov4',
-      title: '4) 정보보안',
-      description: '- 정보보안 관리체계 구축 및 인증\n- 개인정보보호 강화\n- 사이버보안 위협 대응체계 운영',
+      title: 'Q3-4. 윤리경영/준법경영/부패/뇌물수수',
+      description: '• 윤리경영/준법경영/부패/뇌물수수이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 윤리경영/준법경영/부패/뇌물수수에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'gov5',
+      title: 'Q3-5. 리스크',
+      description: '• 리스크이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 리스크와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
+      outsideScore: null,
+      insideScore: null
+    },
+    {
+      id: 'gov6',
+      title: 'Q3-6. 정보보안',
+      description: '• 정보보안이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 정보보안에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
       outsideScore: null,
       insideScore: null
     }
@@ -144,7 +277,7 @@ export default function SurveyPage() {
         )
       );
     }
-    // Governance 항목 체크
+    // Governance & Economic 항목 체크
     else if (itemId.startsWith('gov')) {
       setGovernanceItems(items =>
         items.map(item =>
@@ -230,7 +363,7 @@ export default function SurveyPage() {
           {/* 헤더 */}
           <div className="px-8 py-6 bg-blue-700">
             <h1 className="text-2xl font-bold text-white">
-              한국중부발전 2023 지속가능경영보고서 중대성평가 이해관계자 설문조사
+              ESG 경영 활동별 중요성 평가 설문조사
             </h1>
           </div>
 
@@ -241,18 +374,20 @@ export default function SurveyPage() {
               <>
                 <div className="mb-8">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    귀하의 소속을 선택해 주시기 바랍니다.
+                    Q0. 귀하의 소속을 선택해 주시기 바랍니다.
                     <span className="text-red-500 ml-1">*</span>
                   </h2>
                   <div className="space-y-3">
                     {[
                       '임직원',
                       '고객',
-                      '정부, 지자체, 유관기관',
+                      '정부/자자체/유관기관',
                       '지역사회',
                       '협력회사',
-                      '전문가관(대학, 연구소)',
-                      '미디어',
+                      '전문가/전문기관(대학, 연구소)',
+                      '투자자/투자기관',
+                      '주주',
+                      '언론/미디어',
                       '기타'
                     ].map((type) => (
                       <label key={type} className="flex items-center">
@@ -306,14 +441,17 @@ export default function SurveyPage() {
                   ESG 경영 활동별 중요성 평가
                 </h2>
                 <p className="text-gray-600 mb-4">
-                  다음은 한국중부발전 지속가능경영과 관련된 항목입니다.
+                  다음은 ESG 경영 활동과 관련된 항목입니다.
                 </p>
                 <div className="bg-gray-50 p-4 rounded-lg mb-6">
                   <p className="text-sm text-gray-600 mb-2">
-                    ※ 기업 제무 중요도(Outside-in): 글로벌 및 국내 규제, 트렌드 등 외부에서 촉발된 ESG 관련 이슈가 한국중부발전에 미칠 수 있는 재무적 위험 또는 기회와 관련된 중요도
+                    ※ 기업 재무 중요도(Outside-in): 외부 환경·규제·시장 변화가 회사의 재무성과/기회/위험에 미치는 중요도
                   </p>
                   <p className="text-sm text-gray-600">
-                    ※ 환경/사회 중요도(Inside-out): 한국중부발전의 활동이 환경, 사회(인권, 사회 전반의 경제 등)에 미칠 수 있는 긍정적/부정적 영향과 관련된 중요도
+                    ※ 환경/사회 중요도(Inside-out): 회사 활동이 환경·사회에 미칠 수 있는 긍정/부정 영향의 중요도
+                  </p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    공통 척도: 1 전혀 중요하지 않음 / 2 낮음 / 3 보통 / 4 높음 / 5 매우 높음 / (선택) N/A 잘 모르겠음
                   </p>
                 </div>
 
@@ -321,7 +459,7 @@ export default function SurveyPage() {
                 {currentStep === 2 && (
                   <div className="mb-12">
                     <h3 className="text-lg font-semibold text-blue-800 mb-6">
-                      1. Environmental (환경)
+                      1) Environmental (환경)
                     </h3>
                     
                     {environmentalItems.map((item) => (
@@ -333,10 +471,10 @@ export default function SurveyPage() {
                           </p>
                         )}
                         
-                        {/* 기업 제무 중요도 */}
+                        {/* 기업 재무 중요도 */}
                         <div className="mb-4">
                           <p className="text-sm font-medium text-gray-700 mb-2">
-                            기업 제무 중요도
+                            기업 재무 중요도 (Outside-in)
                           </p>
                           <div className="flex items-center justify-between max-w-2xl">
                             {[1, 2, 3, 4, 5].map((score) => (
@@ -350,11 +488,11 @@ export default function SurveyPage() {
                                   className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                                 />
                                 <span className="mt-1 text-sm text-gray-600">
-                                  {score === 1 ? '매우 낮다' :
-                                   score === 2 ? '낮다' :
-                                   score === 3 ? '보통이다' :
-                                   score === 4 ? '높다' :
-                                   '매우 높다'}
+                                  {score === 1 ? '전혀 중요하지 않음' :
+                                   score === 2 ? '낮음' :
+                                   score === 3 ? '보통' :
+                                   score === 4 ? '높음' :
+                                   '매우 높음'}
                                 </span>
                               </label>
                             ))}
@@ -364,7 +502,7 @@ export default function SurveyPage() {
                         {/* 환경/사회 중요도 */}
                         <div>
                           <p className="text-sm font-medium text-gray-700 mb-2">
-                            환경/사회 중요도
+                            환경/사회 중요도 (Inside-out)
                           </p>
                           <div className="flex items-center justify-between max-w-2xl">
                             {[1, 2, 3, 4, 5].map((score) => (
@@ -378,11 +516,11 @@ export default function SurveyPage() {
                                   className="h-4 w-4 text-blue-600 focus:ring-blue-500"
                                 />
                                 <span className="mt-1 text-sm text-gray-600">
-                                  {score === 1 ? '매우 낮다' :
-                                   score === 2 ? '낮다' :
-                                   score === 3 ? '보통이다' :
-                                   score === 4 ? '높다' :
-                                   '매우 높다'}
+                                  {score === 1 ? '전혀 중요하지 않음' :
+                                   score === 2 ? '낮음' :
+                                   score === 3 ? '보통' :
+                                   score === 4 ? '높음' :
+                                   '매우 높음'}
                                 </span>
                               </label>
                             ))}
@@ -397,7 +535,7 @@ export default function SurveyPage() {
                 {currentStep === 3 && (
                   <div className="mb-12">
                     <h3 className="text-lg font-semibold text-green-800 mb-6">
-                      2. Social (사회)
+                      2) Social (사회)
                     </h3>
                     
                     {socialItems.map((item) => (
@@ -409,10 +547,10 @@ export default function SurveyPage() {
                           </p>
                         )}
                         
-                        {/* 기업 제무 중요도 */}
+                        {/* 기업 재무 중요도 */}
                         <div className="mb-4">
                           <p className="text-sm font-medium text-gray-700 mb-2">
-                            기업 제무 중요도
+                            기업 재무 중요도 (Outside-in)
                           </p>
                           <div className="flex items-center justify-between max-w-2xl">
                             {[1, 2, 3, 4, 5].map((score) => (
@@ -426,11 +564,11 @@ export default function SurveyPage() {
                                   className="h-4 w-4 text-green-600 focus:ring-green-500"
                                 />
                                 <span className="mt-1 text-sm text-gray-600">
-                                  {score === 1 ? '매우 낮다' :
-                                   score === 2 ? '낮다' :
-                                   score === 3 ? '보통이다' :
-                                   score === 4 ? '높다' :
-                                   '매우 높다'}
+                                  {score === 1 ? '전혀 중요하지 않음' :
+                                   score === 2 ? '낮음' :
+                                   score === 3 ? '보통' :
+                                   score === 4 ? '높음' :
+                                   '매우 높음'}
                                 </span>
                               </label>
                             ))}
@@ -440,7 +578,7 @@ export default function SurveyPage() {
                         {/* 환경/사회 중요도 */}
                         <div>
                           <p className="text-sm font-medium text-gray-700 mb-2">
-                            환경/사회 중요도
+                            환경/사회 중요도 (Inside-out)
                           </p>
                           <div className="flex items-center justify-between max-w-2xl">
                             {[1, 2, 3, 4, 5].map((score) => (
@@ -454,11 +592,11 @@ export default function SurveyPage() {
                                   className="h-4 w-4 text-green-600 focus:ring-green-500"
                                 />
                                 <span className="mt-1 text-sm text-gray-600">
-                                  {score === 1 ? '매우 낮다' :
-                                   score === 2 ? '낮다' :
-                                   score === 3 ? '보통이다' :
-                                   score === 4 ? '높다' :
-                                   '매우 높다'}
+                                  {score === 1 ? '전혀 중요하지 않음' :
+                                   score === 2 ? '낮음' :
+                                   score === 3 ? '보통' :
+                                   score === 4 ? '높음' :
+                                   '매우 높음'}
                                 </span>
                               </label>
                             ))}
@@ -469,11 +607,11 @@ export default function SurveyPage() {
                   </div>
                 )}
 
-                {/* Governance 섹션 */}
+                {/* Governance & Economic 섹션 */}
                 {currentStep === 4 && (
                   <div className="mb-12">
                     <h3 className="text-lg font-semibold text-purple-800 mb-6">
-                      3. Governance (지배구조)
+                      3) Governance & Economic (지배구조/경제)
                     </h3>
                     
                     {governanceItems.map((item) => (
@@ -485,10 +623,10 @@ export default function SurveyPage() {
                           </p>
                         )}
                         
-                        {/* 기업 제무 중요도 */}
+                        {/* 기업 재무 중요도 */}
                         <div className="mb-4">
                           <p className="text-sm font-medium text-gray-700 mb-2">
-                            기업 제무 중요도
+                            기업 재무 중요도 (Outside-in)
                           </p>
                           <div className="flex items-center justify-between max-w-2xl">
                             {[1, 2, 3, 4, 5].map((score) => (
@@ -502,11 +640,11 @@ export default function SurveyPage() {
                                   className="h-4 w-4 text-purple-600 focus:ring-purple-500"
                                 />
                                 <span className="mt-1 text-sm text-gray-600">
-                                  {score === 1 ? '매우 낮다' :
-                                   score === 2 ? '낮다' :
-                                   score === 3 ? '보통이다' :
-                                   score === 4 ? '높다' :
-                                   '매우 높다'}
+                                  {score === 1 ? '전혀 중요하지 않음' :
+                                   score === 2 ? '낮음' :
+                                   score === 3 ? '보통' :
+                                   score === 4 ? '높음' :
+                                   '매우 높음'}
                                 </span>
                               </label>
                             ))}
@@ -516,7 +654,7 @@ export default function SurveyPage() {
                         {/* 환경/사회 중요도 */}
                         <div>
                           <p className="text-sm font-medium text-gray-700 mb-2">
-                            환경/사회 중요도
+                            환경/사회 중요도 (Inside-out)
                           </p>
                           <div className="flex items-center justify-between max-w-2xl">
                             {[1, 2, 3, 4, 5].map((score) => (
@@ -530,11 +668,11 @@ export default function SurveyPage() {
                                   className="h-4 w-4 text-purple-600 focus:ring-purple-500"
                                 />
                                 <span className="mt-1 text-sm text-gray-600">
-                                  {score === 1 ? '매우 낮다' :
-                                   score === 2 ? '낮다' :
-                                   score === 3 ? '보통이다' :
-                                   score === 4 ? '높다' :
-                                   '매우 높다'}
+                                  {score === 1 ? '전혀 중요하지 않음' :
+                                   score === 2 ? '낮음' :
+                                   score === 3 ? '보통' :
+                                   score === 4 ? '높음' :
+                                   '매우 높음'}
                                 </span>
                               </label>
                             ))}

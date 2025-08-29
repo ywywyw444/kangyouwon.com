@@ -26,4 +26,5 @@ ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 
 # Railway의 PORT 환경변수를 사용하여 애플리케이션 실행 (Gateway)
-CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# 타임아웃 설정 추가: --timeout-keep-alive 120, --timeout-graceful-shutdown 120
+CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --timeout-keep-alive 120 --timeout-graceful-shutdown 120"]

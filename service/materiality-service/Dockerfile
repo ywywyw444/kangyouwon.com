@@ -29,4 +29,5 @@ ENV SERVICE_HOST=0.0.0.0
 ENV PORT=8003
 
 # Railway의 PORT 환경변수를 사용하여 애플리케이션 실행
-CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8003}"]
+# 타임아웃 설정 추가: --timeout-keep-alive 120, --timeout-graceful-shutdown 120
+CMD ["sh", "-c", "python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8003} --timeout-keep-alive 120 --timeout-graceful-shutdown 120"]
