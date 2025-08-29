@@ -167,7 +167,7 @@ async def add_relevance_labels(
     company_id: str,
     search_date: datetime,
     prev_year_categories: Set[str],   # (검색 기준연도 - 1)의 category id 집합
-    reference_categories: Set[str],   # publish_year = NULL 의 category id 집합
+    reference_categories: Set[str],   # publish_year = NULL/''/'0' 의 category id 집합
 ) -> List[Dict[str, Any]]:
     """
     라벨 정의:
@@ -177,6 +177,8 @@ async def add_relevance_labels(
     - reference : original_category ∈ reference_categories → True
     """
     try:
+        repository = MiddleIssueRepository()
+        
         for a in articles:
             a["relevance_label"] = False
             a["recent_value"] = 0.0
@@ -205,17 +207,26 @@ async def add_relevance_labels(
                 except Exception as e:
                     logger.warning(f"⚠️ recent 계산 중 날짜 파싱 실패: {e}")
 
-            # rank/reference (원본이 int/str 혼재 가능 → str로 비교)
+            # rank/reference (카테고리 이름을 ID로 변환하여 비교)
             oc = a.get("original_category")
-            oc_key = str(oc) if oc is not None else None
+            if oc is not None:
+                try:
+                    # 카테고리 이름을 ID로 변환
+                    category_id = await repository.get_category_id_by_name(str(oc))
+                    if category_id is not None:
+                        oc_key = str(category_id)
+                        
+                        if oc_key in prev_year_categories:
+                            a["rank_label"] = True
+                            a["label_reasons"].append("이전년도 카테고리 매칭")
 
-            if oc_key is not None and oc_key in prev_year_categories:
-                a["rank_label"] = True
-                a["label_reasons"].append("이전년도 카테고리 매칭")
-
-            if oc_key is not None and oc_key in reference_categories:
-                a["reference_label"] = True
-                a["label_reasons"].append("공통 카테고리 매칭")
+                        if oc_key in reference_categories:
+                            a["reference_label"] = True
+                            a["label_reasons"].append("공통 카테고리 매칭")
+                    else:
+                        logger.warning(f"⚠️ 카테고리 이름 '{oc}'을 ID로 변환할 수 없음")
+                except Exception as e:
+                    logger.warning(f"⚠️ 카테고리 ID 변환 중 오류: {e}")
 
         return articles
     except Exception as e:
@@ -478,9 +489,13 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             corporation_name=request.company_id,
             year=search_year  # repository 내부에서 -1 처리
         )
-        # prev_year 기준 카테고리와 공통(NULL) 카테고리 세트
+        # 2. prev_year_categories와 reference_categories 수집
+        # prev_year 기준 카테고리와 공통(NULL/빈문자열/'0') 카테고리 세트
         prev_year_categories = {str(issue.category_id) for issue in corp_issues_prev.year_issues}
         reference_categories = {str(issue.category_id) for issue in corp_issues_prev.common_issues}
+        
+        logger.info(f"🔍 prev_year_categories: {len(prev_year_categories)}개 - {prev_year_categories}")
+        logger.info(f"🔍 reference_categories: {len(reference_categories)}개 - {reference_categories}")
 
         # 5) 라벨 부여
         logger.info("🏷️ 라벨(relevance/recent/rank/reference) 부여 시작")

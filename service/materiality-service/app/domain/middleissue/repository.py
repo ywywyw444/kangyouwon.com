@@ -90,9 +90,11 @@ class MiddleIssueRepository:
                 year_condition = or_(
                     MiddleIssueEntity.publish_year.is_(None),
                     MiddleIssueEntity.publish_year == '',  # 빈 문자열도 공통 이슈로 처리
+                    MiddleIssueEntity.publish_year == '0',  # '0'도 공통 이슈로 처리
                     and_(
                         # 빈 문자열이 아닌지 확인
                         MiddleIssueEntity.publish_year != '',
+                        MiddleIssueEntity.publish_year != '0',
                         # 숫자로만 구성된 문자열인지 확인 (공백 허용)
                         MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
                         # 안전하게 trim 후 캐스팅하여 비교
@@ -120,8 +122,8 @@ class MiddleIssueRepository:
                         base_issue_pool=entity.base_issue_pool
                     )
                     
-                    # publish_year가 None이거나 빈 문자열이면 공통 이슈
-                    if entity.publish_year is None or entity.publish_year == '':
+                    # publish_year가 None, 빈 문자열, 또는 '0'이면 공통 이슈
+                    if entity.publish_year is None or entity.publish_year == '' or entity.publish_year == '0':
                         common_issues.append(issue_item)
                     else:
                         year_issues.append(issue_item)
@@ -212,23 +214,26 @@ class MiddleIssueRepository:
                     year_condition = or_(
                         MiddleIssueEntity.publish_year.is_(None),
                         MiddleIssueEntity.publish_year == '',  # 빈 문자열도 공통 이슈로 처리
+                        MiddleIssueEntity.publish_year == '0',  # '0'도 공통 이슈로 처리
                         and_(
                             # 빈 문자열이 아닌지 확인
                             MiddleIssueEntity.publish_year != '',
+                            MiddleIssueEntity.publish_year != '0',
                             # 숫자로만 구성된 문자열인지 확인
                             MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
                             # 안전하게 trim 후 캐스팅하여 비교
                             cast(func.trim(MiddleIssueEntity.publish_year), Integer) == target_year
                         )
                     )
-                    logger.info(f"🔍 연도 조건 구성: {target_year}년도 또는 NULL/빈문자열 (입력: {year}년)")
+                    logger.info(f"🔍 연도 조건 구성: {target_year}년도 또는 NULL/빈문자열/0 (입력: {year}년)")
                 else:
-                    # year가 None이면 publish_year가 NULL이거나 빈 문자열인 것만 조회
+                    # year가 None이면 publish_year가 NULL이거나 빈 문자열이거나 '0'인 것만 조회
                     year_condition = or_(
                         MiddleIssueEntity.publish_year.is_(None),
-                        MiddleIssueEntity.publish_year == ''
+                        MiddleIssueEntity.publish_year == '',
+                        MiddleIssueEntity.publish_year == '0'
                     )
-                    logger.info(f"🔍 연도 조건: NULL 또는 빈문자열만 조회")
+                    logger.info(f"🔍 연도 조건: NULL 또는 빈문자열 또는 '0'만 조회")
                 
                 # 4. 해당 카테고리의 이슈풀 정보 조회 (ESG 분류 포함)
                 # normalized_category_id가 정수인지 확인
@@ -236,11 +241,11 @@ class MiddleIssueRepository:
                     logger.error(f"❌ 카테고리 ID가 정수가 아님: {normalized_category_id} (타입: {type(normalized_category_id)})")
                     return None
                 
-                # JOIN을 사용하여 ESG 분류 정보도 함께 가져오기
+                # JOIN을 사용하여 ESG 분류 정보도 함께 가져오기 (LEFT JOIN으로 변경)
                 query = select(
                     MiddleIssueEntity,
                     ESGClassificationEntity.esg.label('esg_classification_name')
-                ).join(
+                ).outerjoin(  # INNER JOIN → LEFT JOIN으로 변경
                     ESGClassificationEntity,
                     MiddleIssueEntity.esg_classification_id == ESGClassificationEntity.id
                 ).where(
@@ -368,6 +373,18 @@ class MiddleIssueRepository:
             logger.error(f"❌ ESG 분류 정보 조회 중 오류: {str(e)}")
             return None
 
+    async def get_category_id_by_name(self, category_name: str) -> Optional[int]:
+        """카테고리 이름으로 카테고리 ID 조회 (라벨링용)"""
+        try:
+            async for db in get_db():
+                query = select(CategoryEntity.id).where(CategoryEntity.category_name == category_name)
+                result = await db.execute(query)
+                category_id = result.scalar_one_or_none()
+                return category_id
+        except Exception as e:
+            logger.error(f"❌ 카테고리 이름으로 ID 조회 중 오류: {str(e)}")
+            return None
+
     async def get_middle_issue_with_relations(self, issue_id: int) -> Optional[MiddleIssueBase]:
         """이슈 ID로 이슈 정보와 관련 정보를 함께 조회"""
         try:
@@ -459,7 +476,8 @@ class MiddleIssueRepository:
                     # year가 None이면 publish_year가 NULL이거나 빈 문자열인 것만 조회
                     year_condition = or_(
                         MiddleIssueEntity.publish_year.is_(None),
-                        MiddleIssueEntity.publish_year == ''
+                        MiddleIssueEntity.publish_year == '',
+                        MiddleIssueEntity.publish_year == '0'
                     )
                     logger.info(f"🔍 연도 조건: NULL 또는 빈문자열만 조회")
                 
@@ -471,7 +489,7 @@ class MiddleIssueRepository:
                 ).join(
                     CategoryEntity,
                     MiddleIssueEntity.category_id == CategoryEntity.id
-                ).join(
+                ).outerjoin(  # INNER JOIN → LEFT JOIN으로 변경
                     ESGClassificationEntity,
                     MiddleIssueEntity.esg_classification_id == ESGClassificationEntity.id
                 ).where(
