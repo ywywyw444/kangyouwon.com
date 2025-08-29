@@ -268,11 +268,24 @@ def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[
             return {}
 
         buckets: Dict[str, Dict[str, Any]] = {}
+        empty_category_count = 0
+        missing_category_count = 0
+        
         for a in articles:
             cat = a.get("original_category")
             if cat is None:
+                missing_category_count += 1
+                logger.warning(f"🚨 original_category가 None인 기사 발견 - 기사 제목: '{a.get('title', 'N/A')[:50]}...'")
                 continue
-            key = str(cat)
+            
+            # 빈 카테고리 체크 (데이터 품질 문제)
+            key = str(cat).strip()
+            if not key:  # 빈 문자열이거나 공백만 있는 경우
+                empty_category_count += 1
+                logger.warning(f"🚨 빈 카테고리 발견 - 기사 제목: '{a.get('title', 'N/A')[:50]}...', original_category: '{cat}'")
+                # 빈 카테고리도 포함하여 분석 (크롤링 데이터는 이미 매핑되어야 함)
+                key = f"빈카테고리_{empty_category_count}"  # 임시 식별자
+            
             b = buckets.setdefault(key, {
                 "count": 0,
                 "relevance_sum": 0.0,
@@ -328,6 +341,13 @@ def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[
             else:
                 b["reference_sum"] += 0.0
 
+        # 카테고리 데이터 품질 통계 로깅
+        if missing_category_count > 0:
+            logger.warning(f"🚨 original_category가 None인 기사: {missing_category_count}개")
+        if empty_category_count > 0:
+            logger.warning(f"🚨 빈 카테고리 기사: {empty_category_count}개 (데이터 품질 문제)")
+            logger.warning(f"🚨 이는 크롤링 단계에서 카테고리 매핑이 제대로 되지 않았음을 의미합니다.")
+        
         results: Dict[str, Dict[str, Any]] = {}
         for key, b in buckets.items():
             c = b["count"]
@@ -393,6 +413,21 @@ def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[
 def rank_categories_by_score(category_scores: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
     """카테고리를 final_score 기준으로 순위 매기기"""
     try:
+        # 빈 카테고리 포함하여 모든 카테고리 처리
+        empty_categories = []
+        valid_categories = []
+        
+        for cat, scores in category_scores.items():
+            if not str(cat).strip():  # 빈 문자열이거나 공백만 있는 경우
+                empty_categories.append(cat)
+            else:
+                valid_categories.append(cat)
+        
+        if empty_categories:
+            logger.warning(f"🚨 순위 매기기에 포함된 빈 카테고리: {len(empty_categories)}개 - {empty_categories}")
+            logger.warning(f"🚨 이는 크롤링 데이터 품질 문제로, 원본 데이터를 확인해야 합니다.")
+        
+        # 모든 카테고리 포함하여 순위 매기기
         ranked = sorted(
             category_scores.items(),
             key=lambda x: x[1]["final_score"],
@@ -528,6 +563,13 @@ async def match_categories_with_esg_and_issuepool(
         if esg_unmapped_count > 0:
             unmapped_esg_categories = [cat['category'] for cat in matched_categories if not cat.get('esg_classification') or cat.get('esg_classification') == '미분류']
             logger.warning(f"   - ESG 매핑 실패 카테고리: {unmapped_esg_categories}")
+            
+            # 빈 카테고리 특별 처리
+            empty_categories = [cat['category'] for cat in matched_categories if not str(cat['category']).strip()]
+            if empty_categories:
+                logger.warning(f"🚨 빈 카테고리 발견: {empty_categories}")
+                logger.warning(f"🚨 이는 크롤링 단계에서 카테고리 매핑이 누락된 데이터 품질 문제입니다.")
+                logger.warning(f"🚨 원본 크롤링 데이터를 확인하여 카테고리 매핑을 수정해야 합니다.")
         
         return matched_categories
         
@@ -739,23 +781,39 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info(f"   - 분석된 카테고리 수: {len(category_scores)}")
         logger.info(f"   - 매칭된 카테고리 수: {len(matched_categories)}")
 
-        # 🔥 최종 카테고리 순위 (상위 5개만 info로)
+                # 🔥 최종 카테고리 순위 (상위 5개만 info로)
         logger.info("\n🏆 최종 카테고리 순위 (상위 5개):")
         for i, row in enumerate(matched_categories[:5]):
             esg_name = row.get('esg_classification', '미분류')
             issue_count = len(row.get('base_issuepools', []))
             final_score = row.get('final_score', 0.0)
+            category_name = str(row['category']).strip()
+            
+            # 빈 카테고리 체크
+            if not category_name:
+                logger.warning(f"🚨 {i+1:>2}위 | 빈 카테고리 발견! 이는 데이터 품질 문제입니다.")
+                continue
+                
             logger.info(
-                f"{i+1:>2}위 | 카테고리: {row['category']} | ESG: {esg_name} | "
+                f"{i+1:>2}위 | 카테고리: {category_name} | ESG: {esg_name} | "
                 f"이슈풀: {issue_count}개 | 최종점수: {final_score:.3f}"
             )
         
         # 나머지는 debug 레벨로
         if len(matched_categories) > 5:
             logger.debug(f"📋 나머지 {len(matched_categories) - 5}개 카테고리 (debug 레벨)")
-
+        
         # 🔥 전체 카테고리 순위 요약
+        valid_categories = [cat for cat in matched_categories if str(cat['category']).strip()]
+        empty_categories = [cat for cat in matched_categories if not str(cat['category']).strip()]
+        
         logger.info(f"\n📋 전체 {len(matched_categories)}개 카테고리 매칭 완료")
+        if empty_categories:
+            logger.warning(f"🚨 빈 카테고리 {len(empty_categories)}개 발견: {[cat['category'] for cat in empty_categories]}")
+            logger.warning(f"🚨 유효한 카테고리: {len(valid_categories)}개")
+            logger.warning(f"🚨 빈 카테고리는 크롤링 단계에서 카테고리 매핑이 누락된 것으로, 데이터 품질 문제입니다.")
+        else:
+            logger.info(f"✅ 모든 카테고리가 유효함: {len(valid_categories)}개")
         
         # ⏱️ 전체 처리 시간 요약
         total_time = (datetime.now() - start_time).total_seconds()

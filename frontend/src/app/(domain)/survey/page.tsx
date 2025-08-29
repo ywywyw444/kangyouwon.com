@@ -206,14 +206,15 @@ export default function SurveyPage() {
       }
     }
 
-    // 최대 단계는 ESG 섹션 수에 따라 동적으로 결정 (설문 완료 단계 포함)
-    const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0) + 1; // +1 for completion step
+    // 최대 단계는 ESG 섹션 수에 따라 동적으로 결정 (설문 완료 단계는 별도)
+    const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0); // 설문 완료 단계 제외
     
     if (currentStep < maxStep) {
       setCurrentStep(currentStep + 1);
     } else if (currentStep === maxStep) {
-      // 설문 제출
-      handleSubmit();
+      // 마지막 ESG 섹션 완료 후 제출 버튼 표시
+      // 제출 버튼을 누르면 handleSubmit()이 호출됨
+      console.log('✅ 모든 ESG 섹션 완료, 제출 준비됨');
     }
   };
 
@@ -273,8 +274,13 @@ export default function SurveyPage() {
   const getProgress = () => {
     if (!surveyData) return 0;
     
-    // 최대 단계는 ESG 섹션 수에 따라 동적으로 결정 (설문 완료 단계 포함)
-    const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0) + 1; // +1 for completion step
+    // 최대 단계는 ESG 섹션 수에 따라 동적으로 결정 (설문 완료 단계는 별도)
+    const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0); // 설문 완료 단계 제외
+    
+    // 설문 완료 상태일 때는 100% 표시
+    if (currentStep === 5) {
+      return 100;
+    }
     
     return Math.min(Math.round((currentStep / maxStep) * 100), 100);
   };
@@ -745,8 +751,38 @@ export default function SurveyPage() {
                    🎉 설문 완료!
                  </h2>
                  <p className="text-gray-600 mb-6">
-                   설문이 성공적으로 제출되었습니다. 아래에서 결과를 확인하고 분석할 수 있습니다.
+                   설문이 성공적으로 제출되었습니다.
                  </p>
+                 
+                 {/* 설문 결과 확인 버튼 */}
+                 <div className="mb-6">
+                   <button
+                     onClick={() => {
+                       // 설문 결과를 새 창에서 열거나 다운로드
+                       const surveyResult = localStorage.getItem('surveyResult');
+                       if (surveyResult) {
+                         const dataStr = JSON.stringify(JSON.parse(surveyResult), null, 2);
+                         const blob = new Blob([dataStr], { type: 'application/json' });
+                         const url = URL.createObjectURL(blob);
+                         const link = document.createElement('a');
+                         link.href = url;
+                         link.download = `설문결과_${surveyData?.company_id || 'company'}_${new Date().toISOString().split('T')[0]}.json`;
+                         document.body.appendChild(link);
+                         link.click();
+                         document.body.removeChild(link);
+                         URL.revokeObjectURL(url);
+                         
+                         alert('✅ 설문 결과가 JSON 파일로 다운로드되었습니다.');
+                       }
+                     }}
+                     className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                   >
+                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                     </svg>
+                     설문 결과 확인
+                   </button>
+                 </div>
                  
                  {/* SurveyResult 컴포넌트 표시 */}
                  <SurveyResult 
@@ -777,18 +813,38 @@ export default function SurveyPage() {
               >
                 이전
               </button>
-              <button
-                onClick={handleNext}
-                className="px-6 py-2 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                                 {(() => {
-                   if (!surveyData) return '다음';
-                   
-                   const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0) + 1; // +1 for completion step
-                   
-                   return currentStep === maxStep ? '제출' : '다음';
-                 })()}
-              </button>
+              {currentStep === 5 ? (
+                // 설문 완료 상태에서는 제출 버튼을 비활성화하고 완료 메시지 표시
+                <button
+                  disabled
+                  className="px-6 py-2 border border-transparent text-base font-medium rounded-md text-gray-400 bg-gray-300 cursor-not-allowed"
+                >
+                  설문 완료됨
+                </button>
+              ) : (
+                                 <button
+                   onClick={() => {
+                     const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0);
+                     
+                     if (currentStep === maxStep) {
+                       // 제출 버튼 클릭 시
+                       handleSubmit();
+                     } else {
+                       // 다음 버튼 클릭 시
+                       handleNext();
+                     }
+                   }}
+                   className="px-6 py-2 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                 >
+                   {(() => {
+                     if (!surveyData) return '다음';
+                     
+                     const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0); // 설문 완료 단계 제외
+                     
+                     return currentStep === maxStep ? '제출' : '다음';
+                   })()}
+                 </button>
+              )}
             </div>
           </div>
         </div>

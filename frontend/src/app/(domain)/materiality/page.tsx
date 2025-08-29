@@ -387,7 +387,7 @@ export default function MaterialityHomePage() {
                     
                     // JSON 데이터를 클립보드에 복사
                     navigator.clipboard.writeText(JSON.stringify(surveyData, null, 2)).then(() => {
-                      alert(`✅ 설문 진행용 데이터가 클립보드에 복사되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n🏢 총 ${excelData.length}개 기업\n\nJSON 데이터는 콘솔에서도 확인할 수 있습니다.`);
+                      alert(`✅ 설문 진행용 데이터를 바탕으로 설문이 생성되었습니다\n\n📊 총 ${categories.length}개 카테고리\n🏢 총 ${excelData.length}개 기업\n\nJSON 데이터는 콘솔에서도 확인할 수 있습니다.`);
                     }).catch(() => {
                       // 클립보드 복사 실패 시 다운로드 파일로 제공
                       const blob = new Blob([JSON.stringify(surveyData, null, 2)], { type: 'application/json' });
