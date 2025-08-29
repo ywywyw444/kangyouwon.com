@@ -389,9 +389,50 @@ export default function MaterialityHomePage() {
                 </svg>
                 설문 생성하기기
               </button>
-              <p className="text-sm text-gray-600 mt-3">
-                중간 중대성 평가 결과를 바탕으로 설문을 생성합니다
-              </p>
+                              <p className="text-sm text-gray-600 mt-3">
+                  중간 중대성 평가 결과를 바탕으로 설문을 생성합니다
+                </p>
+                <div className="mt-4">
+                  <button
+                    onClick={() => {
+                      const resultData = assessmentResult?.data || assessmentResult;
+                      const categories = resultData?.matched_categories || [];
+                      
+                      if (categories.length > 0) {
+                        // 설문 페이지로 이동하면서 데이터 전달
+                        const surveyData = {
+                          company_id: companyId,
+                          categories: categories.map((cat: any) => ({
+                            rank: cat.rank,
+                            category: cat.category || '카테고리명 없음',
+                            selected_base_issue_pool: cat.selected_base_issue_pool || '',
+                            esg_classification: cat.esg_classification || '미분류',
+                            final_score: cat.final_score || 0
+                          }))
+                        };
+                        
+                        // localStorage에 설문 데이터 저장
+                        localStorage.setItem('surveyData', JSON.stringify(surveyData));
+                        
+                        // 설문 페이지로 이동
+                        window.location.href = '/survey';
+                      } else {
+                        alert('❌ 설문을 생성할 수 있는 카테고리 데이터가 없습니다.\n먼저 중대성 평가를 완료해주세요.');
+                      }
+                    }}
+                    disabled={!assessmentResult}
+                    className={`inline-flex items-center px-6 py-3 border-2 text-base font-semibold rounded-lg transition-all duration-200 ${
+                      assessmentResult
+                        ? 'border-green-500 text-green-700 bg-white hover:bg-green-50 hover:border-green-600'
+                        : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed'
+                    }`}
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    설문 페이지로 이동
+                  </button>
+                </div>
             </div>
           </div>
 

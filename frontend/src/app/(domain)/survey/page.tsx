@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import NavigationTabs from '@/component/NavigationTabs';
 
 interface SurveyItem {
@@ -9,6 +9,20 @@ interface SurveyItem {
   description?: string;
   outsideScore: number | null;
   insideScore: number | null;
+  category: string;
+  esg_classification: string;
+  rank: number;
+}
+
+interface SurveyData {
+  company_id: string;
+  categories: Array<{
+    rank: number;
+    category: string;
+    selected_base_issue_pool: string;
+    esg_classification: string;
+    final_score: number;
+  }>;
 }
 
 export default function SurveyPage() {
@@ -18,234 +32,70 @@ export default function SurveyPage() {
   // 현재 단계
   const [currentStep, setCurrentStep] = useState<number>(1);
   
-  // Environmental 섹션 상태
-  const [environmentalItems, setEnvironmentalItems] = useState<SurveyItem[]>([
-    {
-      id: 'env1',
-      title: 'Q1-1. 기후변화',
-      description: '• 기후변화이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 기후변화에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'env2',
-      title: 'Q1-2. 탄소배출',
-      description: '• 탄소배출이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 탄소배출에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'env3',
-      title: 'Q1-3. 대기오염',
-      description: '• 대기오염이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 대기오염에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'env4',
-      title: 'Q1-4. 생물다양성/산림보호',
-      description: '• 생물다양성/산림보호이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 생물다양성/산림보호에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'env5',
-      title: 'Q1-5. 폐기물/폐기물관리',
-      description: '• 폐기물/폐기물관리이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 폐기물/폐기물관리와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'env6',
-      title: 'Q1-6. 에너지',
-      description: '• 에너지가 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 에너지와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'env7',
-      title: 'Q1-7. 재생에너지',
-      description: '• 재생에너지가 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 재생에너지에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'env8',
-      title: 'Q1-8. 자원순환/자원효율/원자재관리',
-      description: '• 자원순환/자원효율/원자재관리이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 자원순환/자원효율/원자재관리에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'env9',
-      title: 'Q1-9. 온실가스',
-      description: '• 온실가스가 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 온실가스와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'env10',
-      title: 'Q1-10. 원재료',
-      description: '• 원재료가 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 원재료와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'env11',
-      title: 'Q1-11. 환경영향/환경오염/오염물질/유해화학물질',
-      description: '• 환경영향/환경오염/오염물질/유해화학물질이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 환경영향/환경오염/오염물질/유해화학물질에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'env12',
-      title: 'Q1-12. 친환경',
-      description: '• 친환경이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 친환경과 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    }
-  ]);
-
-  // Social 섹션 상태
-  const [socialItems, setSocialItems] = useState<SurveyItem[]>([
-    {
-      id: 'soc1',
-      title: 'Q2-1. 노사관계',
-      description: '• 노사관계이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 노사관계와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc2',
-      title: 'Q2-2. 제품안전/제품품질',
-      description: '• 제품안전/제품품질이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 제품안전/제품품질에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc3',
-      title: 'Q2-3. 고용/일자리',
-      description: '• 고용/일자리이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 고용/일자리에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc4',
-      title: 'Q2-4. 공급망',
-      description: '• 공급망이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 공급망과 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc5',
-      title: 'Q2-5. 임금/인사제도',
-      description: '• 임금/인사제도이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 임금/인사제도에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc6',
-      title: 'Q2-6. 임직원',
-      description: '• 임직원이 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 임직원과 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc7',
-      title: 'Q2-7. 인권',
-      description: '• 인권이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 인권과 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc8',
-      title: 'Q2-8. 안전보건',
-      description: '• 안전보건이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 안전보건에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc9',
-      title: 'Q2-9. 폐수관리',
-      description: '• 폐수관리이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 폐수관리에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc10',
-      title: 'Q2-10. 인재관리/인재',
-      description: '• 인재관리/인재이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 인재관리/인재에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc11',
-      title: 'Q2-11. 지역사회/사회공헌',
-      description: '• 지역사회/사회공헌이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 지역사회/사회공헌에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc12',
-      title: 'Q2-12. 협력사',
-      description: '• 협력사이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 협력사와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'soc13',
-      title: 'Q2-13. 조직문화/기업문화',
-      description: '• 조직문화/기업문화이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 조직문화/기업문화에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    }
-  ]);
-
-  // Governance & Economic 섹션 상태
-  const [governanceItems, setGovernanceItems] = useState<SurveyItem[]>([
-    {
-      id: 'gov1',
-      title: 'Q3-1. 성장',
-      description: '• 성장이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 성장과 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'gov2',
-      title: 'Q3-2. 연구개발/R&D',
-      description: '• 연구개발/R&D이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 연구개발/R&D에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'gov3',
-      title: 'Q3-3. 시장경쟁/시장점유/경제성과/재무성과',
-      description: '• 시장경쟁/시장점유/경제성과/재무성과이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 시장경쟁/시장점유/경제성과/재무성과에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'gov4',
-      title: 'Q3-4. 윤리경영/준법경영/부패/뇌물수수',
-      description: '• 윤리경영/준법경영/부패/뇌물수수이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 윤리경영/준법경영/부패/뇌물수수에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'gov5',
-      title: 'Q3-5. 리스크',
-      description: '• 리스크이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 리스크와 관련하여 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    },
-    {
-      id: 'gov6',
-      title: 'Q3-6. 정보보안',
-      description: '• 정보보안이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• 정보보안에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)',
-      outsideScore: null,
-      insideScore: null
-    }
-  ]);
+  // 설문 데이터
+  const [surveyData, setSurveyData] = useState<SurveyData | null>(null);
+  
+  // 동적으로 생성된 설문 항목들
+  const [environmentalItems, setEnvironmentalItems] = useState<SurveyItem[]>([]);
+  const [socialItems, setSocialItems] = useState<SurveyItem[]>([]);
+  const [governanceItems, setGovernanceItems] = useState<SurveyItem[]>([]);
+  
+  // 설문 데이터 로드 및 설문 항목 생성
+  useEffect(() => {
+    const loadSurveyData = () => {
+      try {
+        const savedData = localStorage.getItem('surveyData');
+        if (savedData) {
+          const data: SurveyData = JSON.parse(savedData);
+          setSurveyData(data);
+          
+          // ESG 분류별로 카테고리 분리
+          const environmental: SurveyItem[] = [];
+          const social: SurveyItem[] = [];
+          const governance: SurveyItem[] = [];
+          
+          data.categories.forEach((cat, index) => {
+            const surveyItem: SurveyItem = {
+              id: `${cat.esg_classification.toLowerCase()}_${index + 1}`,
+              title: `Q${cat.rank}. ${cat.selected_base_issue_pool || cat.category}`,
+              description: `• ${cat.selected_base_issue_pool || cat.category}이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• ${cat.selected_base_issue_pool || cat.category}에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)`,
+              outsideScore: null,
+              insideScore: null,
+              category: cat.category,
+              esg_classification: cat.esg_classification,
+              rank: cat.rank
+            };
+            
+            // ESG 분류에 따라 적절한 배열에 추가
+            if (cat.esg_classification.includes('환경')) {
+              environmental.push(surveyItem);
+            } else if (cat.esg_classification.includes('사회')) {
+              social.push(surveyItem);
+            } else if (cat.esg_classification.includes('지배구조') || cat.esg_classification.includes('경제')) {
+              governance.push(surveyItem);
+            }
+          });
+          
+          setEnvironmentalItems(environmental);
+          setSocialItems(social);
+          setGovernanceItems(governance);
+          
+          console.log('📋 설문 데이터 로드 완료:', {
+            environmental: environmental.length,
+            social: social.length,
+            governance: governance.length,
+            total: data.categories.length
+          });
+        } else {
+          console.log('⚠️ 설문 데이터가 없습니다. 중대성 평가 페이지에서 설문을 생성해주세요.');
+        }
+      } catch (error) {
+        console.error('❌ 설문 데이터 로드 실패:', error);
+      }
+    };
+    
+    loadSurveyData();
+  }, []);
 
   const handleScoreChange = (itemId: string, scoreType: 'outside' | 'inside', value: number) => {
     // Environmental 항목 체크
@@ -291,6 +141,12 @@ export default function SurveyPage() {
 
   // 다음 단계로 이동
   const handleNext = () => {
+    // 설문 데이터가 없으면 진행 불가
+    if (!surveyData) {
+      alert('설문 데이터가 없습니다. 중대성 평가 페이지에서 설문을 생성해주세요.');
+      return;
+    }
+
     // 현재 단계에 따른 유효성 검사
     if (currentStep === 1) {
       if (!respondentType) {
@@ -315,7 +171,10 @@ export default function SurveyPage() {
       }
     }
 
-    if (currentStep < 4) {
+    // 최대 단계는 ESG 섹션 수에 따라 동적으로 결정
+    const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0);
+    
+    if (currentStep < maxStep) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -331,7 +190,12 @@ export default function SurveyPage() {
 
   // 진행률 계산
   const getProgress = () => {
-    return Math.min(Math.round((currentStep / 4) * 100), 100);
+    if (!surveyData) return 0;
+    
+    // 최대 단계는 ESG 섹션 수에 따라 동적으로 결정
+    const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0);
+    
+    return Math.min(Math.round((currentStep / maxStep) * 100), 100);
   };
 
   return (
@@ -419,14 +283,38 @@ export default function SurveyPage() {
               </>
             )}
 
+            {/* 설문 데이터가 없을 때 안내 메시지 */}
+            {!surveyData && (
+              <div className="text-center py-12">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">설문 데이터가 없습니다</h3>
+                <p className="text-gray-600 mb-6">
+                  중대성 평가 페이지에서 설문을 생성한 후 다시 시도해주세요.
+                </p>
+                <a
+                  href="/materiality"
+                  className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  중대성 평가 페이지로 이동
+                </a>
+              </div>
+            )}
+
             {/* 단계 2-4: ESG 평가 */}
-            {currentStep > 1 && (
+            {surveyData && currentStep > 1 && (
               <div className="mb-8">
                 <h2 className="text-xl font-semibold text-gray-900 mb-4">
                   ESG 경영 활동별 중요성 평가
                 </h2>
                 <p className="text-gray-600 mb-4">
-                  다음은 ESG 경영 활동과 관련된 항목입니다.
+                  다음은 ESG 경영 활동과 관련된 항목입니다. (총 {surveyData.categories.length}개 항목)
                 </p>
                 <div className="bg-gray-50 p-4 rounded-lg mb-6">
                   <p className="text-sm text-gray-600 mb-2">
@@ -695,7 +583,13 @@ export default function SurveyPage() {
                 onClick={handleNext}
                 className="px-6 py-2 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
-                {currentStep === 4 ? '제출' : '다음'}
+                {(() => {
+                  if (!surveyData) return '다음';
+                  
+                  const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0);
+                  
+                  return currentStep === maxStep ? '제출' : '다음';
+                })()}
               </button>
             </div>
           </div>
