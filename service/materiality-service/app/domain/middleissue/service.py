@@ -269,8 +269,8 @@ def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[
                 "relevance_sum": 0.0,
                 "recent_sum": 0.0,
                 "negative_count": 0,
-                "rank_label": None,
-                "reference_label": None,
+                "rank_sum": 0.0,        # rank_label 합계로 변경
+                "reference_sum": 0.0,   # reference_label 합계로 변경
                 "articles": []
             })
 
@@ -280,10 +280,9 @@ def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[
             b["recent_sum"] += float(a.get("recent_value", 0.0))
             if a.get("sentiment") == "negative":
                 b["negative_count"] += 1
-            if b["rank_label"] is None:
-                b["rank_label"] = 1.0 if a.get("rank_label") else 0.0
-            if b["reference_label"] is None:
-                b["reference_label"] = 1.0 if a.get("reference_label") else 0.0
+            # rank와 reference를 합계로 누적
+            b["rank_sum"] += 1.0 if a.get("rank_label") else 0.0
+            b["reference_sum"] += 1.0 if a.get("reference_label") else 0.0
 
         results: Dict[str, Dict[str, Any]] = {}
         for key, b in buckets.items():
@@ -291,8 +290,9 @@ def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[
             frequency = c / total_articles
             relevance = (b["relevance_sum"] / c) if c else 0.0
             recent = (b["recent_sum"] / c) if c else 0.0
-            rank = b["rank_label"] or 0.0
-            reference = b["reference_label"] or 0.0
+            # rank와 reference를 평균으로 계산
+            rank = (b["rank_sum"] / c) if c else 0.0
+            reference = (b["reference_sum"] / c) if c else 0.0
             negative = (b["negative_count"] / c) if c else 0.0
 
             final_score = (
@@ -315,6 +315,16 @@ def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[
                 "final_score": round(final_score, 6),
                 "articles": b["articles"],
             }
+            
+            # 디버깅을 위한 상세 로그
+            logger.info(f"🔍 카테고리 '{key}' 점수 계산 상세:")
+            logger.info(f"   - 빈도: {c}/{total_articles} = {frequency:.4f}")
+            logger.info(f"   - 관련성: {b['relevance_sum']}/{c} = {relevance:.4f}")
+            logger.info(f"   - 최신성: {b['recent_sum']}/{c} = {recent:.4f}")
+            logger.info(f"   - 순위: {b['rank_sum']}/{c} = {rank:.4f}")
+            logger.info(f"   - 참조: {b['reference_sum']}/{c} = {reference:.4f}")
+            logger.info(f"   - 부정성: {b['negative_count']}/{c} = {negative:.4f}")
+            logger.info(f"   - 최종점수: {final_score:.6f}")
 
         return results
     except Exception as e:
@@ -494,7 +504,7 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             raise Exception("감성 분석 모델 로드 실패")
 
         # 3) 감성 분석
-        logger.info("📊 크롤링 데이터 감성 분석 시작")
+        logger.info("�� 크롤링 데이터 감성 분석 시작")
         analyzed_articles = analyze_sentiment(model, request.articles)
 
         # 4) (검색 기준연도 - 1) & 공통(NULL) 카테고리 조회
@@ -550,25 +560,17 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             category_name = category_info.get('category')
             if category_name:
                 try:
-                    # materiality_category DB에서 해당 카테고리의 ESG 분류 조회
-                    category_details = await repository.get_category_details(
-                        corporation_name=company_id,
-                        category_id=category_name,
-                        year=search_year
-                    )
+                    # materiality_category DB에서 카테고리 이름으로 직접 ESG 분류 조회
+                    # (기업과 무관하게 카테고리 자체의 ESG 분류)
+                    category_esg = await repository.get_category_esg_direct(category_name)
                     
-                    if category_details and category_details.esg_classification_name:
-                        category_esg_mapping[category_name] = category_details.esg_classification_name
-                        logger.info(f"✅ 카테고리 '{category_name}' ESG 분류 매칭: {category_details.esg_classification_name}")
+                    if category_esg:
+                        category_esg_mapping[category_name] = category_esg
+                        logger.info(f"✅ 카테고리 '{category_name}' ESG 분류 매칭: {category_esg}")
                     else:
-                        # materiality_category DB에서 직접 조회 시도
-                        category_esg = await repository.get_category_esg_direct(category_name)
-                        if category_esg:
-                            category_esg_mapping[category_name] = category_esg
-                            logger.info(f"✅ 카테고리 '{category_name}' 직접 ESG 분류 조회: {category_esg}")
-                        else:
-                            category_esg_mapping[category_name] = '미분류'
-                            logger.warning(f"⚠️ 카테고리 '{category_name}' ESG 분류 없음 → '미분류'로 설정")
+                        category_esg_mapping[category_name] = '미분류'
+                        logger.warning(f"⚠️ 카테고리 '{category_name}' ESG 분류 없음 → '미분류'로 설정")
+                        
                 except Exception as e:
                     logger.error(f"❌ 카테고리 '{category_name}' ESG 분류 조회 중 오류: {e}")
                     category_esg_mapping[category_name] = '미분류'
