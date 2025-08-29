@@ -806,11 +806,12 @@ class MiddleIssueRepository:
                     
                     # CategoryDetailsResponse 생성
                     categories_map[category_name] = CategoryDetailsResponse(
-                        category_name=category_name,
-                        category_id=category_id,
-                        esg_classification_name=esg_info['esg_classification_name'],
+                        category_id=str(category_id),  # 문자열로 변환
+                        normalized_category_id=category_id,  # 정수 ID
                         esg_classification_id=esg_info['esg_classification_id'],
-                        base_issuepools=base_issuepools
+                        esg_classification_name=esg_info['esg_classification_name'],
+                        base_issuepools=base_issuepools,
+                        total_count=len(base_issuepools)  # total_count
                     )
                 
                 query_time = __import__('time').time() - start_time

@@ -638,13 +638,14 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
     try:
         # 1) 요청 로깅
         start_time = datetime.now()
-        logger.info("="*50)
-        logger.info("🚀 새로운 중대성 평가 시작")
-        logger.info(f"기업명: {request.company_id}")
-        logger.info(f"보고기간: {request.report_period}")
-        logger.info(f"요청 타입: {request.request_type}")
-        logger.info(f"총 크롤링 기사 수: {request.total_results}")
-        logger.info("-"*50)
+        logger.warning("🚀 start_assessment 함수 시작")
+        logger.warning("="*50)
+        logger.warning("🚀 새로운 중대성 평가 시작")
+        logger.warning(f"기업명: {request.company_id}")
+        logger.warning(f"보고기간: {request.report_period}")
+        logger.warning(f"요청 타입: {request.request_type}")
+        logger.warning(f"총 크롤링 기사 수: {request.total_results}")
+        logger.warning("-"*50)
 
         # 2) 모델 로드
         model_start = datetime.now()
@@ -856,53 +857,58 @@ async def start_assessment_with_timeout(request: MiddleIssueRequest, timeout_sec
         logger.warning(f"🚀 배치 처리 방식으로 성능 향상 적용됨")
         logger.warning(f"🔍 요청 정보: 기업={request.company_id}, 기사수={len(request.articles)}")
         
-        # 타임아웃과 함께 중대성 평가 실행
-        result = await asyncio.wait_for(
-            start_assessment(request), 
-            timeout=timeout_seconds
-        )
+        # Service로 요청 전달 (타임아웃 5분 적용)
+        logger.warning("🚀 start_assessment 함수 호출 시작")
         
-        logger.warning("✅ 중대성 평가 타임아웃 내 완료")
-        return result
+        try:
+            # 타임아웃과 함께 중대성 평가 실행
+            result = await asyncio.wait_for(
+                start_assessment(request), 
+                timeout=timeout_seconds
+            )
+            
+            logger.warning("✅ start_assessment 함수 호출 완료")
+            logger.warning("✅ 중대성 평가 타임아웃 내 완료")
+            return result
         
-    except asyncio.TimeoutError:
-        error_msg = f"❌ 중대성 평가 타임아웃 ({timeout_seconds}초 초과)"
-        logger.error(error_msg)
-        logger.error(f"🔍 타임아웃 발생 요청 정보:")
-        logger.error(f"   - 기업: {request.company_id}")
-        logger.error(f"   - 기사 수: {len(request.articles)}")
-        logger.error(f"   - 요청 크기: {len(str(request))} bytes")
-        logger.error("💡 배치 처리 방식 적용 후에도 타임아웃 발생 - 추가 성능 최적화 필요")
-        logger.error("="*50)
-        return {
-            "success": False, 
-            "message": error_msg, 
-            "data": None,
-            "timeout": True,
-            "request_info": {
-                "company_id": request.company_id,
-                "article_count": len(request.articles),
-                "timeout_seconds": timeout_seconds
+        except asyncio.TimeoutError:
+            error_msg = f"❌ 중대성 평가 타임아웃 ({timeout_seconds}초 초과)"
+            logger.error(error_msg)
+            logger.error(f"🔍 타임아웃 발생 요청 정보:")
+            logger.error(f"   - 기업: {request.company_id}")
+            logger.error(f"   - 기사 수: {len(request.articles)}")
+            logger.error(f"   - 요청 크기: {len(str(request))} bytes")
+            logger.error("💡 배치 처리 방식 적용 후에도 타임아웃 발생 - 추가 성능 최적화 필요")
+            logger.error("="*50)
+            return {
+                "success": False, 
+                "message": error_msg, 
+                "data": None,
+                "timeout": True,
+                "request_info": {
+                    "company_id": request.company_id,
+                    "article_count": len(request.articles),
+                    "timeout_seconds": timeout_seconds
+                }
             }
-        }
-    except Exception as e:
-        error_msg = f"❌ 중대성 평가 실행 중 예상치 못한 오류: {str(e)}"
-        logger.error(error_msg)
-        logger.error(f"🔍 오류 발생 요청 정보:")
-        logger.error(f"   - 기업: {request.company_id}")
-        logger.error(f"   - 기사 수: {len(request.articles)}")
-        logger.error(f"   - 오류 타입: {type(e).__name__}")
-        logger.error("="*50)
-        return {
-            "success": False, 
-            "message": error_msg, 
-            "data": None,
-            "error_type": type(e).__name__,
-            "request_info": {
-                "company_id": request.company_id,
-                "article_count": len(request.articles)
+        except Exception as e:
+            error_msg = f"❌ 중대성 평가 실행 중 예상치 못한 오류: {str(e)}"
+            logger.error(error_msg)
+            logger.error(f"🔍 오류 발생 요청 정보:")
+            logger.error(f"   - 기업: {request.company_id}")
+            logger.error(f"   - 기사 수: {len(request.articles)}")
+            logger.error(f"   - 오류 타입: {type(e).__name__}")
+            logger.error("="*50)
+            return {
+                "success": False, 
+                "message": error_msg, 
+                "data": None,
+                "error_type": type(e).__name__,
+                "request_info": {
+                    "company_id": request.company_id,
+                    "article_count": len(request.articles)
+                }
             }
-        }
 
 
 # ============================================================================
