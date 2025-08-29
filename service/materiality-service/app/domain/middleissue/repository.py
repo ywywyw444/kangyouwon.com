@@ -5,6 +5,7 @@ Middleissue Repository - BaseModel을 받아서 데이터베이스 작업을 수
 import re
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_, cast, Integer, func, text
+from sqlalchemy.exc import ProgrammingError, DBAPIError
 from typing import List, Optional, Dict
 from app.domain.middleissue.schema import MiddleIssueBase, IssueItem, CorporationIssueResponse
 from app.domain.middleissue.entity import MiddleIssueEntity, CorporationEntity, CategoryEntity
@@ -54,6 +55,30 @@ def _normalize_tokens(name: str) -> List[str]:
     toks = [re.sub(r"\s+", " ", p).strip() for p in parts]
     return [t for t in toks if t]
 
+# 이름 컬럼 자동 탐색 (모델에 맞게 후보를 늘/줄이세요)
+def _get_category_name_col():
+    candidates = ("name", "category_name", "label", "title", "name_kr", "ko_name", "kr_name")
+    for c in candidates:
+        if hasattr(CategoryEntity, c):
+            return getattr(CategoryEntity, c)
+    cols = list(CategoryEntity.__table__.columns.keys())
+    logger.error(f"❌ CategoryEntity에 이름 컬럼이 없습니다. 사용 가능한 컬럼: {cols}")
+    # 더 진행하면 또 트랜잭션을 망가뜨리므로 예외를 올립니다.
+    raise RuntimeError(f"Category name column not found. Available: {cols}")
+
+async def _safe_scalar(session, stmt, log_ctx: str) -> Optional[int]:
+    """예외 발생 시 즉시 rollback 하고 None 반환"""
+    try:
+        return await session.scalar(stmt)
+    except Exception as e:
+        logger.warning(f"⚠️ {log_ctx} 중 오류: {e}")
+        try:
+            await session.rollback()
+            logger.info("↩️ 트랜잭션 롤백 완료")
+        except Exception as rb_e:
+            logger.error(f"❌ 롤백 중 오류: {rb_e}")
+        return None
+
 async def resolve_category_id(session, category_value: str) -> Optional[int]:
     """
     문자열 카테고리명을 받아 category_id(int)로 변환.
@@ -65,51 +90,47 @@ async def resolve_category_id(session, category_value: str) -> Optional[int]:
     if not category_value or not isinstance(category_value, str):
         return None
 
-    logger.info(f"🔍 카테고리 해석기 시작: '{category_value}'")
+    value = category_value.strip()
+    logger.info(f"🔍 카테고리 해석기 시작: '{value}'")
 
-    # 1) 정확 일치 (category_id가 문자열인 경우)
     try:
-        cat_id = await session.scalar(
-            select(CategoryEntity.id).where(CategoryEntity.name == category_value)
-        )
-        if cat_id:
-            logger.info(f"✅ 정확 일치 성공: '{category_value}' → {cat_id}")
-            return int(cat_id)
-    except Exception as e:
-        logger.warning(f"⚠️ 정확 일치 시도 중 오류: {e}")
+        NAME_COL = _get_category_name_col()
+        logger.info(f"🔍 사용할 이름 컬럼: {NAME_COL}")
+    except RuntimeError as e:
+        logger.error(f"❌ 카테고리 이름 컬럼을 찾을 수 없음: {e}")
+        return None
 
-    # 2) 슬래시 등으로 분해한 토큰들 중 일치 찾기
-    tokens = _normalize_tokens(category_value)
+    tokens: List[str] = _normalize_tokens(value)
     logger.info(f"🔍 토큰 분해 결과: {tokens}")
-    
-    for tok in tokens:
-        try:
-            cat_id = await session.scalar(
-                select(CategoryEntity.id).where(CategoryEntity.name == tok)
-            )
-            if cat_id:
-                logger.info(f"✅ 토큰 일치 성공: '{tok}' → {cat_id}")
-                return int(cat_id)
-        except Exception as e:
-            logger.warning(f"⚠️ 토큰 '{tok}' 일치 시도 중 오류: {e}")
 
-    # 3) 별칭 매핑 사용 (표준명 또는 대표 토큰으로 치환)
-    alias_key = CATEGORY_SYNONYMS.get(category_value)
+    # 1) 전체 정확일치
+    stmt = select(CategoryEntity.id).where(NAME_COL == value)
+    cat_id = await _safe_scalar(session, stmt, "정확 일치")
+    if cat_id is not None:
+        logger.info(f"✅ 정확 일치 성공: '{value}' → {cat_id}")
+        return int(cat_id)
+
+    # 2) 토큰 정확일치
+    for tok in tokens:
+        stmt = select(CategoryEntity.id).where(NAME_COL == tok)
+        cat_id = await _safe_scalar(session, stmt, f"토큰 '{tok}' 일치")
+        if cat_id is not None:
+            logger.info(f"✅ 토큰 일치 성공: '{tok}' → {cat_id}")
+            return int(cat_id)
+
+    # 3) 별칭 매핑 (전체 → 별칭)
+    alias_key = CATEGORY_SYNONYMS.get(value)
     if alias_key:
-        logger.info(f"🔍 별칭 매핑 시도: '{category_value}' → '{alias_key}'")
-        try:
-            cat_id = await session.scalar(
-                select(CategoryEntity.id).where(CategoryEntity.name == alias_key)
-            )
-            if cat_id:
-                logger.info(f"✅ 별칭 매핑 성공: '{category_value}' → '{alias_key}' → {cat_id}")
-                return int(cat_id)
-        except Exception as e:
-            logger.warning(f"⚠️ 별칭 매핑 시도 중 오류: {e}")
+        logger.info(f"🔍 별칭 매핑 시도: '{value}' → '{alias_key}'")
+        stmt = select(CategoryEntity.id).where(NAME_COL == alias_key)
+        cat_id = await _safe_scalar(session, stmt, "별칭 매핑(전체)")
+        if cat_id is not None:
+            logger.info(f"✅ 별칭 매핑 성공: '{value}' → '{alias_key}' → {cat_id}")
+            return int(cat_id)
     else:
         for tok in tokens:
             alias_key = CATEGORY_SYNONYMS.get(tok)
-            if alias_key:
+            if not alias_key:
                 logger.info(f"🔍 토큰별 별칭 매핑 시도: '{tok}' → '{alias_key}'")
                 try:
                     cat_id = await session.scalar(
@@ -121,19 +142,15 @@ async def resolve_category_id(session, category_value: str) -> Optional[int]:
                 except Exception as e:
                     logger.warning(f"⚠️ 토큰별 별칭 매핑 시도 중 오류: {e}")
 
-    # 4) (선택) 느슨한 ILIKE 매칭 (가장 긴 토큰부터)
+    # 4) ILIKE (긴 토큰부터)
     for tok in sorted(tokens, key=len, reverse=True):
-        try:
-            cat_id = await session.scalar(
-                select(CategoryEntity.id).where(CategoryEntity.name.ilike(f"%{tok}%"))
-            )
-            if cat_id:
-                logger.info(f"✅ ILIKE 매칭 성공: '{tok}' → {cat_id}")
-                return int(cat_id)
-        except Exception as e:
-            logger.warning(f"⚠️ ILIKE 매칭 시도 중 오류: {e}")
+        stmt = select(CategoryEntity.id).where(NAME_COL.ilike(f"%{tok}%"))
+        cat_id = await _safe_scalar(session, stmt, f"ILIKE '{tok}'")
+        if cat_id is not None:
+            logger.info(f"✅ ILIKE 매칭 성공: '{tok}' → {cat_id}")
+            return int(cat_id)
 
-    logger.warning(f"❌ 카테고리 해석기 실패: '{category_value}'를 ID로 변환할 수 없음")
+    logger.warning(f"❌ 카테고리 해석기 실패: '{value}'를 ID로 변환할 수 없음")
     return None
 
 class MiddleIssueRepository:
