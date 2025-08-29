@@ -478,7 +478,7 @@ async def match_categories_with_esg_and_issuepool(
             details_map = {name: None for name in category_keys}
         
         # 4. 결과 조합 (빠른 처리)
-        logger.info(f"🔍 결과 조합 시작")
+        logger.warning(f"🔍 결과 조합 시작")
         matched_categories = []
         
         for category_info in ranked_categories:
@@ -505,12 +505,14 @@ async def match_categories_with_esg_and_issuepool(
                     })
                 
                 total_issuepools = len(base_issuepools)
+                logger.warning(f"🔍 카테고리 '{category_key}' 매칭 성공: {total_issuepools}개 base_issuepool")
             else:
                 # 배치 조회에서 데이터가 없는 경우 기본값
                 esg_classification = esg_mapping.get(category_key, '미분류')
                 esg_classification_id = None
                 base_issuepools = []
                 total_issuepools = 0
+                logger.warning(f"⚠️ 카테고리 '{category_key}' 매칭 실패: base_issuepool 없음")
             
             matched_category = {
                 **category_info,  # 기존 점수 정보 유지
@@ -528,38 +530,38 @@ async def match_categories_with_esg_and_issuepool(
         for esg in esg_mapping.values():
             esg_distribution[esg] = esg_distribution.get(esg, 0) + 1
         
-        logger.info(f"🔗 배치 매칭 완료:")
-        logger.info(f"   - 총 카테고리: {len(matched_categories)}개")
-        logger.info(f"   - 총 IssuePool: {total_issuepools}개")
-        logger.info(f"   - ESG 분포: {esg_distribution}")
+        logger.warning(f"🔗 배치 매칭 완료:")
+        logger.warning(f"   - 총 카테고리: {len(matched_categories)}개")
+        logger.warning(f"   - 총 IssuePool: {total_issuepools}개")
+        logger.warning(f"   - ESG 분포: {esg_distribution}")
         
         # 🔍 base_issue_pool 내용 상세 확인 (상위 5개 카테고리만)
-        logger.info(f"🔍 base_issue_pool 상세 내용 확인 (상위 5개 카테고리):")
+        logger.warning(f"🔍 base_issue_pool 상세 내용 확인 (상위 5개 카테고리):")
         for i, category_info in enumerate(matched_categories[:5]):
             category_key = str(category_info['category'])
             base_issuepools = category_info.get('base_issuepools', [])
             esg_name = category_info.get('esg_classification', '미분류')
             
-            logger.info(f"   {i+1}. 카테고리 '{category_key}' (ESG: {esg_name}):")
-            logger.info(f"      - base_issue_pool 수: {len(base_issuepools)}개")
+            logger.warning(f"   {i+1}. 카테고리 '{category_key}' (ESG: {esg_name}):")
+            logger.warning(f"      - base_issue_pool 수: {len(base_issuepools)}개")
             
             if base_issuepools:
                 # 상위 3개만 상세 로깅
                 for j, pool in enumerate(base_issuepools[:3]):
-                    logger.info(f"        {j+1}. {pool.get('base_issue_pool', 'N/A')}")
-                    logger.info(f"           issue_pool: {pool.get('issue_pool', 'N/A')}")
-                    logger.info(f"           ranking: {pool.get('ranking', 'N/A')}")
+                    logger.warning(f"        {j+1}. {pool.get('base_issue_pool', 'N/A')}")
+                    logger.warning(f"           issue_pool: {pool.get('issue_pool', 'N/A')}")
+                    logger.warning(f"           ranking: {pool.get('ranking', 'N/A')}")
                 
                 if len(base_issuepools) > 3:
-                    logger.info(f"        ... 외 {len(base_issuepools) - 3}개")
+                    logger.warning(f"        ... 외 {len(base_issuepools) - 3}개")
             else:
-                logger.info(f"        - base_issue_pool 없음")
+                logger.warning(f"        - base_issue_pool 없음")
         
         # 나머지 카테고리는 요약만
         if len(matched_categories) > 5:
             remaining_categories = matched_categories[5:]
             remaining_issuepools = sum(len(cat.get('base_issuepools', [])) for cat in remaining_categories)
-            logger.info(f"   ... 나머지 {len(remaining_categories)}개 카테고리: 총 {remaining_issuepools}개 base_issue_pool")
+            logger.warning(f"   ... 나머지 {len(remaining_categories)}개 카테고리: 총 {remaining_issuepools}개 base_issue_pool")
         
         return matched_categories
         
@@ -671,6 +673,7 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
     """
     try:
         # 1) 요청 로깅
+        start_time = datetime.now()
         logger.info("="*50)
         logger.info("🚀 새로운 중대성 평가 시작")
         logger.info(f"기업명: {request.company_id}")
@@ -680,15 +683,23 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info("-"*50)
 
         # 2) 모델 로드
+        model_start = datetime.now()
+        logger.info("🔥 크롤링 데이터 감성 분석 시작")
         model = load_sentiment_model()
         if not model:
             raise Exception("감성 분석 모델 로드 실패")
+        model_load_time = (datetime.now() - model_start).total_seconds()
+        logger.info(f"⏱️ 모델 로드 완료: {model_load_time:.2f}초")
 
         # 3) 감성 분석
+        sentiment_start = datetime.now()
         logger.info("🔥 크롤링 데이터 감성 분석 시작")
         analyzed_articles = analyze_sentiment(model, request.articles)
+        sentiment_time = (datetime.now() - sentiment_start).total_seconds()
+        logger.info(f"⏱️ 감성 분석 완료: {sentiment_time:.2f}초 ({len(analyzed_articles)}개 기사)")
 
         # 4) (검색 기준연도 - 1) & 공통(NULL) 카테고리 조회
+        db_query_start = datetime.now()
         repository = MiddleIssueRepository()
         search_year = int(request.report_period["end_date"][:4])  # 검색 기준연도 (YYYY)
         
@@ -703,8 +714,11 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         reference_categories = {str(issue.category_id) for issue in corp_issues_prev.common_issues}
         
         logger.info(f"🔍 prev_year_categories: {len(prev_year_categories)}개, reference_categories: {len(reference_categories)}개")
+        db_query_time = (datetime.now() - db_query_start).total_seconds()
+        logger.info(f"⏱️ DB 조회 완료: {db_query_time:.2f}초")
 
         # 5) 라벨 부여
+        labeling_start = datetime.now()
         logger.info("🏷️ 라벨(relevance/recent/rank/reference) 부여 시작")
         search_date = datetime.now()
         labeled_articles = await add_relevance_labels(
@@ -714,50 +728,71 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             prev_year_categories,
             reference_categories
         )
+        labeling_time = (datetime.now() - labeling_start).total_seconds()
+        logger.info(f"⏱️ 라벨 부여 완료: {labeling_time:.2f}초")
 
         # 6) 카테고리별 점수 계산
+        scoring_start = datetime.now()
         logger.info("📊 카테고리별 점수 계산 시작")
         category_scores = calculate_category_scores(labeled_articles)
+        scoring_time = (datetime.now() - scoring_start).total_seconds()
+        logger.info(f"⏱️ 점수 계산 완료: {scoring_time:.2f}초")
 
         # 🔍 디버깅: 라벨링 결과 분석
         debug_labeling_results(labeled_articles, category_scores)
 
         # 📊 디버깅용 Excel 파일 자동 생성
+        excel_start = datetime.now()
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             company_name = request.company_id.replace(" ", "_").replace("/", "_")
             
+            # 절대 경로로 저장 (서버의 /tmp 디렉토리 또는 현재 작업 디렉토리)
+            import os
+            current_dir = os.getcwd()
+            logger.info(f"📁 현재 작업 디렉토리: {current_dir}")
+            
             # 1. 통합 분석 Excel (라벨링 + 점수)
-            combined_filename = f"combined_analysis_{company_name}_{timestamp}.xlsx"
+            combined_filename = os.path.join(current_dir, f"combined_analysis_{company_name}_{timestamp}.xlsx")
             export_combined_analysis_to_excel(labeled_articles, category_scores, combined_filename)
             
             # 2. 라벨링된 기사 Excel
-            labeled_filename = f"labeled_articles_{company_name}_{timestamp}.xlsx"
+            labeled_filename = os.path.join(current_dir, f"labeled_articles_{company_name}_{timestamp}.xlsx")
             export_labeled_articles_to_excel(labeled_articles, labeled_filename)
             
             # 3. 카테고리 점수 Excel
-            scores_filename = f"category_scores_{company_name}_{timestamp}.xlsx"
+            scores_filename = os.path.join(current_dir, f"category_scores_{company_name}_{timestamp}.xlsx")
             export_category_scores_to_excel(category_scores, scores_filename)
             
             logger.info(f"📊 디버깅용 Excel 파일 생성 완료:")
             logger.info(f"   - 통합 분석: {combined_filename}")
             logger.info(f"   - 라벨링 기사: {labeled_filename}")
             logger.info(f"   - 카테고리 점수: {scores_filename}")
+            logger.info(f"📁 파일 저장 위치: {current_dir}")
             
         except Exception as e:
             logger.warning(f"⚠️ Excel 파일 생성 실패: {str(e)}")
+        
+        excel_time = (datetime.now() - excel_start).total_seconds()
+        logger.info(f"⏱️ Excel 파일 생성 완료: {excel_time:.2f}초")
 
         # 7) 카테고리 랭킹
+        ranking_start = datetime.now()
         logger.info("🏆 카테고리 순위 매기기 시작")
         ranked_categories = rank_categories_by_score(category_scores)
+        ranking_time = (datetime.now() - ranking_start).total_seconds()
+        logger.info(f"⏱️ 카테고리 랭킹 완료: {ranking_time:.2f}초")
 
         # 8) 카테고리별 ESG 분류 및 이슈풀 매칭 (배치 처리로 성능 향상)
+        matching_start = datetime.now()
         logger.info("🔗 카테고리별 ESG 분류 및 이슈풀 매칭 시작 (배치 처리)")
         matched_categories = await match_categories_with_esg_and_issuepool(
             ranked_categories, 
             request.company_id, 
             search_year
         )
+        matching_time = (datetime.now() - matching_start).total_seconds()
+        logger.info(f"⏱️ ESG/이슈풀 매칭 완료: {matching_time:.2f}초")
 
         # 9) 통계/로깅
         negative_count = sum(1 for a in labeled_articles if a["sentiment"] == "negative")
@@ -784,6 +819,20 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
 
         # 🔥 전체 카테고리 순위 요약
         logger.info(f"\n📋 전체 {len(matched_categories)}개 카테고리 매칭 완료")
+        
+        # ⏱️ 전체 처리 시간 요약
+        total_time = (datetime.now() - start_time).total_seconds()
+        logger.info("="*50)
+        logger.info(f"⏱️ 전체 처리 시간 요약:")
+        logger.info(f"   - 모델 로드: {model_load_time:.2f}초")
+        logger.info(f"   - 감성 분석: {sentiment_time:.2f}초")
+        logger.info(f"   - DB 조회: {db_query_time:.2f}초")
+        logger.info(f"   - 라벨 부여: {labeling_time:.2f}초")
+        logger.info(f"   - 점수 계산: {scoring_time:.2f}초")
+        logger.info(f"   - Excel 생성: {excel_time:.2f}초")
+        logger.info(f"   - 카테고리 랭킹: {ranking_time:.2f}초")
+        logger.info(f"   - ESG/이슈풀 매칭: {matching_time:.2f}초")
+        logger.info(f"   - 총 처리 시간: {total_time:.2f}초")
         logger.info("="*50)
 
         # 9) 응답
