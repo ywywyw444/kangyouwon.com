@@ -371,10 +371,14 @@ class MiddleIssueRepository:
         """
         try:
             async for db in get_db():
-                # CategoryEntity에서 직접 ESG 분류 조회
-                query = select(CategoryEntity.esg_classification).where(
+                # CategoryEntity와 ESGClassificationEntity를 JOIN하여 ESG 분류 조회
+                query = select(ESGClassificationEntity.esg).join(
+                    CategoryEntity,
+                    CategoryEntity.esg_classification_id == ESGClassificationEntity.id
+                ).where(
                     CategoryEntity.category_name == category_name
                 )
+                
                 result = await db.execute(query)
                 esg_classification = result.scalar_one_or_none()
                 

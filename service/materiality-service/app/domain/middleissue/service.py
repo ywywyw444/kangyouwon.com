@@ -693,6 +693,34 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info("📊 카테고리별 점수 계산 시작")
         category_scores = calculate_category_scores(labeled_articles)
 
+        # 🔍 디버깅: 라벨링 결과 분석
+        debug_labeling_results(labeled_articles, category_scores)
+
+        # 📊 디버깅용 Excel 파일 자동 생성
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            company_name = request.company_id.replace(" ", "_").replace("/", "_")
+            
+            # 1. 통합 분석 Excel (라벨링 + 점수)
+            combined_filename = f"combined_analysis_{company_name}_{timestamp}.xlsx"
+            export_combined_analysis_to_excel(labeled_articles, category_scores, combined_filename)
+            
+            # 2. 라벨링된 기사 Excel
+            labeled_filename = f"labeled_articles_{company_name}_{timestamp}.xlsx"
+            export_labeled_articles_to_excel(labeled_articles, labeled_filename)
+            
+            # 3. 카테고리 점수 Excel
+            scores_filename = f"category_scores_{company_name}_{timestamp}.xlsx"
+            export_category_scores_to_excel(category_scores, scores_filename)
+            
+            logger.info(f"📊 디버깅용 Excel 파일 생성 완료:")
+            logger.info(f"   - 통합 분석: {combined_filename}")
+            logger.info(f"   - 라벨링 기사: {labeled_filename}")
+            logger.info(f"   - 카테고리 점수: {scores_filename}")
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Excel 파일 생성 실패: {str(e)}")
+
         # 7) 카테고리 랭킹
         logger.info("🏆 카테고리 순위 매기기 시작")
         ranked_categories = rank_categories_by_score(category_scores)
@@ -1026,4 +1054,243 @@ def export_category_scores_to_excel(category_scores: Dict[str, Dict[str, Any]], 
 
 # ============================================================================
 # 🚧 디버깅용 Excel 내보내기 함수들 끝
+# ============================================================================
+
+def export_combined_analysis_to_excel(
+    labeled_articles: List[Dict[str, Any]], 
+    category_scores: Dict[str, Dict[str, Any]], 
+    output_path: str = "combined_analysis_debug.xlsx"
+):
+    """
+    라벨링과 카테고리 점수를 하나의 시트에 열을 길게 이어붙여서 하나의 Excel로 내보내기 (디버깅용)
+    
+    Args:
+        labeled_articles: 라벨링된 기사 리스트
+        category_scores: 카테고리별 점수 딕셔너리
+        output_path: 출력 파일 경로
+    
+    Note: 이 함수는 디버깅 목적으로만 사용되며, 나중에 삭제 가능합니다.
+    """
+    try:
+        import pandas as pd
+        
+        logger.info(f"📊 통합 분석 Excel 내보내기 시작")
+        logger.info(f"   - 라벨링된 기사: {len(labeled_articles)}개")
+        logger.info(f"   - 카테고리 점수: {len(category_scores)}개")
+        
+        # 1. 라벨링 데이터를 DataFrame으로 변환
+        labeled_df = pd.DataFrame(labeled_articles)
+        
+        # 2. 카테고리 점수를 DataFrame으로 변환
+        scores_data = []
+        for category, scores in category_scores.items():
+            scores_data.append({
+                'category': category,
+                **scores
+            })
+        scores_df = pd.DataFrame(scores_data)
+        
+        # 3. 두 DataFrame을 열 방향으로 연결 (가로로 이어붙이기)
+        # 라벨링 데이터가 더 길면 scores_df를 반복하여 맞춤
+        if len(labeled_df) > len(scores_df):
+            # scores_df를 labeled_df 길이만큼 반복
+            repeated_scores = []
+            for i in range(len(labeled_df)):
+                category_idx = i % len(scores_df)
+                repeated_scores.append(scores_data[category_idx])
+            scores_df_extended = pd.DataFrame(repeated_scores)
+            
+            # 열 방향으로 연결
+            combined_df = pd.concat([labeled_df, scores_df_extended], axis=1)
+            
+        else:
+            # labeled_df를 scores_df 길이만큼 반복
+            repeated_labeled = []
+            for i in range(len(scores_df)):
+                article_idx = i % len(labeled_df) if len(labeled_df) > 0 else 0
+                if len(labeled_df) > 0:
+                    repeated_labeled.append(labeled_articles[article_idx])
+                else:
+                    # labeled_articles가 비어있는 경우 빈 딕셔너리로 채움
+                    repeated_labeled.append({})
+            labeled_df_extended = pd.DataFrame(repeated_labeled)
+            
+            # 열 방향으로 연결
+            combined_df = pd.concat([labeled_df_extended, scores_df], axis=1)
+        
+        # 4. 열 이름 정리 및 순서 조정
+        # 라벨링 관련 열들
+        labeled_columns = [
+            'company', 'issue', 'original_category', 'title', 'description', 
+            'pubDate', 'sentiment', 'sentiment_confidence', 'neg_keywords', 
+            'pos_keywords', 'sentiment_basis', 'relevance_label', 'recent_value', 
+            'rank_label', 'reference_label', 'label_reasons'
+        ]
+        
+        # 점수 관련 열들
+        score_columns = [
+            'category', 'count', 'frequency_score', 'relevance_score', 
+            'recent_score', 'rank_score', 'reference_score', 'negative_score', 
+            'final_score'
+        ]
+        
+        # 실제 존재하는 열들만 필터링
+        existing_labeled_cols = [col for col in labeled_columns if col in combined_df.columns]
+        existing_score_cols = [col for col in score_columns if col in combined_df.columns]
+        
+        # 열 순서 재정렬
+        final_columns = existing_labeled_cols + existing_score_cols
+        combined_df = combined_df[final_columns]
+        
+        # 5. Excel 파일 생성
+        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
+            # 통합 데이터 시트
+            combined_df.to_excel(writer, sheet_name='Combined Analysis', index=False)
+            
+            # 요약 통계 시트
+            summary_data = {
+                '분석 항목': [
+                    '총 기사 수',
+                    '총 카테고리 수',
+                    '부정적 기사 수',
+                    '긍정적 기사 수',
+                    '중립적 기사 수',
+                    'relevance_label True',
+                    'recent_label True',
+                    'rank_label True',
+                    'reference_label True',
+                    '최고 점수 카테고리',
+                    '최저 점수 카테고리',
+                    '평균 최종 점수'
+                ],
+                '값': [
+                    len(labeled_articles),
+                    len(category_scores),
+                    sum(1 for a in labeled_articles if a.get('sentiment') == 'negative'),
+                    sum(1 for a in labeled_articles if a.get('sentiment') == 'positive'),
+                    sum(1 for a in labeled_articles if a.get('sentiment') == 'neutral'),
+                    sum(1 for a in labeled_articles if a.get('relevance_label')),
+                    sum(1 for a in labeled_articles if a.get('recent_value', 0) > 0),
+                    sum(1 for a in labeled_articles if a.get('rank_label')),
+                    sum(1 for a in labeled_articles if a.get('reference_label')),
+                    max(category_scores.items(), key=lambda x: x[1].get('final_score', 0))[0] if category_scores else 'N/A',
+                    min(category_scores.items(), key=lambda x: x[1].get('final_score', 0))[0] if category_scores else 'N/A',
+                    round(sum(s.get('final_score', 0) for s in category_scores.values()) / len(category_scores), 3) if category_scores else 0.0
+                ]
+            }
+            
+            summary_df = pd.DataFrame(summary_data)
+            summary_df.to_excel(writer, sheet_name='Summary', index=False)
+            
+            # 카테고리별 점수 순위 시트
+            if category_scores:
+                sorted_scores = sorted(
+                    [(cat, scores) for cat, scores in category_scores.items()],
+                    key=lambda x: x[1].get('final_score', 0),
+                    reverse=True
+                )
+                
+                ranking_data = []
+                for i, (category, scores) in enumerate(sorted_scores, 1):
+                    ranking_data.append({
+                        '순위': i,
+                        '카테고리': category,
+                        '최종점수': scores.get('final_score', 0.0),
+                        '빈도점수': scores.get('frequency_score', 0.0),
+                        '관련성점수': scores.get('relevance_score', 0.0),
+                        '최신성점수': scores.get('recent_score', 0.0),
+                        '순위점수': scores.get('rank_score', 0.0),
+                        '참조점수': scores.get('reference_score', 0.0),
+                        '부정성점수': scores.get('negative_score', 0.0),
+                        '기사수': scores.get('count', 0)
+                    })
+                
+                ranking_df = pd.DataFrame(ranking_data)
+                ranking_df.to_excel(writer, sheet_name='Category Ranking', index=False)
+        
+        logger.info(f"✅ 통합 분석 Excel 내보내기 완료: {output_path}")
+        logger.info(f"📊 총 {len(combined_df)}행, {len(combined_df.columns)}열의 데이터 생성")
+        
+    except Exception as e:
+        logger.error(f"❌ 통합 분석 Excel 내보내기 실패: {str(e)}")
+        import traceback
+        logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
+
+
+# ============================================================================
+# 🚧 통합 분석 Excel 내보내기 함수 끝
+# ============================================================================
+
+def debug_labeling_results(labeled_articles: List[Dict[str, Any]], category_scores: Dict[str, Dict[str, Any]]):
+    """
+    라벨링 결과를 디버깅하기 위한 간단한 분석 함수
+    """
+    try:
+        logger.info("🔍 라벨링 결과 디버깅 시작")
+        
+        # 1. 라벨링 통계
+        total_articles = len(labeled_articles)
+        logger.info(f"📊 총 기사 수: {total_articles}")
+        
+        if total_articles == 0:
+            logger.warning("⚠️ 라벨링된 기사가 없습니다.")
+            return
+        
+        # 2. 최신성 점수 분석
+        recent_values = [a.get('recent_value', 0.0) for a in labeled_articles]
+        recent_1_0 = sum(1 for v in recent_values if v == 1.0)
+        recent_0_5 = sum(1 for v in recent_values if v == 0.5)
+        recent_0_0 = sum(1 for v in recent_values if v == 0.0)
+        
+        logger.info(f"🔍 최신성 점수 분석:")
+        logger.info(f"   - 1.0 (3개월 이내): {recent_1_0}개 ({recent_1_0/total_articles*100:.1f}%)")
+        logger.info(f"   - 0.5 (3~6개월): {recent_0_5}개 ({recent_0_5/total_articles*100:.1f}%)")
+        logger.info(f"   - 0.0 (6개월 이상): {recent_0_0}개 ({recent_0_0/total_articles*100:.1f}%)")
+        
+        # 3. rank/reference 라벨 분석
+        rank_true = sum(1 for a in labeled_articles if a.get('rank_label'))
+        reference_true = sum(1 for a in labeled_articles if a.get('reference_label'))
+        
+        logger.info(f"🔍 rank/reference 라벨 분석:")
+        logger.info(f"   - rank_label True: {rank_true}개 ({rank_true/total_articles*100:.1f}%)")
+        logger.info(f"   - reference_label True: {reference_true}개 ({reference_true/total_articles*100:.1f}%)")
+        
+        # 4. 카테고리별 점수 분석
+        if category_scores:
+            logger.info(f"🔍 카테고리 점수 분석:")
+            for category, scores in list(category_scores.items())[:5]:  # 상위 5개만
+                logger.info(f"   - '{category}':")
+                logger.info(f"     recent_score: {scores.get('recent_score', 0.0):.3f}")
+                logger.info(f"     rank_score: {scores.get('rank_score', 0.0):.3f}")
+                logger.info(f"     reference_score: {scores.get('reference_score', 0.0):.3f}")
+        
+        # 5. 샘플 기사 분석
+        logger.info(f"🔍 샘플 기사 분석 (상위 3개):")
+        for i, article in enumerate(labeled_articles[:3]):
+            logger.info(f"   {i+1}. '{article.get('title', '')[:50]}...'")
+            logger.info(f"      - recent_value: {article.get('recent_value', 0.0)}")
+            logger.info(f"      - rank_label: {article.get('rank_label', False)}")
+            logger.info(f"      - reference_label: {article.get('reference_label', False)}")
+            logger.info(f"      - original_category: {article.get('original_category', 'N/A')}")
+            logger.info(f"      - pubDate: {article.get('pubDate', 'N/A')}")
+        
+        # 6. ESG 분류 조회 결과 분석
+        logger.info(f"🔍 ESG 분류 조회 결과 분석:")
+        esg_results = {}
+        for article in labeled_articles:
+            category = article.get('original_category', '')
+            if category:
+                esg_results[category] = esg_results.get(category, 0) + 1
+        
+        logger.info(f"   - 총 카테고리 수: {len(esg_results)}")
+        logger.info(f"   - 카테고리별 기사 수: {esg_results}")
+        
+        logger.info("✅ 라벨링 결과 디버깅 완료")
+        
+    except Exception as e:
+        logger.error(f"❌ 라벨링 결과 디버깅 중 오류: {str(e)}")
+
+
+# ============================================================================
+# 🚧 디버깅 함수 끝
 # ============================================================================
