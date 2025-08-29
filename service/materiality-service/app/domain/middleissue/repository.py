@@ -89,6 +89,7 @@ class MiddleIssueRepository:
                 # 안전한 TEXT -> INTEGER 캐스팅을 위한 쿼리 수정
                 year_condition = or_(
                     MiddleIssueEntity.publish_year.is_(None),
+                    MiddleIssueEntity.publish_year == '',  # 빈 문자열도 공통 이슈로 처리
                     and_(
                         # 빈 문자열이 아닌지 확인
                         MiddleIssueEntity.publish_year != '',
@@ -119,7 +120,8 @@ class MiddleIssueRepository:
                         base_issue_pool=entity.base_issue_pool
                     )
                     
-                    if entity.publish_year is None:
+                    # publish_year가 None이거나 빈 문자열이면 공통 이슈
+                    if entity.publish_year is None or entity.publish_year == '':
                         common_issues.append(issue_item)
                     else:
                         year_issues.append(issue_item)
@@ -205,23 +207,28 @@ class MiddleIssueRepository:
                 # 3. 안전한 publish_year 비교를 위한 조건 구성
                 year_condition = None
                 if year is not None:
-                    # publish_year가 null이거나, 숫자로 변환 가능한 경우에만 비교
+                    # 연도 규약 통일: 내부에서 -1 적용
+                    target_year = year - 1
                     year_condition = or_(
                         MiddleIssueEntity.publish_year.is_(None),
+                        MiddleIssueEntity.publish_year == '',  # 빈 문자열도 공통 이슈로 처리
                         and_(
                             # 빈 문자열이 아닌지 확인
                             MiddleIssueEntity.publish_year != '',
                             # 숫자로만 구성된 문자열인지 확인
                             MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
                             # 안전하게 trim 후 캐스팅하여 비교
-                            cast(func.trim(MiddleIssueEntity.publish_year), Integer) == year
+                            cast(func.trim(MiddleIssueEntity.publish_year), Integer) == target_year
                         )
                     )
-                    logger.info(f"🔍 연도 조건 구성: {year}년도 또는 NULL")
+                    logger.info(f"🔍 연도 조건 구성: {target_year}년도 또는 NULL/빈문자열 (입력: {year}년)")
                 else:
-                    # year가 None이면 publish_year가 NULL인 것만 조회
-                    year_condition = MiddleIssueEntity.publish_year.is_(None)
-                    logger.info(f"🔍 연도 조건: NULL만 조회")
+                    # year가 None이면 publish_year가 NULL이거나 빈 문자열인 것만 조회
+                    year_condition = or_(
+                        MiddleIssueEntity.publish_year.is_(None),
+                        MiddleIssueEntity.publish_year == ''
+                    )
+                    logger.info(f"🔍 연도 조건: NULL 또는 빈문자열만 조회")
                 
                 # 4. 해당 카테고리의 이슈풀 정보 조회 (ESG 분류 포함)
                 # normalized_category_id가 정수인지 확인
@@ -440,17 +447,21 @@ class MiddleIssueRepository:
                     target_year = year - 1
                     year_condition = or_(
                         MiddleIssueEntity.publish_year.is_(None),
+                        MiddleIssueEntity.publish_year == '',  # 빈 문자열도 공통 이슈로 처리
                         and_(
                             MiddleIssueEntity.publish_year != '',
                             MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
                             cast(func.trim(MiddleIssueEntity.publish_year), Integer) == target_year
                         )
                     )
-                    logger.info(f"🔍 연도 조건 구성: {target_year}년도 또는 NULL (입력: {year}년)")
+                    logger.info(f"🔍 연도 조건 구성: {target_year}년도 또는 NULL/빈문자열 (입력: {year}년)")
                 else:
-                    # year가 None이면 publish_year가 NULL인 것만 조회
-                    year_condition = MiddleIssueEntity.publish_year.is_(None)
-                    logger.info(f"�� 연도 조건: NULL만 조회")
+                    # year가 None이면 publish_year가 NULL이거나 빈 문자열인 것만 조회
+                    year_condition = or_(
+                        MiddleIssueEntity.publish_year.is_(None),
+                        MiddleIssueEntity.publish_year == ''
+                    )
+                    logger.info(f"🔍 연도 조건: NULL 또는 빈문자열만 조회")
                 
                 # 3. JOIN을 사용하여 카테고리 이름으로 직접 조회
                 query = select(

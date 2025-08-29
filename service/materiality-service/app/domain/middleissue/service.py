@@ -352,13 +352,11 @@ async def match_categories_with_esg_and_issuepool(
         
         for category_info in ranked_categories:
             name_or_id = str(category_info['category'])
-            logger.info(f"🔍 카테고리 '{name_or_id}' 매칭 시도 중...")
             
             try:
                 # ID인지 이름인지 구분하여 처리
                 if name_or_id.isdigit():
                     # ID로 조회
-                    logger.info(f"🔍 카테고리 ID '{name_or_id}'로 조회 시도")
                     category_details = await repository.get_category_details(
                         corporation_name=company_id,
                         category_id=int(name_or_id),
@@ -366,14 +364,11 @@ async def match_categories_with_esg_and_issuepool(
                     )
                 else:
                     # 이름으로 직접 조회
-                    logger.info(f"🔍 카테고리 이름 '{name_or_id}'로 직접 조회 시도")
                     category_details = await repository.get_category_by_name_direct(
                         corporation_name=company_id,
                         category_name=name_or_id,
                         year=search_year,   # repo가 내부에서 -1 처리하도록 위에서 수정
                     )
-                
-                logger.info(f"🔍 카테고리 '{name_or_id}' 조회 결과: {category_details}")
                 
                 if category_details:
                     # 이미 모든 정보가 포함된 CategoryDetailsResponse에서 추출
@@ -405,7 +400,15 @@ async def match_categories_with_esg_and_issuepool(
                     
                     matched_categories.append(matched_category)
                     
-                    logger.info(f"✅ 카테고리 '{name_or_id}' 매칭 완료: ESG={esg_classification}, 이슈풀={len(base_issuepools)}개")
+                    # 카테고리-ESG 매핑 및 base issuepool 매핑 결과 로그
+                    logger.info(f"✅ 카테고리 '{name_or_id}' 매칭 완료:")
+                    logger.info(f"   - ESG 분류: {esg_classification} (ID: {esg_classification_id})")
+                    logger.info(f"   - Base IssuePool 수: {len(base_issuepools)}개")
+                    if base_issuepools:
+                        for i, pool in enumerate(base_issuepools[:3]):  # 상위 3개만 표시
+                            logger.info(f"     {i+1}. {pool['base_issue_pool']} (순위: {pool['ranking']})")
+                        if len(base_issuepools) > 3:
+                            logger.info(f"     ... 외 {len(base_issuepools) - 3}개")
                 else:
                     # 매칭되지 않은 경우 기본값으로 설정
                     matched_category = {
@@ -420,7 +423,7 @@ async def match_categories_with_esg_and_issuepool(
                     logger.warning(f"⚠️ 카테고리 '{name_or_id}' 매칭 실패: ESG 분류 및 이슈풀 정보 없음")
                     
             except Exception as e:
-                logger.error(f"❌ 카테고리 '{name_or_id}' 매칭 중 개별 오류: {str(e)}")
+                logger.error(f"❌ 카테고리 '{name_or_id}' 매칭 중 오류: {str(e)}")
                 # 오류 발생 시에도 기본값으로 설정
                 matched_category = {
                     **category_info,
@@ -500,12 +503,6 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
 
         # 8) 카테고리별 ESG 분류 및 이슈풀 매칭
         logger.info("🔗 카테고리별 ESG 분류 및 이슈풀 매칭 시작")
-        logger.info(f"🔍 매칭 시작 전 정보:")
-        logger.info(f"   - 기업명: {request.company_id}")
-        logger.info(f"   - 검색 연도: {search_year}")
-        logger.info(f"   - 랭킹된 카테고리 수: {len(ranked_categories)}")
-        # logger.info(f"   - 첫 번째 카테고리 예시: {ranked_categories[0] if ranked_categories else 'None'}")
-        
         matched_categories = await match_categories_with_esg_and_issuepool(
             ranked_categories, 
             request.company_id, 
@@ -514,31 +511,34 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
 
         # 9) 통계/로깅
         negative_count = sum(1 for a in labeled_articles if a["sentiment"] == "negative")
-        logger.info(f"분석된 기사 수: {len(labeled_articles)}")
-        logger.info(f"부정적 기사 수: {negative_count}")
-        logger.info(f"분석된 카테고리 수: {len(category_scores)}")
-        logger.info(f"매칭된 카테고리 수: {len(matched_categories)}")
+        logger.info(f"📊 분석 완료 통계:")
+        logger.info(f"   - 분석된 기사 수: {len(labeled_articles)}")
+        logger.info(f"   - 부정적 기사 수: {negative_count}")
+        logger.info(f"   - 분석된 카테고리 수: {len(category_scores)}")
+        logger.info(f"   - 매칭된 카테고리 수: {len(matched_categories)}")
 
-        # 🔥 상위 10개 (매칭 결과 포함)
-        logger.info("\n📊 상위 카테고리(Top 10) - ESG 분류 및 이슈풀 매칭:")
-        for row in matched_categories[:10]:
+        # 🔥 최종 카테고리 순위 (ESG 분류 및 base issuepool 매칭 결과)
+        logger.info("\n🏆 최종 카테고리 순위 (ESG 분류 및 base issuepool 매칭 완료):")
+        for i, row in enumerate(matched_categories[:10]):  # 상위 10개
             esg_name = row.get('esg_classification', '미분류')
             issue_count = len(row.get('base_issuepools', []))
+            final_score = row.get('final_score', 0.0)
             logger.info(
-                f"{row['rank']:>2}위 | cat={row['category']} | ESG={esg_name} | "
-                f"이슈풀={issue_count}개 | final={row['final_score']:.3f}"
-            )
-
-        # 🔥 전체 카테고리 순위 출력 (매칭 결과 포함)
-        logger.info("\n📊 전체 카테고리 순위 - ESG 분류 및 이슈풀 매칭:")
-        for row in matched_categories:
-            esg_name = row.get('esg_classification', '미분류')
-            issue_count = len(row.get('base_issuepools', []))
-            logger.info(
-                f"{row['rank']:>2}위 | cat={row['category']} | ESG={esg_name} | "
-                f"이슈풀={issue_count}개 | final={row['final_score']:.3f}"
+                f"{i+1:>2}위 | 카테고리: {row['category']} | ESG: {esg_name} | "
+                f"이슈풀: {issue_count}개 | 최종점수: {final_score:.3f}"
             )
             
+            # base issuepool 상세 정보 (상위 3개만)
+            base_issuepools = row.get('base_issuepools', [])
+            if base_issuepools:
+                for j, pool in enumerate(base_issuepools[:3]):
+                    logger.info(f"     {j+1}. {pool.get('base_issue_pool', 'N/A')} (순위: {pool.get('ranking', 'N/A')})")
+                if len(base_issuepools) > 3:
+                    logger.info(f"     ... 외 {len(base_issuepools) - 3}개")
+
+        # 🔥 전체 카테고리 순위 요약
+        logger.info(f"\n📋 전체 {len(matched_categories)}개 카테고리 매칭 완료")
+        logger.info("="*50)
 
         # 9) 응답
         response_data = {
