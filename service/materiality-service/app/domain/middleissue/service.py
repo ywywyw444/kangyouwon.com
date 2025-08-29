@@ -533,6 +533,34 @@ async def match_categories_with_esg_and_issuepool(
         logger.info(f"   - 총 IssuePool: {total_issuepools}개")
         logger.info(f"   - ESG 분포: {esg_distribution}")
         
+        # 🔍 base_issue_pool 내용 상세 확인 (상위 5개 카테고리만)
+        logger.info(f"🔍 base_issue_pool 상세 내용 확인 (상위 5개 카테고리):")
+        for i, category_info in enumerate(matched_categories[:5]):
+            category_key = str(category_info['category'])
+            base_issuepools = category_info.get('base_issuepools', [])
+            esg_name = category_info.get('esg_classification', '미분류')
+            
+            logger.info(f"   {i+1}. 카테고리 '{category_key}' (ESG: {esg_name}):")
+            logger.info(f"      - base_issue_pool 수: {len(base_issuepools)}개")
+            
+            if base_issuepools:
+                # 상위 3개만 상세 로깅
+                for j, pool in enumerate(base_issuepools[:3]):
+                    logger.info(f"        {j+1}. {pool.get('base_issue_pool', 'N/A')}")
+                    logger.info(f"           issue_pool: {pool.get('issue_pool', 'N/A')}")
+                    logger.info(f"           ranking: {pool.get('ranking', 'N/A')}")
+                
+                if len(base_issuepools) > 3:
+                    logger.info(f"        ... 외 {len(base_issuepools) - 3}개")
+            else:
+                logger.info(f"        - base_issue_pool 없음")
+        
+        # 나머지 카테고리는 요약만
+        if len(matched_categories) > 5:
+            remaining_categories = matched_categories[5:]
+            remaining_issuepools = sum(len(cat.get('base_issuepools', [])) for cat in remaining_categories)
+            logger.info(f"   ... 나머지 {len(remaining_categories)}개 카테고리: 총 {remaining_issuepools}개 base_issue_pool")
+        
         return matched_categories
         
     except Exception as e:
@@ -648,7 +676,6 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info(f"기업명: {request.company_id}")
         logger.info(f"보고기간: {request.report_period}")
         logger.info(f"요청 타입: {request.request_type}")
-        logger.info(f"타임스탬프: {request.timestamp}")
         logger.info(f"총 크롤링 기사 수: {request.total_results}")
         logger.info("-"*50)
 
@@ -675,8 +702,7 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         prev_year_categories = {str(issue.category_id) for issue in corp_issues_prev.year_issues}
         reference_categories = {str(issue.category_id) for issue in corp_issues_prev.common_issues}
         
-        logger.info(f"🔍 prev_year_categories: {len(prev_year_categories)}개 - {prev_year_categories}")
-        logger.info(f"🔍 reference_categories: {len(reference_categories)}개 - {reference_categories}")
+        logger.info(f"🔍 prev_year_categories: {len(prev_year_categories)}개, reference_categories: {len(reference_categories)}개")
 
         # 5) 라벨 부여
         logger.info("🏷️ 라벨(relevance/recent/rank/reference) 부여 시작")
@@ -733,10 +759,6 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             search_year
         )
 
-        # 6) 최종 순위 결정 및 ESG 분류 매칭
-        logger.info(f"🔍 최종 순위 결정 및 ESG 분류 매칭 완료")
-        logger.info(f"✅ match_categories_with_esg_and_issuepool에서 이미 ESG 분류 매칭 완료")
-
         # 9) 통계/로깅
         negative_count = sum(1 for a in labeled_articles if a["sentiment"] == "negative")
         logger.info(f"📊 분석 완료 통계:")
@@ -745,9 +767,9 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info(f"   - 분석된 카테고리 수: {len(category_scores)}")
         logger.info(f"   - 매칭된 카테고리 수: {len(matched_categories)}")
 
-        # 🔥 최종 카테고리 순위 (ESG 분류 및 base issuepool 매칭 결과) - 상위 10개만 info로
-        logger.info("\n🏆 최종 카테고리 순위 (상위 10개):")
-        for i, row in enumerate(matched_categories[:10]):
+        # 🔥 최종 카테고리 순위 (상위 5개만 info로)
+        logger.info("\n🏆 최종 카테고리 순위 (상위 5개):")
+        for i, row in enumerate(matched_categories[:5]):
             esg_name = row.get('esg_classification', '미분류')
             issue_count = len(row.get('base_issuepools', []))
             final_score = row.get('final_score', 0.0)
@@ -757,16 +779,8 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             )
         
         # 나머지는 debug 레벨로
-        if len(matched_categories) > 10:
-            logger.debug(f"📋 나머지 {len(matched_categories) - 10}개 카테고리 (debug 레벨)")
-            for i, row in enumerate(matched_categories[10:], 11):
-                esg_name = row.get('esg_classification', '미분류')
-                issue_count = len(row.get('base_issuepools', []))
-                final_score = row.get('final_score', 0.0)
-                logger.debug(
-                    f"{i:>2}위 | 카테고리: {row['category']} | ESG: {esg_name} | "
-                    f"이슈풀: {issue_count}개 | 최종점수: {final_score:.3f}"
-                )
+        if len(matched_categories) > 5:
+            logger.debug(f"📋 나머지 {len(matched_categories) - 5}개 카테고리 (debug 레벨)")
 
         # 🔥 전체 카테고리 순위 요약
         logger.info(f"\n📋 전체 {len(matched_categories)}개 카테고리 매칭 완료")
