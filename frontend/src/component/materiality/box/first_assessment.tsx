@@ -20,7 +20,7 @@ interface FirstAssessmentProps {
   selectedBaseIssuePool: string;
   allCategories: any[];
   selectedNewCategory: string;
-  newCategoryRank: number;
+  newCategoryRank: string;
   newBaseIssuePool: string;
   isCustomBaseIssuePool: boolean;
   customBaseIssuePoolText: string;
@@ -35,7 +35,7 @@ interface FirstAssessmentProps {
   setSelectedBaseIssuePool: (option: string) => void;
   setAllCategories: (categories: any[]) => void;
   setSelectedNewCategory: (category: string) => void;
-  setNewCategoryRank: (rank: number) => void;
+  setNewCategoryRank: (rank: string) => void;
   setNewBaseIssuePool: (pool: string) => void;
   setIsCustomBaseIssuePool: (custom: boolean) => void;
   setCustomBaseIssuePoolText: (text: string) => void;

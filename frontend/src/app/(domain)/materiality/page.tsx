@@ -86,7 +86,7 @@ export default function MaterialityHomePage() {
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [allCategories, setAllCategories] = useState<any[]>([]);
   const [selectedNewCategory, setSelectedNewCategory] = useState<string>('');
-  const [newCategoryRank, setNewCategoryRank] = useState<number>(1);
+  const [newCategoryRank, setNewCategoryRank] = useState<string>('');
   const [newBaseIssuePool, setNewBaseIssuePool] = useState<string>('');
   const [isCustomBaseIssuePool, setIsCustomBaseIssuePool] = useState(false);
   const [customBaseIssuePoolText, setCustomBaseIssuePoolText] = useState<string>('');
@@ -668,7 +668,7 @@ export default function MaterialityHomePage() {
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* 왼쪽: 카테고리 선택 */}
                     <div className="space-y-4">
-                      <h3 className="text-lg font-medium text-gray-700">1️⃣ 카테고리 선택</h3>
+                      <h3 className="text-lg font-semibold text-gray-900">1️⃣ 카테고리 선택</h3>
                       <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4">
                         <div className="grid grid-cols-1 gap-2">
                           {allCategories.map((category: any, index: number) => (
@@ -696,9 +696,9 @@ export default function MaterialityHomePage() {
                               }`}
                             >
                               <div className="flex items-center justify-between">
-                                <span className="font-medium">{category.name || category}</span>
+                                <span className="font-semibold text-gray-900">{category.name || category}</span>
                                 {category.esg_classification && (
-                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                                     category.esg_classification === '환경' ? 'bg-green-100 text-green-700' :
                                     category.esg_classification === '사회' ? 'bg-orange-100 text-orange-700' :
                                     category.esg_classification === '지배구조' ? 'bg-blue-100 text-blue-700' :
@@ -717,19 +717,19 @@ export default function MaterialityHomePage() {
 
                     {/* 오른쪽: Base Issue Pool 선택 및 순위 설정 */}
                     <div className="space-y-4">
-                      <h3 className="text-lg font-medium text-gray-700">2️⃣ Base Issue Pool 선택</h3>
+                      <h3 className="text-lg font-semibold text-gray-900">2️⃣ Base Issue Pool 선택</h3>
                       
                       {selectedNewCategory && (
                         <div className="space-y-4">
                           {/* 선택된 카테고리 정보 */}
                           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <h4 className="font-medium text-blue-800 mb-2">선택된 카테고리</h4>
-                            <p className="text-blue-700">{selectedNewCategory}</p>
+                            <h4 className="font-semibold text-blue-800 mb-2">선택된 카테고리</h4>
+                            <p className="text-blue-700 font-semibold">{selectedNewCategory}</p>
                             {(() => {
                               const selectedCat = allCategories.find(cat => cat.name === selectedNewCategory);
                               return selectedCat?.esg_classification ? (
                                 <div className="mt-2">
-                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                                     selectedCat.esg_classification === '환경' ? 'bg-green-100 text-green-700' :
                                     selectedCat.esg_classification === '사회' ? 'bg-orange-100 text-orange-700' :
                                     selectedCat.esg_classification === '지배구조' ? 'bg-blue-100 text-blue-700' :
@@ -745,13 +745,13 @@ export default function MaterialityHomePage() {
 
                           {/* Base Issue Pool 선택 */}
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-semibold text-gray-900 mb-2">
                               Base Issue Pool
                             </label>
                             <select
                               value={newBaseIssuePool}
                               onChange={(e) => setNewBaseIssuePool(e.target.value)}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
                             >
                               <option value="">Base Issue Pool을 선택하세요</option>
                               {baseIssuePoolOptions.map((option: string, index: number) => (
@@ -764,15 +764,15 @@ export default function MaterialityHomePage() {
 
                           {/* 순위 설정 */}
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <label className="block text-sm font-semibold text-gray-900 mb-2">
                               순위
                             </label>
                             <input
                               type="number"
                               min="1"
                               value={newCategoryRank}
-                              onChange={(e) => setNewCategoryRank(parseInt(e.target.value) || 1)}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              onChange={(e) => setNewCategoryRank(e.target.value)}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
                             />
                           </div>
 
@@ -829,7 +829,7 @@ export default function MaterialityHomePage() {
                         addNewCategory(
                           selectedNewCategory,
                           newBaseIssuePool,
-                          newCategoryRank,
+                          parseInt(newCategoryRank) || 1,
                           assessmentResult,
                           setAssessmentResult,
                           setIsAddCategoryModalOpen,
