@@ -66,7 +66,8 @@ export default function MaterialityHomePage() {
     deleteRow,
     reset,
     loadFromStorage,
-    saveToLocalStorage
+    saveToLocalStorage,
+    loadUploadedExcelData
   } = useExcelDataStore();
 
   // 화면 표시 제어를 위한 별도 상태
@@ -90,7 +91,7 @@ export default function MaterialityHomePage() {
   const [newBaseIssuePool, setNewBaseIssuePool] = useState<string>('');
   const [isCustomBaseIssuePool, setIsCustomBaseIssuePool] = useState(false);
   const [customBaseIssuePoolText, setCustomBaseIssuePoolText] = useState<string>('');
-  
+
   // 중대성 평가 관련 상태
   const [issuepoolData, setIssuepoolData] = useState<IssuepoolData | null>(null);
   const [isIssuepoolLoading, setIsIssuepoolLoading] = useState(false);
@@ -102,20 +103,6 @@ export default function MaterialityHomePage() {
     negative_ratio: 0,
     total_categories: 0
   });
-
-  // 엑셀 데이터 상태 변경 시 자동으로 localStorage에 저장
-  useEffect(() => {
-    if (excelData.length > 0 || isExcelValid !== null || excelFilename !== null || excelBase64 !== null) {
-      const dataToSave = {
-        excelData,
-        isValid: isExcelValid,
-        fileName: excelFilename,
-        base64Data: excelBase64
-      };
-      localStorage.setItem('excelUploadData', JSON.stringify(dataToSave));
-      console.log('💾 엑셀 데이터 자동 저장:', dataToSave);
-    }
-  }, [excelData, isExcelValid, excelFilename, excelBase64]);
 
   // 로그인한 사용자의 기업 정보 가져오기
   useEffect(() => {
@@ -138,30 +125,10 @@ export default function MaterialityHomePage() {
     getUserCompany();
   }, [companyId]);
 
-  // 페이지 로드 시 localStorage에서 엑셀 데이터 자동 불러오기
+  // 페이지 로드 시 업로드된 엑셀 데이터만 자동 불러오기
   useEffect(() => {
-    const loadExcelDataFromStorage = () => {
-      try {
-        const savedData = localStorage.getItem('excelUploadData');
-        if (savedData) {
-          const parsedData = JSON.parse(savedData);
-          console.log('📂 localStorage에서 엑셀 데이터 불러오기:', parsedData);
-          
-          if (parsedData.excelData && parsedData.excelData.length > 0) {
-            setExcelData(parsedData.excelData);
-            setIsExcelValid(parsedData.isValid);
-            setExcelFilename(parsedData.fileName);
-            setExcelBase64(parsedData.base64Data);
-            console.log('✅ 엑셀 데이터 자동 로드 완료');
-          }
-        }
-      } catch (error) {
-        console.error('localStorage에서 엑셀 데이터 불러오기 실패:', error);
-      }
-    };
-
-    loadExcelDataFromStorage();
-  }, []);
+    loadUploadedExcelData();
+  }, []); // loadUploadedExcelData는 Zustand store에서 가져오므로 의존성 배열에서 제외
 
   // 기업 목록 가져오기
   useEffect(() => {
@@ -302,7 +269,7 @@ export default function MaterialityHomePage() {
             />
           )}
   
-          {/* 지난 중대성 평가 목록 */}
+                    {/* 지난 중대성 평가 목록 */}
           <FirstAssessment
             companyId={companyId || ''}
             searchResult={searchResult}
@@ -338,8 +305,12 @@ export default function MaterialityHomePage() {
             setIsCustomBaseIssuePool={setIsCustomBaseIssuePool}
             setCustomBaseIssuePoolText={setCustomBaseIssuePoolText}
             setIsDetailModalOpen={setIsDetailModalOpen}
+            excelData={excelData}
           />
-  
+
+          {/* 설문 관리 섹션 */}
+          <SurveyManagement excelData={excelData} />
+
           {/* 설문 대상 업로드 */}
           <SurveyUpload
             excelData={excelData}
@@ -354,11 +325,9 @@ export default function MaterialityHomePage() {
             setIsDataHidden={setIsDataHidden}
             updateRow={updateRow}
             deleteRow={deleteRow}
+            loadUploadedExcelData={loadUploadedExcelData}
           />
-  
-          {/* 설문 관리 섹션 */}
-          <SurveyManagement excelData={excelData} />
-  
+
           {/* 설문 결과 확인 */}
           <SurveyResult excelData={excelData} />
   

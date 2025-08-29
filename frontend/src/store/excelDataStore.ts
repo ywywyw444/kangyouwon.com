@@ -22,6 +22,10 @@ interface ExcelDataStore {
   reset: () => void;
   loadFromStorage: () => void;
   saveToLocalStorage: () => void;
+  // 업로드된 엑셀 데이터만 저장하는 메서드 추가
+  saveUploadedExcelData: () => void;
+  // 저장된 업로드 데이터만 불러오는 메서드 추가
+  loadUploadedExcelData: () => void;
 }
 
 const saveToLocalStorage = (state: Partial<ExcelDataStore>) => {
@@ -47,6 +51,32 @@ const loadFromLocalStorage = (): Partial<ExcelDataStore> => {
   }
 };
 
+// 업로드된 엑셀 데이터만 저장하는 함수
+const saveUploadedExcelData = (state: Partial<ExcelDataStore>) => {
+  try {
+    localStorage.setItem('uploadedExcelData', JSON.stringify({
+      excelData: state.excelData,
+      isValid: state.isValid,
+      fileName: state.fileName,
+      base64Data: state.base64Data,
+    }));
+    console.log('💾 업로드된 엑셀 데이터 저장 완료');
+  } catch (error) {
+    console.error('Failed to save uploaded excel data:', error);
+  }
+};
+
+// 저장된 업로드 데이터만 불러오는 함수
+const loadUploadedExcelData = (): Partial<ExcelDataStore> => {
+  try {
+    const saved = localStorage.getItem('uploadedExcelData');
+    return saved ? JSON.parse(saved) : {};
+  } catch (error) {
+    console.error('Failed to load uploaded excel data:', error);
+    return {};
+  }
+};
+
 export const useExcelDataStore = create<ExcelDataStore>((set, get) => {
   // 초기 상태를 로컬스토리지에서 불러옴
   const savedState = loadFromLocalStorage();
@@ -59,22 +89,26 @@ export const useExcelDataStore = create<ExcelDataStore>((set, get) => {
 
     setExcelData: (data) => {
       set({ excelData: data });
-      saveToLocalStorage({ ...get(), excelData: data });
+      // 업로드된 엑셀 데이터만 별도로 저장
+      saveUploadedExcelData({ ...get(), excelData: data });
     },
 
     setIsValid: (isValid) => {
       set({ isValid });
-      saveToLocalStorage({ ...get(), isValid });
+      // 업로드된 엑셀 데이터만 별도로 저장
+      saveUploadedExcelData({ ...get(), isValid });
     },
 
     setFileName: (name) => {
       set({ fileName: name });
-      saveToLocalStorage({ ...get(), fileName: name });
+      // 업로드된 엑셀 데이터만 별도로 저장
+      saveUploadedExcelData({ ...get(), fileName: name });
     },
 
     setBase64Data: (data) => {
       set({ base64Data: data });
-      saveToLocalStorage({ ...get(), base64Data: data });
+      // 업로드된 엑셀 데이터만 별도로 저장
+      saveUploadedExcelData({ ...get(), base64Data: data });
     },
 
     updateRow: (index: number, updatedData: ExcelRow) => {
@@ -110,6 +144,21 @@ export const useExcelDataStore = create<ExcelDataStore>((set, get) => {
     saveToLocalStorage: () => {
       const currentState = get();
       saveToLocalStorage(currentState);
+    },
+
+    saveUploadedExcelData: () => {
+      const currentState = get();
+      saveUploadedExcelData(currentState);
+    },
+
+    loadUploadedExcelData: () => {
+      const savedState = loadUploadedExcelData();
+      set({
+        excelData: savedState.excelData || [],
+        isValid: savedState.isValid || false,
+        fileName: savedState.fileName || null,
+        base64Data: savedState.base64Data || null,
+      });
     },
   };
 });

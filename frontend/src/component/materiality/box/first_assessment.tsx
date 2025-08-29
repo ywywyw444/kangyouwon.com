@@ -40,6 +40,7 @@ interface FirstAssessmentProps {
   setIsCustomBaseIssuePool: (custom: boolean) => void;
   setCustomBaseIssuePoolText: (text: string) => void;
   setIsDetailModalOpen: (open: boolean) => void;
+  excelData: any[];
 }
 
 const FirstAssessment: React.FC<FirstAssessmentProps> = ({
@@ -76,7 +77,8 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
   setNewBaseIssuePool,
   setIsCustomBaseIssuePool,
   setCustomBaseIssuePoolText,
-  setIsDetailModalOpen
+  setIsDetailModalOpen,
+  excelData
 }) => {
   const saveAssessmentResult = () => {
     if (assessmentResult) {
@@ -705,6 +707,93 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                   </svg>
                   중간 평가 과정 확인하기
+                </button>
+              </div>
+
+              {/* 설문 진행하기 버튼 */}
+              <div className="mt-3">
+                <button
+                  onClick={() => {
+                    // 설문 진행을 위한 JSON 데이터 생성
+                    const resultData = assessmentResult?.data || assessmentResult;
+                    const categories = resultData?.matched_categories || [];
+                    
+                    if (categories.length > 0) {
+                      // 설문 진행용 JSON 데이터 생성
+                      const surveyData = {
+                        company_id: companyId,
+                        timestamp: new Date().toISOString(),
+                        total_categories: categories.length,
+                        categories: categories.map((cat: any) => ({
+                          rank: cat.rank,
+                          category: cat.category,
+                          selected_base_issue_pool: cat.selected_base_issue_pool,
+                          esg_classification: cat.esg_classification,
+                          final_score: cat.final_score,
+                          frequency_score: cat.frequency_score,
+                          relevance_score: cat.relevance_score,
+                          recent_score: cat.recent_score,
+                          rank_score: cat.rank_score,
+                          reference_score: cat.reference_score,
+                          negative_score: cat.negative_score
+                        })),
+                        excel_data: excelData.length > 0 ? {
+                          total_companies: excelData.length,
+                          companies: excelData.map((row: any) => ({
+                            name: row.name,
+                            position: row.position,
+                            company: row.company,
+                            stakeholder_type: row.stakeholderType,
+                            email: row.email
+                          }))
+                        } : null
+                      };
+                      
+                      // JSON 데이터를 콘솔에 출력
+                      console.log('📋 설문 진행용 JSON 데이터:', surveyData);
+                      
+                      // JSON 데이터를 클립보드에 복사
+                      navigator.clipboard.writeText(JSON.stringify(surveyData, null, 2)).then(() => {
+                        alert(`✅ 설문 진행용 데이터가 클립보드에 복사되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n🏢 총 ${excelData.length}개 기업\n\nJSON 데이터는 콘솔에서도 확인할 수 있습니다.`);
+                      }).catch(() => {
+                        // 클립보드 복사 실패 시 다운로드 파일로 제공
+                        const blob = new Blob([JSON.stringify(surveyData, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `설문진행데이터_${companyId || 'unknown'}_${new Date().toISOString().split('T')[0]}.json`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        
+                        alert(`✅ 설문 진행용 데이터가 다운로드되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n🏢 총 ${excelData.length}개 기업\n\n파일명: 설문진행데이터_${companyId || 'unknown'}_${new Date().toISOString().split('T')[0]}.json`);
+                      });
+                    } else {
+                      alert('❌ 설문을 진행할 수 있는 카테고리 데이터가 없습니다.\n먼저 중대성 평가를 완료해주세요.');
+                    }
+                  }}
+                  disabled={(() => {
+                    // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                    const resultData = assessmentResult?.data || assessmentResult;
+                    const categories = resultData?.matched_categories || [];
+                    return categories.length === 0;
+                  })()}
+                  className={`inline-flex items-center px-6 py-3 border border-blue-300 text-sm font-medium rounded-md transition-colors duration-200 ${
+                    (() => {
+                      // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+                      const resultData = assessmentResult?.data || assessmentResult;
+                      const categories = resultData?.matched_categories || [];
+                      return categories.length > 0;
+                    })()
+                      ? 'text-blue-700 bg-white hover:bg-blue-50'
+                      : 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                  }`}
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  설문 진행하기
                 </button>
               </div>
             </div>
