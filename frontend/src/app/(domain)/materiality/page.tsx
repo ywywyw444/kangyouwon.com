@@ -308,6 +308,93 @@ export default function MaterialityHomePage() {
             excelData={excelData}
           />
 
+          {/* 설문 진행하기 버튼 */}
+          <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+            <div className="text-center">
+              <button
+                onClick={() => {
+                  // 설문 진행을 위한 JSON 데이터 생성
+                  const resultData = assessmentResult?.data || assessmentResult;
+                  const categories = resultData?.matched_categories || [];
+                  
+                  console.log('🔍 설문 진행 버튼 클릭됨');
+                  console.log('🔍 assessmentResult:', assessmentResult);
+                  console.log('🔍 resultData:', resultData);
+                  console.log('🔍 categories:', categories);
+                  
+                  if (categories.length > 0) {
+                    // 설문 진행용 JSON 데이터 생성
+                    const surveyData = {
+                      company_id: companyId,
+                      timestamp: new Date().toISOString(),
+                      total_categories: categories.length,
+                      categories: categories.map((cat: any) => ({
+                        rank: cat.rank,
+                        category: cat.category || '카테고리명 없음',
+                        selected_base_issue_pool: cat.selected_base_issue_pool || '',
+                        esg_classification: cat.esg_classification || '미분류',
+                        final_score: cat.final_score || 0,
+                        frequency_score: cat.frequency_score || 0,
+                        relevance_score: cat.relevance_score || 0,
+                        recent_score: cat.recent_score || 0,
+                        rank_score: cat.rank_score || 0,
+                        reference_score: cat.reference_score || 0,
+                        negative_score: cat.negative_score || 0
+                      })),
+                      excel_data: excelData.length > 0 ? {
+                        total_companies: excelData.length,
+                        companies: excelData.map((row: any) => ({
+                          name: row.name || '',
+                          position: row.position || '',
+                          company: row.company || '',
+                          stakeholder_type: row.stakeholderType || '',
+                          email: row.email || ''
+                        }))
+                      } : null
+                    };
+                    
+                    // JSON 데이터를 콘솔에 출력
+                    console.log('📋 설문 진행용 JSON 데이터:', surveyData);
+                    
+                    // JSON 데이터를 클립보드에 복사
+                    navigator.clipboard.writeText(JSON.stringify(surveyData, null, 2)).then(() => {
+                      alert(`✅ 설문 진행용 데이터가 클립보드에 복사되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n🏢 총 ${excelData.length}개 기업\n\nJSON 데이터는 콘솔에서도 확인할 수 있습니다.`);
+                    }).catch(() => {
+                      // 클립보드 복사 실패 시 다운로드 파일로 제공
+                      const blob = new Blob([JSON.stringify(surveyData, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `설문진행데이터_${companyId || 'unknown'}_${new Date().toISOString().split('T')[0]}.json`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                      
+                      alert(`✅ 설문 진행용 데이터가 다운로드되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n🏢 총 ${excelData.length}개 기업\n\n파일명: 설문진행데이터_${companyId || 'unknown'}_${new Date().toISOString().split('T')[0]}.json`);
+                    });
+                  } else {
+                    alert('❌ 설문을 진행할 수 있는 카테고리 데이터가 없습니다.\n\n현재 상태:\n- assessmentResult: ' + (assessmentResult ? '있음' : '없음') + '\n- categories: ' + categories.length + '개\n\n먼저 중대성 평가를 완료해주세요.');
+                  }
+                }}
+                disabled={!assessmentResult}
+                className={`inline-flex items-center px-8 py-4 border-2 text-lg font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl ${
+                  assessmentResult
+                    ? 'border-blue-500 text-blue-700 bg-white hover:bg-blue-50 hover:border-blue-600'
+                    : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed'
+                }`}
+              >
+                <svg className="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                설문 생성하기기
+              </button>
+              <p className="text-sm text-gray-600 mt-3">
+                중간 중대성 평가 결과를 바탕으로 설문을 생성합니다
+              </p>
+            </div>
+          </div>
+
           {/* 설문 관리 섹션 */}
           <SurveyManagement excelData={excelData} />
 
