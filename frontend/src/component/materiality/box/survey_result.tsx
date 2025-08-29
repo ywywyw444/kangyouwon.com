@@ -91,27 +91,28 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       
       {stats && (
         <div className="space-y-6">
-          {/* 기본 정보 */}
-          <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
-            <h3 className="text-lg font-semibold text-blue-800 mb-4">📋 설문 기본 정보</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{surveyResult.company_id || 'N/A'}</div>
-                <div className="text-sm text-blue-600">회사명</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{surveyResult.respondent_type || 'N/A'}</div>
-                <div className="text-sm text-blue-600">응답자 유형</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{surveyResult.total_items || 0}</div>
-                <div className="text-sm text-blue-600">총 설문 항목</div>
-              </div>
-            </div>
-            <div className="mt-4 text-center text-sm text-blue-600">
-              제출 시간: {new Date(surveyResult.timestamp).toLocaleString()}
-            </div>
-          </div>
+                     {/* 기본 정보 */}
+           <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
+             <h3 className="text-lg font-semibold text-blue-800 mb-4">📋 설문 기본 정보</h3>
+             <div className="space-y-3">
+               <div className="flex items-center">
+                 <span className="text-gray-700 font-medium w-32">설문 제목:</span>
+                 <span className="text-gray-900">중대성 평가 설문</span>
+               </div>
+               <div className="flex items-center">
+                 <span className="text-gray-700 font-medium w-32">대상 기업:</span>
+                 <span className="text-gray-900">10개</span>
+               </div>
+               <div className="flex items-center">
+                 <span className="text-gray-700 font-medium w-32">설문 항목:</span>
+                 <span className="text-gray-900">0개</span>
+               </div>
+               <div className="flex items-center">
+                 <span className="text-gray-700 font-medium w-32">예상 소요시간:</span>
+                 <span className="text-gray-900">약 10분</span>
+               </div>
+             </div>
+           </div>
 
           {/* ESG 분류별 통계 */}
           <div className="bg-green-50 rounded-lg p-6 border border-green-200">
@@ -283,7 +284,28 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
             </div>
           </div>
 
-          
+          {/* 설문 결과 리셋 */}
+          <div className="bg-red-50 rounded-lg p-6 border border-red-200">
+            <h3 className="text-lg font-semibold text-red-800 mb-4">🔄 설문 결과 관리</h3>
+            <p className="text-sm text-red-600 mb-4">
+              설문 결과를 초기화하면 모든 응답 데이터가 삭제되며 복구할 수 없습니다.
+            </p>
+            <button
+              onClick={() => {
+                if (window.confirm('정말로 설문 결과를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+                  // localStorage에서 설문 결과 제거
+                  localStorage.removeItem('surveyResult');
+                  localStorage.removeItem('surveyData');
+                  
+                  // 페이지 새로고침하여 초기 상태로 복원
+                  window.location.reload();
+                }
+              }}
+              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+            >
+              🗑️ 설문 결과 초기화
+            </button>
+          </div>
         </div>
       )}
     </div>

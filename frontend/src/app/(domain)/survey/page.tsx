@@ -50,42 +50,42 @@ export default function SurveyPage() {
           const data: SurveyData = JSON.parse(savedData);
           setSurveyData(data);
           
-          // ESG 분류별로 카테고리 분리
+                    // ESG 분류별로 카테고리 분리
           const environmental: SurveyItem[] = [];
           const social: SurveyItem[] = [];
           const governance: SurveyItem[] = [];
           
-                     data.categories.forEach((cat, index) => {
-             const surveyItem: SurveyItem = {
-               id: `${cat.esg_classification.toLowerCase()}_${index + 1}`,
-               title: `Q${index + 1}. ${cat.selected_base_issue_pool || cat.category} (${cat.category})`,
-               description: `• ${cat.selected_base_issue_pool || cat.category}이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• ${cat.selected_base_issue_pool || cat.category}에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)`,
-               outsideScore: null,
-               insideScore: null,
-               category: cat.category,
-               esg_classification: cat.esg_classification,
-               rank: index + 1
-             };
-             
-             console.log('📝 설문 항목 생성:', {
-               id: surveyItem.id,
-               title: surveyItem.title,
-               esg_classification: surveyItem.esg_classification
-             });
+          // 전체 설문에서 연속된 번호를 위한 변수
+          let globalQuestionNumber = 1;
+          
+          data.categories.forEach((cat) => {
+            const surveyItem: SurveyItem = {
+              id: `${cat.esg_classification.toLowerCase()}_${globalQuestionNumber}`,
+              title: `Q${globalQuestionNumber}. ${cat.selected_base_issue_pool || cat.category} (${cat.category})`,
+              description: `• ${cat.selected_base_issue_pool || cat.category}이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• ${cat.selected_base_issue_pool || cat.category}에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)`,
+              outsideScore: null,
+              insideScore: null,
+              category: cat.category,
+              esg_classification: cat.esg_classification,
+              rank: globalQuestionNumber
+            };
             
-                         // ESG 분류에 따라 적절한 배열에 추가
-             if (cat.esg_classification.includes('환경')) {
-               environmental.push(surveyItem);
-               console.log('🌱 Environmental에 추가:', surveyItem.id);
-             } else if (cat.esg_classification.includes('사회')) {
-               social.push(surveyItem);
-               console.log('👥 Social에 추가:', surveyItem.id);
-             } else if (cat.esg_classification.includes('지배구조') || cat.esg_classification.includes('경제')) {
-               governance.push(surveyItem);
-               console.log('🏛️ Governance에 추가:', surveyItem.id);
-             } else {
-               console.log('⚠️ 분류되지 않은 항목:', cat.esg_classification, surveyItem.id);
-             }
+            // ESG 분류에 따라 적절한 배열에 추가
+            if (cat.esg_classification.includes('환경')) {
+              environmental.push(surveyItem);
+              console.log('🌱 Environmental에 추가:', surveyItem.id);
+            } else if (cat.esg_classification.includes('사회')) {
+              social.push(surveyItem);
+              console.log('👥 Social에 추가:', surveyItem.id);
+            } else if (cat.esg_classification.includes('지배구조') || cat.esg_classification.includes('경제')) {
+              governance.push(surveyItem);
+              console.log('🏛️ Governance에 추가:', surveyItem.id);
+            } else {
+              console.log('⚠️ 분류되지 않은 항목:', cat.esg_classification, surveyItem.id);
+            }
+            
+            // 다음 질문 번호로 증가
+            globalQuestionNumber++;
           });
           
           setEnvironmentalItems(environmental);
