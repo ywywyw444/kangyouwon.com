@@ -4,7 +4,7 @@ Category Repository - BaseModel을 받아서 데이터베이스 작업을 수행
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, text
-from app.common.database.materiality_db import get_db
+from app.common.database.issuepool_db import get_db
 import logging
 
 logger = logging.getLogger(__name__)
