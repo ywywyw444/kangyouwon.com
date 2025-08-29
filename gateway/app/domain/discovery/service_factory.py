@@ -1,14 +1,50 @@
-from __future__ import annotations
-
+"""
+Service Factory - 서비스 디스커버리 및 프록시 기능
+"""
 import os
 import json
 import logging
-from typing import Optional, Tuple, Dict, Any, Union
-
-import httpx
+from typing import Optional, Dict, Any, Union, Tuple
 from fastapi import HTTPException
+import httpx
+from starlette.responses import Response, JSONResponse
 
 logger = logging.getLogger(__name__)
+
+# 타임아웃 설정을 환경변수로 관리
+DEFAULT_CONNECT_TIMEOUT = float(os.getenv("HTTPX_CONNECT_TIMEOUT", "5"))
+DEFAULT_READ_TIMEOUT = float(os.getenv("HTTPX_READ_TIMEOUT", "120"))
+DEFAULT_WRITE_TIMEOUT = float(os.getenv("HTTPX_WRITE_TIMEOUT", "120"))
+DEFAULT_POOL_TIMEOUT = float(os.getenv("HTTPX_POOL_TIMEOUT", "5"))
+
+TIMEOUT = httpx.Timeout(
+    connect=DEFAULT_CONNECT_TIMEOUT,
+    read=DEFAULT_READ_TIMEOUT,
+    write=DEFAULT_WRITE_TIMEOUT,
+    pool=DEFAULT_POOL_TIMEOUT,
+)
+
+LIMITS = httpx.Limits(
+    max_connections=int(os.getenv("HTTPX_MAX_CONNECTIONS", "100")),
+    max_keepalive_connections=int(os.getenv("HTTPX_MAX_KEEPALIVE", "20")),
+    keepalive_expiry=60.0,
+)
+
+# 전달할 헤더 필터링
+PASS_HEADER_PREFIXES = ("content-type", "set-cookie", "cache-control", "expires", "pragma")
+
+def _filter_headers(headers: Dict[str, str]) -> Dict[str, str]:
+    """전달할 헤더만 필터링"""
+    return {k: v for k, v in headers.items() if k.lower().startswith(PASS_HEADER_PREFIXES)}
+
+async def _as_starlette_response(resp: httpx.Response) -> Response:
+    """httpx.Response를 Starlette Response로 변환 (항상 동일 타입 반환 보장)"""
+    return Response(
+        content=resp.content,
+        status_code=resp.status_code,
+        headers=_filter_headers(resp.headers),
+        media_type=resp.headers.get("content-type")
+    )
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 서비스 URL 매핑 (환경변수 우선)
@@ -67,8 +103,8 @@ async def get_client() -> httpx.AsyncClient:
     global _CLIENT
     if _CLIENT is None:
         _CLIENT = httpx.AsyncClient(
-            timeout=httpx.Timeout(connect=5.0, read=120.0),  # read 타임아웃을 120초로 증가
-            limits=httpx.Limits(max_keepalive_connections=20, max_connections=100),
+            timeout=TIMEOUT,
+            limits=LIMITS,
         )
     return _CLIENT
 
@@ -157,37 +193,34 @@ def prepend_path(prefix: str, path: str) -> str:
     return f"{p1}{p2}"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ServiceProxyFactory: 직접 서비스명 알고 있을 때 쓰는 경량 프록시
+# ServiceFactory: 특정 서비스에 대한 직접 호출 (별칭 없음)
 # ─────────────────────────────────────────────────────────────────────────────
-class ServiceProxyFactory:
+class ServiceFactory:
     def __init__(self, service_name: str):
         self.service_name = service_name
-        self.base_url = SERVICE_URLS.get(service_name)
-        if not self.base_url:
-            raise ValueError(f"Service {service_name} not found in SERVICE_URLS")
-        logger.info(f"🔗 Service URL: {self.base_url}")
+        self.service_url = SERVICE_URLS.get(service_name)
+        if not self.service_url:
+            raise ValueError(f"Unknown service: {service_name}")
 
-    async def request(
+    async def call(
         self,
-        method: str,
         path: str,
+        method: str = "GET",
         headers: Optional[dict] = None,
         body: Optional[Union[str, Dict[str, Any], list]] = None
-    ) -> httpx.Response:
+    ) -> Response:
         # 직접 호출 시에도 서비스 고정 프리픽스를 강제하여 일관성 유지
         path_with_prefix = ensure_required_prefix(self.service_name, path)
-        url = join_url(self.base_url, path_with_prefix)
+        url = join_url(self.service_url, path_with_prefix)
 
-        logger.info(f"➡️  Proxy → {self.service_name}: {method} {url} (orig_path={path})")
+        logger.info(f"➡️  Direct call → {self.service_name}: {method} {url}")
 
         client = await get_client()
         try:
             req_kwargs = prepare_request_kwargs(method, url, headers, body)
-            if body:
-                logger.debug(f"Request body: {body if isinstance(body, str) else json.dumps(body, ensure_ascii=False)}")
             resp = await client.request(**req_kwargs)
             logger.info(f"⬅️  {self.service_name} status: {resp.status_code}")
-            return resp
+            return await _as_starlette_response(resp)
         except Exception as e:
             logger.exception(f"Request failed: {e}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -206,14 +239,14 @@ class SimpleServiceFactory:
         path: str,
         headers: Optional[Dict[str, str]] = None,
         body: Optional[Union[str, Dict[str, Any], list]] = None,
-    ) -> Dict[str, Any]:
+    ) -> Response:
         try:
             service_name, actual_path = parse_gateway_path(path)
 
             # 루트로 들어오면 간단 응답
             if service_name is None:
                 logger.info("🌐 Gateway root requested; returning simple health response.")
-                return {"status_code": 200, "data": {"ok": True, "gateway": "up"}}
+                return JSONResponse(content={"ok": True, "gateway": "up"})
 
             # 별칭 → 실제 서비스명 매핑 (예: /search → materiality-service)
             if service_name in ALIAS_TO_SERVICE:
@@ -237,7 +270,7 @@ class SimpleServiceFactory:
 
         except Exception as e:
             logger.exception(f"❌ Forward failed: {e}")
-            return {"error": True, "detail": str(e)}
+            return JSONResponse(status_code=500, content={"error": True, "detail": str(e)})
 
     async def _handle_known_service(
         self,
@@ -246,11 +279,11 @@ class SimpleServiceFactory:
         raw_path: str,
         headers: Optional[Dict[str, str]] = None,
         body: Optional[Union[str, Dict[str, Any], list]] = None,
-    ) -> Dict[str, Any]:
+    ) -> Response:
         service_url = self.service_urls.get(service_name)
         if not service_url:
             logger.error(f"❌ Unknown service: {service_name}")
-            return {"error": True, "status_code": 404, "detail": f"Service {service_name} not found"}
+            return JSONResponse(status_code=404, content={"error": True, "detail": f"Service {service_name} not found"})
 
         # ✅ 핵심: "해당 서비스가 기대하는 프리픽스"를 반드시 붙인다 (auth 방식과 동일)
         path_with_prefix = ensure_required_prefix(service_name, raw_path)
@@ -264,24 +297,13 @@ class SimpleServiceFactory:
             resp = await client.request(**req_kwargs)
             logger.info(f"⬅️  {service_name} status: {resp.status_code}")
 
-            return await self._to_dict_response(resp)
+            return await _as_starlette_response(resp)
         except httpx.ReadTimeout as e:
             logger.error(f"⏰ {service_name} 타임아웃 발생: {e}")
-            return {"error": True, "status_code": 504, "detail": f"Upstream timeout ({service_name})"}
+            return JSONResponse(status_code=504, content={"error": True, "detail": f"Upstream timeout ({service_name})"})
         except httpx.ConnectTimeout as e:
             logger.error(f"🔌 {service_name} 연결 타임아웃: {e}")
-            return {"error": True, "status_code": 504, "detail": f"Connection timeout ({service_name})"}
+            return JSONResponse(status_code=504, content={"error": True, "detail": f"Connection timeout ({service_name})"})
         except Exception as e:
             logger.exception(f"❌ {service_name} request failed: {e}")
-            return {"error": True, "detail": str(e)}
-
-    # ────────────── 공통 응답 변환 ──────────────
-    @staticmethod
-    async def _to_dict_response(resp: httpx.Response) -> Dict[str, Any]:
-        if resp.status_code < 400:
-            try:
-                return {"status_code": resp.status_code, "data": resp.json()}
-            except Exception:
-                return {"status_code": resp.status_code, "data": resp.text}
-        else:
-            return {"error": True, "status_code": resp.status_code, "detail": resp.text}
+            return JSONResponse(status_code=500, content={"error": True, "detail": str(e)})

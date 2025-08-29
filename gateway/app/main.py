@@ -190,13 +190,8 @@ async def proxy_post_json(
             body=body
         )
 
-        if response.get("error"):
-            return JSONResponse(
-                content={"detail": response.get("detail", "Unknown error")},
-                status_code=response.get("status_code", 500)
-            )
-        
-        return JSONResponse(content=response.get("data", {}), status_code=response.get("status_code", 200))
+        # 이제 response는 Starlette Response이므로 직접 반환
+        return response
 
     except HTTPException as he:
         return JSONResponse(content={"detail": he.detail}, status_code=he.status_code)
@@ -258,13 +253,8 @@ async def proxy_delete(service: str, path: str, request: Request):
             body=await request.body()
         )
         
-        if response.get("error"):
-            return JSONResponse(
-                content={"detail": response.get("detail", "Unknown error")},
-                status_code=response.get("status_code", 500)
-            )
-        
-        return JSONResponse(content=response.get("data", {}), status_code=response.get("status_code", 200))
+        # 이제 response는 Starlette Response이므로 직접 반환
+        return response
     except Exception as e:
         logger.error(f"Error in DELETE proxy: {str(e)}")
         return JSONResponse(
@@ -290,13 +280,8 @@ async def proxy_patch(service: str, path: str, request: Request):
             body=await request.body()
         )
         
-        if response.get("error"):
-            return JSONResponse(
-                content={"detail": response.get("detail", "Unknown error")},
-                status_code=response.get("status_code", 500)
-            )
-        
-        return JSONResponse(content=response.get("data", {}), status_code=response.get("status_code", 200))
+        # 이제 response는 Starlette Response이므로 직접 반환
+        return response
     except Exception as e:
         logger.error(f"Error in PATCH proxy: {str(e)}")
         return JSONResponse(
