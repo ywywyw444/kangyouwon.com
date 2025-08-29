@@ -4,73 +4,51 @@ Middleissue Repository - BaseModel을 받아서 데이터베이스 작업을 수
 """
 import re
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, cast, Integer, func, text
+from sqlalchemy import select, and_, or_, cast, Integer, func, text, join
 from sqlalchemy.exc import ProgrammingError, DBAPIError
 from typing import List, Optional, Dict
-from app.domain.middleissue.schema import MiddleIssueBase, IssueItem, CorporationIssueResponse
-from app.domain.middleissue.entity import MiddleIssueEntity, CorporationEntity, CategoryEntity
+from app.domain.middleissue.schema import (
+    MiddleIssueBase, IssueItem, CorporationIssueResponse, 
+    CorporationBase, ESGClassificationBase, CategoryBase, CrawledArticleBase,
+    CategoryDetailsResponse, BaseIssuePool
+)
+from app.domain.middleissue.entity import MiddleIssueEntity, CorporationEntity, CategoryEntity, ESGClassificationEntity
 from app.common.database.issuepool_db import get_db
 import logging
 
 logger = logging.getLogger(__name__)
 
-# 카테고리 별칭 매핑 (서비스 레벨에 임시 별칭 매핑)
-CATEGORY_SYNONYMS: Dict[str, str] = {
-    # 표준명 -> 별칭들
-    "폐기물/폐기물관리": "폐기물관리",
-    "재생에너지": "재생에너지",
-    "대기오염": "대기오염",
-    "제품안전/제품품질": "제품품질",
-    "윤리경영/준법경영/부패/뇌물수수": "윤리경영",
-    "지역사회/사회공헌": "사회공헌",
-    "환경영향/환경오염/오염물질/유해화학물질": "환경오염",
-    "고용/일자리": "고용",
-    "임금/인사제도": "임금",
-    "협력사": "협력사",
-    "원재료": "원재료",
-    "인권": "인권",
-    # 추가 별칭들
-    "기후변화/탄소배출": "기후변화",
-    "수질오염/물관리": "수질오염",
-    "생물다양성/자연보호": "생물다양성",
-    "에너지효율/절약": "에너지효율",
-    "순환경제/자원재활용": "순환경제",
-    "공급망관리/협력사": "공급망관리",
-    "노동조건/안전보건": "노동조건",
-    "다양성/포용성": "다양성",
-    "데이터보호/개인정보": "데이터보호",
-    "투명성/정보공개": "투명성",
-    "이사회/지배구조": "이사회",
-    "주주권익/소액주주": "주주권익",
-    "리스크관리/내부통제": "리스크관리",
-    # 필요에 따라 더 추가
-}
+def _safe_text_to_int(text_value: str) -> Optional[int]:
+    """Text 타입의 숫자 문자열을 안전하게 정수로 변환"""
+    if not text_value or not isinstance(text_value, str):
+        return None
+    
+    # 공백 제거 후 숫자만 있는지 확인
+    cleaned = text_value.strip()
+    if cleaned.isdigit():
+        try:
+            return int(cleaned)
+        except (ValueError, TypeError):
+            return None
+    return None
 
-def _normalize_tokens(name: str) -> List[str]:
-    """슬래시 등으로 분리된 카테고리명을 토큰으로 분해"""
-    if not name:
-        return []
-    # '환경영향/환경오염/오염물질/유해화학물질' -> ['환경영향','환경오염','오염물질','유해화학물질']
-    parts = re.split(r"[/|,;]", name)
-    toks = [re.sub(r"\s+", " ", p).strip() for p in parts]
-    return [t for t in toks if t]
-
-# 이름 컬럼 자동 탐색 (모델에 맞게 후보를 늘/줄이세요)
-def _get_category_name_col():
-    candidates = ("name", "category_name", "label", "title", "name_kr", "ko_name", "kr_name")
-    for c in candidates:
-        if hasattr(CategoryEntity, c):
-            return getattr(CategoryEntity, c)
-    cols = list(CategoryEntity.__table__.columns.keys())
-    logger.error(f"❌ CategoryEntity에 이름 컬럼이 없습니다. 사용 가능한 컬럼: {cols}")
-    # 더 진행하면 또 트랜잭션을 망가뜨리므로 예외를 올립니다.
-    raise RuntimeError(f"Category name column not found. Available: {cols}")
+def _safe_text_to_float(text_value: str) -> Optional[float]:
+    """Text 타입의 숫자 문자열을 안전하게 실수로 변환"""
+    if not text_value or not isinstance(text_value, str):
+        return None
+    
+    # 공백 제거 후 숫자로 변환 가능한지 확인
+    cleaned = text_value.strip()
+    try:
+        return float(cleaned)
+    except (ValueError, TypeError):
+        return None
 
 async def _safe_scalar(session, stmt, log_ctx: str) -> Optional[int]:
     """예외 발생 시 즉시 rollback 하고 None 반환"""
     try:
         return await session.scalar(stmt)
-    except Exception as e:
+    except (ProgrammingError, DBAPIError) as e:
         logger.warning(f"⚠️ {log_ctx} 중 오류: {e}")
         try:
             await session.rollback()
@@ -78,80 +56,6 @@ async def _safe_scalar(session, stmt, log_ctx: str) -> Optional[int]:
         except Exception as rb_e:
             logger.error(f"❌ 롤백 중 오류: {rb_e}")
         return None
-
-async def resolve_category_id(session, category_value: str) -> Optional[int]:
-    """
-    문자열 카테고리명을 받아 category_id(int)로 변환.
-    1) 정확일치
-    2) 슬래시 분해 토큰 중 정확일치
-    3) 별칭 매핑 후 정확일치
-    4) (선택) ILIKE fallback
-    """
-    if not category_value or not isinstance(category_value, str):
-        return None
-
-    value = category_value.strip()
-    logger.info(f"🔍 카테고리 해석기 시작: '{value}'")
-
-    try:
-        NAME_COL = _get_category_name_col()
-        logger.info(f"🔍 사용할 이름 컬럼: {NAME_COL}")
-    except RuntimeError as e:
-        logger.error(f"❌ 카테고리 이름 컬럼을 찾을 수 없음: {e}")
-        return None
-
-    tokens: List[str] = _normalize_tokens(value)
-    logger.info(f"🔍 토큰 분해 결과: {tokens}")
-
-    # 1) 전체 정확일치
-    stmt = select(CategoryEntity.id).where(NAME_COL == value)
-    cat_id = await _safe_scalar(session, stmt, "정확 일치")
-    if cat_id is not None:
-        logger.info(f"✅ 정확 일치 성공: '{value}' → {cat_id}")
-        return int(cat_id)
-
-    # 2) 토큰 정확일치
-    for tok in tokens:
-        stmt = select(CategoryEntity.id).where(NAME_COL == tok)
-        cat_id = await _safe_scalar(session, stmt, f"토큰 '{tok}' 일치")
-        if cat_id is not None:
-            logger.info(f"✅ 토큰 일치 성공: '{tok}' → {cat_id}")
-            return int(cat_id)
-
-    # 3) 별칭 매핑 (전체 → 별칭)
-    alias_key = CATEGORY_SYNONYMS.get(value)
-    if alias_key:
-        logger.info(f"🔍 별칭 매핑 시도: '{value}' → '{alias_key}'")
-        stmt = select(CategoryEntity.id).where(NAME_COL == alias_key)
-        cat_id = await _safe_scalar(session, stmt, "별칭 매핑(전체)")
-        if cat_id is not None:
-            logger.info(f"✅ 별칭 매핑 성공: '{value}' → '{alias_key}' → {cat_id}")
-            return int(cat_id)
-    else:
-        for tok in tokens:
-            alias_key = CATEGORY_SYNONYMS.get(tok)
-            if not alias_key:
-                logger.info(f"🔍 토큰별 별칭 매핑 시도: '{tok}' → '{alias_key}'")
-                try:
-                    cat_id = await session.scalar(
-                        select(CategoryEntity.id).where(CategoryEntity.name == alias_key)
-                    )
-                    if cat_id:
-                        logger.info(f"✅ 토큰별 별칭 매핑 성공: '{tok}' → '{alias_key}' → {cat_id}")
-                        return int(cat_id)
-                except Exception as e:
-                    logger.warning(f"⚠️ 토큰별 별칭 매핑 시도 중 오류: {e}")
-
-    # 4) ILIKE (긴 토큰부터)
-    for tok in sorted(tokens, key=len, reverse=True):
-        stmt = select(CategoryEntity.id).where(NAME_COL.ilike(f"%{tok}%"))
-        cat_id = await _safe_scalar(session, stmt, f"ILIKE '{tok}'")
-        if cat_id is not None:
-            logger.info(f"✅ ILIKE 매칭 성공: '{tok}' → {cat_id}")
-            return int(cat_id)
-
-    logger.warning(f"❌ 카테고리 해석기 실패: '{value}'를 ID로 변환할 수 없음")
-    return None
 
 class MiddleIssueRepository:
     """중간 이슈 리포지토리 - 이슈풀 관련 데이터베이스 작업"""
@@ -232,7 +136,7 @@ class MiddleIssueRepository:
             logger.error(f"❌ 리포지토리: 기업 이슈 조회 중 오류 - {str(e)}")
             raise
 
-    async def get_category_details(self, corporation_name: str, category_id: str, year: int) -> Optional[dict]:
+    async def get_category_details(self, corporation_name: str, category_id: str, year: int) -> Optional[CategoryDetailsResponse]:
         """
         특정 카테고리의 ESG 분류와 base_issuepool 상세 정보 조회
         
@@ -279,16 +183,20 @@ class MiddleIssueRepository:
                         logger.info(f"🔍 카테고리 ID 이미 정수: {category_id}")
                     else:
                         logger.warning(f"⚠️ 카테고리 ID가 숫자가 아님: {category_id} (타입: {type(category_id)})")
-                        # 카테고리 해석기를 사용하여 이름을 ID로 변환 시도
-                        logger.info(f"🔍 카테고리 해석기 사용하여 '{category_id}'를 ID로 변환 시도")
-                        resolved_id = await resolve_category_id(db, str(category_id))
+                        # 간단한 카테고리 이름 → ID 변환 시도
+                        logger.info(f"🔍 카테고리 이름 '{category_id}'를 ID로 변환 시도")
+                        resolved_id = await _safe_scalar(
+                            db, 
+                            select(CategoryEntity.id).where(CategoryEntity.category_name == category_id), 
+                            "카테고리 이름 매칭"
+                        )
                         if resolved_id is not None:
                             normalized_category_id = int(resolved_id)
-                            logger.info(f"✅ 카테고리 해석기 성공: '{category_id}' → {normalized_category_id}")
+                            logger.info(f"✅ 카테고리 이름 매칭 성공: '{category_id}' → {normalized_category_id}")
                         else:
-                            logger.warning(f"⚠️ 카테고리 해석기 실패: '{category_id}'를 ID로 변환할 수 없음")
-                            # 해석 실패 시 매칭 불가로 처리
-                            logger.error(f"❌ 카테고리 '{category_id}' 해석 실패 → 매칭 불가")
+                            logger.warning(f"⚠️ 카테고리 이름 매칭 실패: '{category_id}'를 ID로 변환할 수 없음")
+                            # 매칭 실패 시 매칭 불가로 처리
+                            logger.error(f"❌ 카테고리 '{category_id}' 매칭 실패 → 매칭 불가")
                             return None
                 except (ValueError, TypeError) as e:
                     logger.error(f"❌ 카테고리 ID 변환 실패: {category_id}, 오류: {e}")
@@ -321,7 +229,14 @@ class MiddleIssueRepository:
                     logger.error(f"❌ 카테고리 ID가 정수가 아님: {normalized_category_id} (타입: {type(normalized_category_id)})")
                     return None
                 
-                query = select(MiddleIssueEntity).where(
+                # JOIN을 사용하여 ESG 분류 정보도 함께 가져오기
+                query = select(
+                    MiddleIssueEntity,
+                    ESGClassificationEntity.esg.label('esg_classification_name')
+                ).join(
+                    ESGClassificationEntity,
+                    MiddleIssueEntity.esg_classification_id == ESGClassificationEntity.id
+                ).where(
                     and_(
                         MiddleIssueEntity.corporation_id == corporation.id,
                         MiddleIssueEntity.category_id == int(normalized_category_id),  # 정수 비교 보장
@@ -332,46 +247,48 @@ class MiddleIssueRepository:
                 logger.info(f"🔍 이슈풀 조회 쿼리: {query}")
                 
                 result = await db.execute(query)
-                issue_entities = result.scalars().all()
+                issue_rows = result.all()
                 
-                logger.info(f"🔍 이슈풀 조회 결과: {len(issue_entities)}개 엔티티")
+                logger.info(f"🔍 이슈풀 조회 결과: {len(issue_rows)}개 행")
                 
-                if not issue_entities:
+                if not issue_rows:
                     logger.warning(f"⚠️ 카테고리 '{category_id}'에 해당하는 이슈풀을 찾을 수 없습니다.")
                     return None
                 
-                # 5. 첫 번째 엔티티에서 ESG 분류 정보 추출 (모든 엔티티가 동일한 ESG 분류를 가짐)
-                first_entity = issue_entities[0]
+                # 5. 첫 번째 행에서 ESG 분류 정보 추출 (모든 행이 동일한 ESG 분류를 가짐)
+                first_row = issue_rows[0]
+                first_entity = first_row[0]  # MiddleIssueEntity
+                esg_classification_name = first_row[1]  # ESG 분류명
+                
                 logger.info(f"🔍 첫 번째 엔티티 정보: {first_entity}")
+                logger.info(f"🔍 ESG 분류 정보: {esg_classification_name}")
                 
-                esg_classification_id = getattr(first_entity, 'esg_classification_id', None)
-                esg_classification_name = getattr(first_entity, 'esg_classification_name', None)
-                
-                logger.info(f"🔍 ESG 분류 정보: ID={esg_classification_id}, 이름={esg_classification_name}")
+                esg_classification_id = first_entity.esg_classification_id
                 
                 # 6. base_issuepool 목록 구성
                 base_issuepools = []
-                for i, entity in enumerate(issue_entities):
-                    issue_data = {
-                        "id": entity.id,
-                        "base_issue_pool": entity.base_issue_pool,
-                        "issue_pool": entity.issue_pool,
-                        "ranking": getattr(entity, 'ranking', None),
-                        "esg_classification_id": esg_classification_id,
-                        "esg_classification_name": esg_classification_name
-                    }
+                for i, row in enumerate(issue_rows):
+                    entity = row[0]  # MiddleIssueEntity
+                    issue_data = BaseIssuePool(
+                        id=entity.id,
+                        base_issue_pool=entity.base_issue_pool,
+                        issue_pool=entity.issue_pool,
+                        ranking=entity.ranking,
+                        esg_classification_id=esg_classification_id,
+                        esg_classification_name=esg_classification_name
+                    )
                     base_issuepools.append(issue_data)
                     logger.info(f"🔍 이슈풀 {i+1}: {issue_data}")
                 
-                # 7. 카테고리 상세 정보 반환
-                category_details = {
-                    "category_id": category_id,
-                    "normalized_category_id": normalized_category_id,
-                    "esg_classification_id": esg_classification_id,
-                    "esg_classification_name": esg_classification_name,
-                    "base_issuepools": base_issuepools,
-                    "total_count": len(base_issuepools)
-                }
+                # 7. CategoryDetailsResponse 스키마로 변환하여 반환
+                category_details = CategoryDetailsResponse(
+                    category_id=str(category_id),
+                    normalized_category_id=normalized_category_id,
+                    esg_classification_id=esg_classification_id,
+                    esg_classification_name=esg_classification_name,
+                    base_issuepools=base_issuepools,
+                    total_count=len(base_issuepools)
+                )
                 
                 logger.info(f"✅ 리포지토리: 카테고리 '{category_id}' 상세 정보 조회 완료 - ESG: {esg_classification_name}, 이슈풀: {len(base_issuepools)}개")
                 logger.info(f"✅ 반환할 데이터: {category_details}")
@@ -379,6 +296,230 @@ class MiddleIssueRepository:
                 
         except Exception as e:
             logger.error(f"❌ 리포지토리: 카테고리 상세 정보 조회 중 오류 - {str(e)}")
+            logger.error(f"❌ 오류 상세: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
+            return None
+
+    async def get_corporation_by_name(self, corporation_name: str) -> Optional[CorporationBase]:
+        """기업명으로 기업 정보 조회"""
+        try:
+            async for db in get_db():
+                query = select(CorporationEntity).where(
+                    CorporationEntity.companyname == corporation_name
+                )
+                result = await db.execute(query)
+                corporation = result.scalar_one_or_none()
+                
+                if corporation:
+                    return CorporationBase(
+                        id=corporation.id,
+                        corp_code=corporation.corp_code,
+                        companyname=corporation.companyname,
+                        market=corporation.market,
+                        dart_code=corporation.dart_code
+                    )
+                return None
+        except Exception as e:
+            logger.error(f"❌ 기업 정보 조회 중 오류: {str(e)}")
+            return None
+
+    async def get_category_by_id(self, category_id: int) -> Optional[CategoryBase]:
+        """카테고리 ID로 카테고리 정보 조회"""
+        try:
+            async for db in get_db():
+                query = select(CategoryEntity).where(CategoryEntity.id == category_id)
+                result = await db.execute(query)
+                category = result.scalar_one_or_none()
+                
+                if category:
+                    return CategoryBase(
+                        id=category.id,
+                        category_name=category.category_name,
+                        esg_classification_id=category.esg_classification_id
+                    )
+                return None
+        except Exception as e:
+            logger.error(f"❌ 카테고리 정보 조회 중 오류: {str(e)}")
+            return None
+
+    async def get_esg_classification_by_id(self, esg_id: int) -> Optional[ESGClassificationBase]:
+        """ESG 분류 ID로 ESG 분류 정보 조회"""
+        try:
+            async for db in get_db():
+                query = select(ESGClassificationEntity).where(ESGClassificationEntity.id == esg_id)
+                result = await db.execute(query)
+                esg = result.scalar_one_or_none()
+                
+                if esg:
+                    return ESGClassificationBase(
+                        id=esg.id,
+                        esg=esg.esg
+                    )
+                return None
+        except Exception as e:
+            logger.error(f"❌ ESG 분류 정보 조회 중 오류: {str(e)}")
+            return None
+
+    async def get_middle_issue_with_relations(self, issue_id: int) -> Optional[MiddleIssueBase]:
+        """이슈 ID로 이슈 정보와 관련 정보를 함께 조회"""
+        try:
+            async for db in get_db():
+                # JOIN을 사용하여 관련 정보를 함께 가져오기
+                query = select(
+                    MiddleIssueEntity,
+                    CorporationEntity.companyname.label('corporation_name'),
+                    CategoryEntity.category_name.label('category_name'),
+                    ESGClassificationEntity.esg.label('esg_classification_name')
+                ).join(
+                    CorporationEntity,
+                    MiddleIssueEntity.corporation_id == CorporationEntity.id
+                ).join(
+                    CategoryEntity,
+                    MiddleIssueEntity.category_id == CategoryEntity.id
+                ).join(
+                    ESGClassificationEntity,
+                    MiddleIssueEntity.esg_classification_id == ESGClassificationEntity.id
+                ).where(
+                    MiddleIssueEntity.id == issue_id
+                )
+                
+                result = await db.execute(query)
+                row = result.first()
+                
+                if row:
+                    issue_entity = row[0]
+                    corporation_name = row[1]
+                    category_name = row[2]
+                    esg_name = row[3]
+                    
+                    return MiddleIssueBase(
+                        id=issue_entity.id,
+                        corporation_id=issue_entity.corporation_id,
+                        publish_year=issue_entity.publish_year,
+                        ranking=issue_entity.ranking,
+                        base_issue_pool=issue_entity.base_issue_pool,
+                        issue_pool=issue_entity.issue_pool,
+                        category_id=issue_entity.category_id,
+                        esg_classification_id=issue_entity.esg_classification_id
+                    )
+                return None
+        except Exception as e:
+            logger.error(f"❌ 이슈 정보 조회 중 오류: {str(e)}")
+            return None
+
+    async def get_category_by_name_direct(
+        self, 
+        corporation_name: str, 
+        category_name: str, 
+        year: int
+    ) -> Optional[CategoryDetailsResponse]:
+        """
+        카테고리 이름으로 직접 조회하여 모든 관련 정보를 한 번에 가져오기
+        JOIN을 사용하여 토큰화/별칭 매핑 없이 직접 매칭
+        """
+        try:
+            logger.info(f"🔍 카테고리 이름으로 직접 조회: '{category_name}' (기업: {corporation_name}, 연도: {year})")
+            
+            async for db in get_db():
+                # 1. 기업명으로 corporation_id 조회
+                corp_query = select(CorporationEntity).where(
+                    CorporationEntity.companyname == corporation_name
+                )
+                corp_result = await db.execute(corp_query)
+                corporation = corp_result.scalar_one_or_none()
+                
+                if not corporation:
+                    logger.warning(f"⚠️ 기업 '{corporation_name}'을 찾을 수 없습니다.")
+                    return None
+                
+                # 2. 안전한 publish_year 비교를 위한 조건 구성
+                year_condition = None
+                if year is not None:
+                    # 연도 규약 통일: 내부에서 -1 적용
+                    target_year = year - 1
+                    year_condition = or_(
+                        MiddleIssueEntity.publish_year.is_(None),
+                        and_(
+                            MiddleIssueEntity.publish_year != '',
+                            MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
+                            cast(func.trim(MiddleIssueEntity.publish_year), Integer) == target_year
+                        )
+                    )
+                    logger.info(f"🔍 연도 조건 구성: {target_year}년도 또는 NULL (입력: {year}년)")
+                else:
+                    # year가 None이면 publish_year가 NULL인 것만 조회
+                    year_condition = MiddleIssueEntity.publish_year.is_(None)
+                    logger.info(f"�� 연도 조건: NULL만 조회")
+                
+                # 3. JOIN을 사용하여 카테고리 이름으로 직접 조회
+                query = select(
+                    MiddleIssueEntity,
+                    CategoryEntity.category_name,
+                    ESGClassificationEntity.esg.label('esg_classification_name')
+                ).join(
+                    CategoryEntity,
+                    MiddleIssueEntity.category_id == CategoryEntity.id
+                ).join(
+                    ESGClassificationEntity,
+                    MiddleIssueEntity.esg_classification_id == ESGClassificationEntity.id
+                ).where(
+                    and_(
+                        MiddleIssueEntity.corporation_id == corporation.id,
+                        CategoryEntity.category_name == category_name,  # 이름으로 직접 매칭
+                        year_condition
+                    )
+                )
+                
+                logger.info(f"🔍 직접 조회 쿼리: {query}")
+                
+                result = await db.execute(query)
+                issue_rows = result.all()
+                
+                logger.info(f"🔍 직접 조회 결과: {len(issue_rows)}개 행")
+                
+                if not issue_rows:
+                    logger.warning(f"⚠️ 카테고리 '{category_name}'에 해당하는 이슈풀을 찾을 수 없습니다.")
+                    return None
+                
+                # 4. 첫 번째 행에서 ESG 분류 정보 추출
+                first_row = issue_rows[0]
+                first_entity = first_row[0]  # MiddleIssueEntity
+                esg_classification_name = first_row[2]  # ESG 분류명
+                
+                esg_classification_id = first_entity.esg_classification_id
+                category_id = first_entity.category_id
+                
+                # 5. base_issuepool 목록 구성
+                base_issuepools = []
+                for i, row in enumerate(issue_rows):
+                    entity = row[0]  # MiddleIssueEntity
+                    issue_data = BaseIssuePool(
+                        id=entity.id,
+                        base_issue_pool=entity.base_issue_pool,
+                        issue_pool=entity.issue_pool,
+                        ranking=entity.ranking,
+                        esg_classification_id=esg_classification_id,
+                        esg_classification_name=esg_classification_name
+                    )
+                    base_issuepools.append(issue_data)
+                    logger.info(f"🔍 이슈풀 {i+1}: {issue_data}")
+                
+                # 6. CategoryDetailsResponse 스키마로 변환하여 반환
+                category_details = CategoryDetailsResponse(
+                    category_id=category_name,
+                    normalized_category_id=category_id,
+                    esg_classification_id=esg_classification_id,
+                    esg_classification_name=esg_classification_name,
+                    base_issuepools=base_issuepools,
+                    total_count=len(base_issuepools)
+                )
+                
+                logger.info(f"✅ 카테고리 '{category_name}' 직접 조회 완료 - ESG: {esg_classification_name}, 이슈풀: {len(base_issuepools)}개")
+                return category_details
+                
+        except Exception as e:
+            logger.error(f"❌ 카테고리 직접 조회 중 오류: {str(e)}")
             logger.error(f"❌ 오류 상세: {type(e).__name__}: {str(e)}")
             import traceback
             logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")

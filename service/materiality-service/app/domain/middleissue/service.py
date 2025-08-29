@@ -18,7 +18,10 @@ from datetime import datetime
 from typing import Dict, Any, List, Set, Tuple
 
 from dateutil import parser
-from app.domain.middleissue.schema import MiddleIssueRequest, MiddleIssueResponse, Article
+from app.domain.middleissue.schema import (
+    MiddleIssueRequest, MiddleIssueResponse, Article,
+    CategoryDetailsResponse, BaseIssuePool
+)
 from app.domain.middleissue.repository import MiddleIssueRepository
 
 # 로거 설정
@@ -336,8 +339,8 @@ async def match_categories_with_esg_and_issuepool(
     카테고리별로 ESG 분류와 base_issuepool을 매칭
     
     매칭 규칙:
-    1. 카테고리 ID가 일치하는 ESG 분류 찾기
-    2. 해당 카테고리의 base_issuepool 목록 가져오기
+    1. 카테고리 이름으로 직접 조회 (토큰화/별칭 매핑 없음)
+    2. repository의 JOIN 기능을 활용하여 모든 정보를 한 번에 가져오기
     3. 카테고리 하나당 ESG 분류는 하나, base_issuepool은 여러 개
     """
     try:
@@ -348,56 +351,45 @@ async def match_categories_with_esg_and_issuepool(
         logger.info(f"🔍 매칭할 카테고리 수: {len(ranked_categories)}")
         
         for category_info in ranked_categories:
-            category_id = category_info['category']
-            logger.info(f"🔍 카테고리 {category_id} 매칭 시도 중...")
-            logger.info(f"🔍 카테고리 타입: {type(category_id)}, 값: {category_id}")
+            name_or_id = str(category_info['category'])
+            logger.info(f"🔍 카테고리 '{name_or_id}' 매칭 시도 중...")
             
             try:
-                # 카테고리 ID 정규화 (문자열이면 숫자로 변환 시도)
-                normalized_category_id = category_id
-                if isinstance(category_id, str):
-                    if category_id.isdigit():
-                        normalized_category_id = int(category_id)
-                        logger.info(f"🔍 카테고리 ID 정규화: '{category_id}' → {normalized_category_id}")
-                    else:
-                        logger.warning(f"⚠️ 카테고리 이름이 숫자가 아님: '{category_id}'")
-                        # 카테고리 해석기를 사용하여 이름을 ID로 변환 시도
-                        logger.info(f"🔍 카테고리 해석기 사용하여 '{category_id}'를 ID로 변환 시도")
-                        # repository를 통해 카테고리 해석 시도
-                        try:
-                            repository = MiddleIssueRepository()
-                            # 임시로 빈 세션을 전달 (실제로는 세션이 필요하지만 여기서는 로깅만)
-                            logger.info(f"🔍 카테고리 '{category_id}' 해석 시도 - repository 호출")
-                            # 실제 해석은 repository에서 수행되므로 여기서는 계속 진행
-                        except Exception as e:
-                            logger.error(f"❌ 카테고리 해석기 초기화 실패: {e}")
-                        
-                        # 해석 실패 시에도 계속 진행 (repository에서 실제 해석 수행)
-                        logger.info(f"🔍 카테고리 이름 '{category_id}' 해석을 repository에서 수행")
+                # ID인지 이름인지 구분하여 처리
+                if name_or_id.isdigit():
+                    # ID로 조회
+                    logger.info(f"🔍 카테고리 ID '{name_or_id}'로 조회 시도")
+                    category_details = await repository.get_category_details(
+                        corporation_name=company_id,
+                        category_id=int(name_or_id),
+                        year=search_year,   # repo가 내부에서 -1 처리
+                    )
+                else:
+                    # 이름으로 직접 조회
+                    logger.info(f"🔍 카테고리 이름 '{name_or_id}'로 직접 조회 시도")
+                    category_details = await repository.get_category_by_name_direct(
+                        corporation_name=company_id,
+                        category_name=name_or_id,
+                        year=search_year,   # repo가 내부에서 -1 처리하도록 위에서 수정
+                    )
                 
-                # 해당 카테고리의 ESG 분류와 이슈풀 조회
-                category_details = await repository.get_category_details(
-                    corporation_name=company_id,
-                    category_id=normalized_category_id,
-                    year=search_year
-                )
-                
-                logger.info(f"🔍 카테고리 {category_id} 조회 결과: {category_details}")
+                logger.info(f"🔍 카테고리 '{name_or_id}' 조회 결과: {category_details}")
                 
                 if category_details:
-                    # ESG 분류 (하나)
-                    esg_classification = category_details.get('esg_classification_name', '미분류')
-                    esg_classification_id = category_details.get('esg_classification_id')
+                    # 이미 모든 정보가 포함된 CategoryDetailsResponse에서 추출
+                    esg_classification = category_details.esg_classification_name or '미분류'
+                    esg_classification_id = category_details.esg_classification_id
                     
-                    # Base 이슈풀 (여러 개)
+                    # BaseIssuePool 객체를 dict로 변환
                     base_issuepools = []
-                    if category_details.get('base_issuepools'):
-                        for issue in category_details['base_issuepools']:
+                    if category_details.base_issuepools:
+                        for issue in category_details.base_issuepools:
+                            # BaseIssuePool 객체의 속성에 직접 접근
                             base_issuepools.append({
-                                "id": issue.get('id'),
-                                "base_issue_pool": issue.get('base_issue_pool', ''),
-                                "issue_pool": issue.get('issue_pool', ''),
-                                "ranking": issue.get('ranking'),
+                                "id": issue.id,
+                                "base_issue_pool": issue.base_issue_pool,
+                                "issue_pool": issue.issue_pool,
+                                "ranking": issue.ranking,
                                 "esg_classification_id": esg_classification_id,
                                 "esg_classification_name": esg_classification
                             })
@@ -413,7 +405,7 @@ async def match_categories_with_esg_and_issuepool(
                     
                     matched_categories.append(matched_category)
                     
-                    logger.info(f"✅ 카테고리 {category_id} 매칭 완료: ESG={esg_classification}, 이슈풀={len(base_issuepools)}개")
+                    logger.info(f"✅ 카테고리 '{name_or_id}' 매칭 완료: ESG={esg_classification}, 이슈풀={len(base_issuepools)}개")
                 else:
                     # 매칭되지 않은 경우 기본값으로 설정
                     matched_category = {
@@ -425,10 +417,10 @@ async def match_categories_with_esg_and_issuepool(
                     }
                     matched_categories.append(matched_category)
                     
-                    logger.warning(f"⚠️ 카테고리 {category_id} 매칭 실패: ESG 분류 및 이슈풀 정보 없음")
+                    logger.warning(f"⚠️ 카테고리 '{name_or_id}' 매칭 실패: ESG 분류 및 이슈풀 정보 없음")
                     
             except Exception as e:
-                logger.error(f"❌ 카테고리 {category_id} 매칭 중 개별 오류: {str(e)}")
+                logger.error(f"❌ 카테고리 '{name_or_id}' 매칭 중 개별 오류: {str(e)}")
                 # 오류 발생 시에도 기본값으로 설정
                 matched_category = {
                     **category_info,
@@ -477,11 +469,11 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         # 4) (검색 기준연도 - 1) & 공통(NULL) 카테고리 조회
         repository = MiddleIssueRepository()
         search_year = int(request.report_period["end_date"][:4])  # 검색 기준연도 (YYYY)
-        prev_year = search_year - 1
-
+        
+        # repository 내부에서 -1 처리하므로 search_year를 그대로 전달
         corp_issues_prev = await repository.get_corporation_issues(
             corporation_name=request.company_id,
-            year=prev_year
+            year=search_year  # repository 내부에서 -1 처리
         )
         # prev_year 기준 카테고리와 공통(NULL) 카테고리 세트
         prev_year_categories = {str(issue.category_id) for issue in corp_issues_prev.year_issues}

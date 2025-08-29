@@ -1473,9 +1473,9 @@ export default function MaterialityHomePage() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center text-gray-500 text-sm">
+              <div className="text-center text-gray-500 text-sm">
                   새로운 중대성 평가를 시작하면 여기에 결과가 표시됩니다.
-                </div>
+              </div>
               )}
             </div>
           </div>
