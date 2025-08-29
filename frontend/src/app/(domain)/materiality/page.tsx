@@ -107,6 +107,15 @@ export default function MaterialityHomePage() {
   const [baseIssuePoolOptions, setBaseIssuePoolOptions] = useState<string[]>([]);
   const [selectedBaseIssuePool, setSelectedBaseIssuePool] = useState<string>('');
   const [editingCategoryIndex, setEditingCategoryIndex] = useState<number>(-1);
+  
+  // 새로운 카테고리 추가 모달 상태
+  const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
+  const [allCategories, setAllCategories] = useState<string[]>([]);
+  const [selectedNewCategory, setSelectedNewCategory] = useState<string>('');
+  const [newCategoryRank, setNewCategoryRank] = useState<number>(1);
+  const [newBaseIssuePool, setNewBaseIssuePool] = useState<string>('');
+  const [isCustomBaseIssuePool, setIsCustomBaseIssuePool] = useState(false);
+  const [customBaseIssuePoolText, setCustomBaseIssuePoolText] = useState<string>('');
 
 
 
@@ -309,6 +318,121 @@ export default function MaterialityHomePage() {
     } catch (error) {
       console.error('❌ 저장된 중대성 평가 결과 불러오기 실패:', error);
       alert('❌ 저장된 중대성 평가 결과를 불러오는데 실패했습니다.');
+    }
+  };
+
+  // 전체 카테고리 목록 가져오기 함수
+  const fetchAllCategories = async () => {
+    try {
+      // 실제로는 API에서 가져와야 하지만, 현재는 schema.py에 정의된 32개 카테고리를 하드코딩
+      const categories = [
+        '기후변화', '탄소배출', '대기오염', '생물다양성/산림보호', '폐기물/폐기물관리',
+        '에너지', '재생에너지', '자원순환/자원효율/원자재관리', '온실가스', '원재료',
+        '환경영향/환경오염/오염물질/유해화학물질', '친환경', '노사관계', '제품안전/제품품질',
+        '고용/일자리', '공급망', '임금/인사제도', '임직원', '인권', '안전보건', '폐수관리',
+        '인재관리/인재', '지역사회/사회공헌', '협력사', '조직문화/기업문화', '성장',
+        '연구개발/R&D', '시장경쟁/시장점유/경제성과/재무성과', '윤리경영/준법경영/부패/뇌물수수',
+        '리스크', '정보보안'
+      ];
+      setAllCategories(categories);
+    } catch (error) {
+      console.error('❌ 전체 카테고리 목록 가져오기 실패:', error);
+      // 에러 발생 시 기본 카테고리 목록 사용
+      const defaultCategories = [
+        '기후변화', '탄소배출', '대기오염', '생물다양성/산림보호', '폐기물/폐기물관리',
+        '에너지', '재생에너지', '자원순환/자원효율/원자재관리', '온실가스', '원재료',
+        '환경영향/환경오염/오염물질/유해화학물질', '친환경', '노사관계', '제품안전/제품품질',
+        '고용/일자리', '공급망', '임금/인사제도', '임직원', '인권', '안전보건', '폐수관리',
+        '인재관리/인재', '지역사회/사회공헌', '협력사', '조직문화/기업문화', '성장',
+        '연구개발/R&D', '시장경쟁/시장점유/경제성과/재무성과', '윤리경영/준법경영/부패/뇌물수수',
+        '리스크', '정보보안'
+      ];
+      setAllCategories(defaultCategories);
+    }
+  };
+
+  // 새로운 카테고리 추가 함수
+  const addNewCategory = () => {
+    if (!selectedNewCategory || !newBaseIssuePool) {
+      alert('카테고리와 base issue pool을 모두 선택/입력해주세요.');
+      return;
+    }
+
+    try {
+      // 새로운 카테고리 객체 생성
+      const newCategory = {
+        rank: newCategoryRank,
+        category: selectedNewCategory,
+        frequency_score: 0.0,
+        relevance_score: 0.0,
+        recent_score: 0.0,
+        rank_score: 0.0,
+        reference_score: 0.0,
+        negative_score: 0.0,
+        final_score: 0.0,
+        count: 0,
+        esg_classification: getESGClassification(selectedNewCategory),
+        esg_classification_id: null,
+        base_issuepools: [],
+        total_issuepools: 0,
+        selected_base_issue_pool: newBaseIssuePool
+      };
+
+      // assessmentResult에 새로운 카테고리 추가
+      const resultData = assessmentResult?.data || assessmentResult;
+      const updatedCategories = [...(resultData?.matched_categories || []), newCategory];
+      
+      // 순위별로 정렬
+      updatedCategories.sort((a, b) => a.rank - b.rank);
+      
+      // 상태 업데이트
+      if (assessmentResult?.data) {
+        setAssessmentResult({
+          ...assessmentResult,
+          data: {
+            ...assessmentResult.data,
+            matched_categories: updatedCategories
+          }
+        });
+      } else {
+        setAssessmentResult({
+          ...assessmentResult,
+          matched_categories: updatedCategories
+        });
+      }
+
+      // 모달 닫기 및 상태 초기화
+      setIsAddCategoryModalOpen(false);
+      setSelectedNewCategory('');
+      setNewCategoryRank(1);
+      setNewBaseIssuePool('');
+      setIsCustomBaseIssuePool(false);
+      setCustomBaseIssuePoolText('');
+      
+      alert(`✅ 새로운 카테고리 "${selectedNewCategory}"가 ${newCategoryRank}위로 추가되었습니다.`);
+    } catch (error) {
+      console.error('❌ 새로운 카테고리 추가 실패:', error);
+      alert('❌ 새로운 카테고리 추가에 실패했습니다.');
+    }
+  };
+
+  // 카테고리명으로 ESG 분류 결정하는 함수
+  const getESGClassification = (categoryName: string): string => {
+    const environmentalKeywords = ['기후변화', '탄소배출', '대기오염', '생물다양성', '산림보호', '폐기물', '에너지', '재생에너지', '자원순환', '원자재', '온실가스', '원재료', '환경영향', '환경오염', '오염물질', '유해화학물질', '친환경', '폐수'];
+    const socialKeywords = ['노사관계', '제품안전', '제품품질', '고용', '일자리', '공급망', '임금', '인사제도', '임직원', '인권', '안전보건', '인재관리', '인재', '지역사회', '사회공헌', '협력사', '조직문화', '기업문화'];
+    const governanceKeywords = ['성장', '연구개발', 'R&D', '윤리경영', '준법경영', '부패', '뇌물수수', '리스크', '정보보안'];
+    const economicKeywords = ['시장경쟁', '시장점유', '경제성과', '재무성과'];
+
+    if (environmentalKeywords.some(keyword => categoryName.includes(keyword))) {
+      return '환경';
+    } else if (socialKeywords.some(keyword => categoryName.includes(keyword))) {
+      return '사회';
+    } else if (governanceKeywords.some(keyword => categoryName.includes(keyword))) {
+      return '지배구조';
+    } else if (economicKeywords.some(keyword => categoryName.includes(keyword))) {
+      return '경제';
+    } else {
+      return '미분류';
     }
   };
 
@@ -1435,6 +1559,7 @@ export default function MaterialityHomePage() {
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold text-gray-800">중대성 평가 중간 결과</h3>
+                <p className="text-sm text-gray-500 mt-1">카테고리별로 세부 이슈를 선택하세요</p>
               </div>
               
               {assessmentResult ? (
@@ -1638,6 +1763,23 @@ export default function MaterialityHomePage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                         불러오기
+                      </button>
+                    </div>
+                    
+                    {/* 추가하기 버튼 */}
+                    <div className="mt-3">
+                      <button
+                        onClick={() => {
+                          fetchAllCategories();
+                          setIsAddCategoryModalOpen(true);
+                        }}
+                        className="inline-flex items-center px-4 py-2 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-white hover:bg-orange-50 transition-colors duration-200"
+                        title="새로운 카테고리를 추가합니다"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        추가하기
                       </button>
                     </div>
                   </div>
@@ -2605,6 +2747,175 @@ export default function MaterialityHomePage() {
                   }`}
                 >
                   선택 완료
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 새로운 카테고리 추가 모달 */}
+      {isAddCategoryModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* 배경 오버레이 */}
+          <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setIsAddCategoryModalOpen(false)}></div>
+          
+          {/* 모달 내용 */}
+          <div className="relative bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4">
+            {/* 모달 헤더 */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
+              <h3 className="text-xl font-bold text-gray-900">
+                새로운 카테고리 추가
+              </h3>
+              <button
+                onClick={() => setIsAddCategoryModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* 모달 바디 */}
+            <div className="p-6">
+              <div className="space-y-6">
+                {/* 순위 입력 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    순위 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newCategoryRank}
+                    onChange={(e) => setNewCategoryRank(parseInt(e.target.value) || 1)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">새로운 카테고리의 순위를 입력하세요.</p>
+                </div>
+
+                {/* 카테고리 선택 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    카테고리 <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={selectedNewCategory}
+                    onChange={(e) => setSelectedNewCategory(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  >
+                    <option value="">카테고리를 선택하세요</option>
+                    {allCategories.map((category, index) => (
+                      <option key={index} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">schema.py에 정의된 32개 카테고리 중에서 선택하세요.</p>
+                </div>
+
+                {/* Base Issue Pool 입력 방식 선택 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Base Issue Pool 입력 방식
+                  </label>
+                  <div className="space-y-3">
+                    <label className="flex items-center space-x-3">
+                      <input
+                        type="radio"
+                        name="inputMethod"
+                        checked={!isCustomBaseIssuePool}
+                        onChange={() => setIsCustomBaseIssuePool(false)}
+                        className="text-orange-600 focus:ring-orange-500"
+                      />
+                      <span className="text-gray-700">기존 항목에서 선택</span>
+                    </label>
+                    <label className="flex items-center space-x-3">
+                      <input
+                        type="radio"
+                        name="inputMethod"
+                        checked={isCustomBaseIssuePool}
+                        onChange={() => setIsCustomBaseIssuePool(true)}
+                        className="text-orange-600 focus:ring-orange-500"
+                      />
+                      <span className="text-gray-700">직접 입력</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Base Issue Pool 입력 */}
+                {!isCustomBaseIssuePool ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Base Issue Pool 선택 <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={newBaseIssuePool}
+                      onChange={(e) => setNewBaseIssuePool(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    >
+                      <option value="">Base Issue Pool을 선택하세요</option>
+                      <option value={`${selectedNewCategory} 관련 이슈 1`}>{selectedNewCategory} 관련 이슈 1</option>
+                      <option value={`${selectedNewCategory} 관련 이슈 2`}>{selectedNewCategory} 관련 이슈 2</option>
+                      <option value={`${selectedNewCategory} 관련 이슈 3`}>{selectedNewCategory} 관련 이슈 3</option>
+                      <option value={`${selectedNewCategory} 관리`}>{selectedNewCategory} 관리</option>
+                      <option value={`${selectedNewCategory} 개선`}>{selectedNewCategory} 개선</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Base Issue Pool 직접 입력 <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={customBaseIssuePoolText}
+                      onChange={(e) => {
+                        setCustomBaseIssuePoolText(e.target.value);
+                        setNewBaseIssuePool(e.target.value);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="예: 기후변화 대응 및 온실가스 감축"
+                    />
+                  </div>
+                )}
+
+                {/* 미리보기 */}
+                {selectedNewCategory && newBaseIssuePool && (
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h4 className="font-medium text-gray-800 mb-2">추가될 카테고리 미리보기</h4>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p><strong>순위:</strong> {newCategoryRank}위</p>
+                      <p><strong>카테고리:</strong> {selectedNewCategory}</p>
+                      <p><strong>ESG 분류:</strong> {getESGClassification(selectedNewCategory)}</p>
+                      <p><strong>Base Issue Pool:</strong> {newBaseIssuePool}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* 모달 푸터 */}
+            <div className="flex justify-end p-6 border-t border-gray-200 bg-white">
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setIsAddCategoryModalOpen(false)}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={addNewCategory}
+                  disabled={!selectedNewCategory || !newBaseIssuePool}
+                  className={`px-4 py-2 font-medium rounded-lg transition-colors duration-200 ${
+                    selectedNewCategory && newBaseIssuePool
+                      ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  추가하기
                 </button>
               </div>
             </div>
