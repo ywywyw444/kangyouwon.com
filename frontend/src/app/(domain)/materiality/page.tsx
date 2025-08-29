@@ -1088,6 +1088,8 @@ export default function MaterialityHomePage() {
                       total_results: searchResult.data.total_results || 0
                     };
 
+                    console.log('🚀 중대성 평가 요청 데이터:', requestData);
+
                     // Gateway를 통해 materiality-service 호출
                     const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
                     const response = await axios.post(
@@ -1096,7 +1098,8 @@ export default function MaterialityHomePage() {
                       {
                         headers: {
                           'Content-Type': 'application/json',
-                        }
+                        },
+                        timeout: 120000  // 2분 타임아웃 설정
                       }
                     );
 
@@ -1135,9 +1138,29 @@ export default function MaterialityHomePage() {
                       console.log('❌ 응답 실패:', response.data);
                       alert('❌ 중대성 평가 시작에 실패했습니다: ' + response.data.message);
                     }
-                  } catch (error) {
-                    console.error('중대성 평가 시작 중 오류:', error);
-                    alert('❌ 중대성 평가 시작 중 오류가 발생했습니다.');
+                  } catch (error: any) {
+                    console.error('❌ 중대성 평가 시작 중 오류:', error);
+                    
+                    // Railway 로그 레이트 리밋 관련 에러 처리
+                    if (error.response?.status === 500) {
+                      let errorMessage = '❌ 서버 내부 오류가 발생했습니다.\n\n';
+                      
+                      if (error.response?.data?.message?.includes('rate limit')) {
+                        errorMessage += '🚨 Railway 로그 레이트 리밋에 도달했습니다.\n';
+                        errorMessage += '잠시 후 다시 시도해주세요.';
+                      } else {
+                        errorMessage += '🔧 서버에서 처리 중 오류가 발생했습니다.\n';
+                        errorMessage += '잠시 후 다시 시도하거나 관리자에게 문의해주세요.';
+                      }
+                      
+                      alert(errorMessage);
+                    } else if (error.code === 'ECONNABORTED') {
+                      alert('⏰ 요청 시간이 초과되었습니다.\n\n서버가 과부하 상태일 수 있습니다.\n잠시 후 다시 시도해주세요.');
+                    } else if (error.response?.status >= 500) {
+                      alert('🚨 서버 오류가 발생했습니다.\n\nRailway 환경에서 일시적인 문제가 있을 수 있습니다.\n잠시 후 다시 시도해주세요.');
+                    } else {
+                      alert('❌ 중대성 평가 시작 중 오류가 발생했습니다.\n\n' + (error.message || '알 수 없는 오류'));
+                    }
                   } finally {
                     setIsAssessmentStarting(false);
                   }
@@ -2173,9 +2196,9 @@ export default function MaterialityHomePage() {
           <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setIsDetailModalOpen(false)}></div>
           
           {/* 모달 내용 */}
-          <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+          <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[95vh] overflow-hidden">
             {/* 모달 헤더 */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white sticky top-0 z-10">
               <h3 className="text-2xl font-bold text-gray-900">중대성 평가 상세 정보</h3>
               <button
                 onClick={() => setIsDetailModalOpen(false)}
@@ -2188,7 +2211,7 @@ export default function MaterialityHomePage() {
             </div>
             
             {/* 모달 바디 */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(95vh - 140px)' }}>
               {/* 평가 요약 */}
               <div className="mb-8">
                 <h4 className="text-xl font-semibold text-gray-800 mb-4">📊 평가 요약</h4>
@@ -2222,7 +2245,7 @@ export default function MaterialityHomePage() {
                            const categories = assessmentResult?.matched_categories || assessmentResult?.data?.matched_categories || [];
                            if (categories.length > 0) {
                              return categories.map((cat: any, index: number) => (
-                               <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                               <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
                                  <div className="flex items-center justify-between mb-3">
                                    <h5 className="text-lg font-semibold text-gray-800">
                                      {cat.rank}위: {cat.category}
@@ -2234,36 +2257,36 @@ export default function MaterialityHomePage() {
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
                           <div>
-                            <span className="text-gray-600">이슈풀:</span>
-                            <span className="ml-2 font-medium">{cat.total_issuepools || 0}개</span>
+                            <span className="text-gray-700 font-medium">이슈풀:</span>
+                            <span className="ml-2 font-semibold text-gray-900">{cat.total_issuepools || 0}개</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">최종점수:</span>
-                            <span className="ml-2 font-medium text-blue-600">{cat.final_score?.toFixed(3) || 0}</span>
+                            <span className="text-gray-700 font-medium">최종점수:</span>
+                            <span className="ml-2 font-bold text-blue-700">{cat.final_score?.toFixed(3) || 0}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">빈도점수:</span>
-                            <span className="ml-2 font-medium">{cat.frequency_score?.toFixed(3) || 0}</span>
+                            <span className="text-gray-700 font-medium">빈도점수:</span>
+                            <span className="ml-2 font-semibold text-gray-900">{cat.frequency_score?.toFixed(3) || 0}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">관련성점수:</span>
-                            <span className="ml-2 font-medium">{cat.relevance_score?.toFixed(3) || 0}</span>
+                            <span className="text-gray-700 font-medium">관련성점수:</span>
+                            <span className="ml-2 font-semibold text-gray-900">{cat.relevance_score?.toFixed(3) || 0}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">최신성점수:</span>
-                            <span className="ml-2 font-medium">{cat.recent_score?.toFixed(3) || 0}</span>
+                            <span className="text-gray-700 font-medium">최신성점수:</span>
+                            <span className="ml-2 font-semibold text-gray-900">{cat.recent_score?.toFixed(3) || 0}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">순위점수:</span>
-                            <span className="ml-2 font-medium">{cat.rank_score?.toFixed(3) || 0}</span>
+                            <span className="text-gray-700 font-medium">순위점수:</span>
+                            <span className="ml-2 font-semibold text-gray-900">{cat.rank_score?.toFixed(3) || 0}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">참조점수:</span>
-                            <span className="ml-2 font-medium">{cat.reference_score?.toFixed(3) || 0}</span>
+                            <span className="text-gray-700 font-medium">참조점수:</span>
+                            <span className="ml-2 font-semibold text-gray-900">{cat.reference_score?.toFixed(3) || 0}</span>
                           </div>
                           <div>
-                            <span className="text-gray-600">부정성점수:</span>
-                            <span className="ml-2 font-medium">{cat.negative_score?.toFixed(3) || 0}</span>
+                            <span className="text-gray-700 font-medium">부정성점수:</span>
+                            <span className="ml-2 font-semibold text-gray-900">{cat.negative_score?.toFixed(3) || 0}</span>
                           </div>
                         </div>
                       </div>
@@ -2286,13 +2309,24 @@ export default function MaterialityHomePage() {
             </div>
             
             {/* 모달 푸터 */}
-            <div className="flex justify-end p-6 border-t border-gray-200">
-              <button
-                onClick={() => setIsDetailModalOpen(false)}
-                className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
-              >
-                닫기
-              </button>
+            <div className="flex justify-end p-6 border-t border-gray-200 bg-white sticky bottom-0 z-10">
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    // 여기에 저장 기능 추가 가능
+                    alert('저장 기능을 구현합니다.');
+                  }}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
+                >
+                  저장
+                </button>
+                <button
+                  onClick={() => setIsDetailModalOpen(false)}
+                  className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
+                >
+                  닫기
+                </button>
+              </div>
             </div>
           </div>
         </div>

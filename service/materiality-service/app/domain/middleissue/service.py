@@ -24,6 +24,13 @@ from app.domain.middleissue.schema import (
 )
 from app.domain.middleissue.repository import MiddleIssueRepository
 
+# Railway 환경에서 로그 레이트 리밋 방지를 위한 로깅 설정
+if os.getenv('RAILWAY_ENVIRONMENT'):
+    # Railway 환경에서는 로깅 레벨을 WARNING으로 설정
+    logging.getLogger('app.domain.middleissue.service').setLevel(logging.WARNING)
+    logging.getLogger('app.domain.middleissue.repository').setLevel(logging.WARNING)
+    print("🚨 Railway 환경 감지: 로깅 레벨을 WARNING으로 설정하여 로그 레이트 리밋 방지")
+
 # 로거 설정
 logger = logging.getLogger(__name__)
 
@@ -376,15 +383,16 @@ def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[
                 "articles": b["articles"],
             }
             
-            # 디버깅을 위한 상세 로그
-            logger.info(f"🔍 카테고리 '{key}' 점수 계산 상세:")
-            logger.info(f"   - 빈도: {c}/{total_articles} = {frequency:.4f}")
-            logger.info(f"   - 관련성: {b['relevance_sum']}/{c} = {relevance:.4f}")
-            logger.info(f"   - 최신성: {b['recent_sum']}/{c} = {recent:.4f}")
-            logger.info(f"   - 순위: {b['rank_sum']}/{c} = {rank:.4f}")
-            logger.info(f"   - 참조: {b['reference_sum']}/{c} = {reference:.4f}")
-            logger.info(f"   - 부정성: {b['negative_count']}/{c} = {negative:.4f}")
-            logger.info(f"   - 최종점수: {final_score:.6f}")
+            # 디버깅을 위한 상세 로그 (로그 레이트 리밋 방지를 위해 INFO 레벨로 조정)
+            if logger.isEnabledFor(logging.INFO):
+                logger.info(f"🔍 카테고리 '{key}' 점수 계산 상세:")
+                logger.info(f"   - 빈도: {c}/{total_articles} = {frequency:.4f}")
+                logger.info(f"   - 관련성: {b['relevance_sum']}/{c} = {relevance:.4f}")
+                logger.info(f"   - 최신성: {b['recent_sum']}/{c} = {recent:.4f}")
+                logger.info(f"   - 순위: {b['rank_sum']}/{c} = {rank:.4f}")
+                logger.info(f"   - 참조: {b['reference_sum']}/{c} = {reference:.4f}")
+                logger.info(f"   - 부정성: {b['negative_count']}/{c} = {negative:.4f}")
+                logger.info(f"   - 최종점수: {final_score:.6f}")
 
         return results
     except Exception as e:
@@ -662,13 +670,14 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
                 f"이슈풀: {issue_count}개 | 최종점수: {final_score:.3f}"
             )
             
-            # base issuepool 상세 정보 (상위 3개만)
-            base_issuepools = row.get('base_issuepools', [])
-            if base_issuepools:
-                for j, pool in enumerate(base_issuepools[:3]):
-                    logger.info(f"     {j+1}. {pool.get('base_issue_pool', 'N/A')} (순위: {pool.get('ranking', 'N/A')})")
-                if len(base_issuepools) > 3:
-                    logger.info(f"     ... 외 {len(base_issuepools) - 3}개")
+            # base issuepool 상세 정보는 로그 레이트 리밋 방지를 위해 제한
+            if i < 3:  # 상위 3개만 상세 로깅
+                base_issuepools = row.get('base_issuepools', [])
+                if base_issuepools:
+                    for j, pool in enumerate(base_issuepools[:2]):  # 각 카테고리당 2개만
+                        logger.info(f"     {j+1}. {pool.get('base_issue_pool', 'N/A')} (순위: {pool.get('ranking', 'N/A')})")
+                    if len(base_issuepools) > 2:
+                        logger.info(f"     ... 외 {len(base_issuepools) - 2}개")
 
         # 🔥 전체 카테고리 순위 요약
         logger.info(f"\n📋 전체 {len(matched_categories)}개 카테고리 매칭 완료")
