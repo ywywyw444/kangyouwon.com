@@ -697,8 +697,8 @@ class MiddleIssueRepository:
     ) -> Dict[str, CategoryDetailsResponse]:
         """
         배치로 카테고리별 ESG 분류 및 base_issue_pool 조회
-        - materiality_category DB에서 ESG 분류 조회 (company_id, 연도 조건 없음)
-        - issuepool DB에서 base_issue_pool 조회 (카테고리만 매칭, company_id, 연도 조건 없음)
+        - materiality_category DB에서 ESG 분류 조회 (카테고리명 기준)
+        - issuepool DB에서 base_issue_pool 조회 (카테고리 기준, 중복 제거)
         """
         try:
             async for db in get_db():
@@ -706,68 +706,116 @@ class MiddleIssueRepository:
                 await db.execute(text("SET LOCAL statement_timeout = '30000ms'"))
                 await db.execute(text("SET LOCAL work_mem = '256MB'"))
                 
-                # 배치 쿼리: 카테고리명으로 한 번에 조회
-                query = (
+                logger.warning(f"🔍 배치 쿼리 실행 시작: {len(category_names)}개 카테고리")
+                start_time = __import__('time').time()
+                
+                # 1. materiality_category DB에서 ESG 분류만 조회
+                esg_query = (
                     select(
                         CategoryEntity.category_name,
                         CategoryEntity.id.label('category_id'),
                         ESGClassificationEntity.esg.label('esg_classification_name'),
-                        ESGClassificationEntity.id.label('esg_classification_id'),
-                        MiddleIssueEntity.id,
-                        MiddleIssueEntity.base_issue_pool,
-                        MiddleIssueEntity.issue_pool,
-                        MiddleIssueEntity.ranking
+                        ESGClassificationEntity.id.label('esg_classification_id')
                     )
                     .select_from(CategoryEntity)
                     .outerjoin(ESGClassificationEntity, CategoryEntity.esg_classification_id == ESGClassificationEntity.id)
-                    .outerjoin(MiddleIssueEntity, CategoryEntity.id == MiddleIssueEntity.category_id)
                     .where(
                         CategoryEntity.category_name.in_(category_names)
-                        # company_id 조건 제거
-                        # 연도 조건 제거
                     )
-                    .order_by(CategoryEntity.category_name, MiddleIssueEntity.ranking)
                 )
                 
-                # statement timeout 설정 (30초)
-                query = query.execution_options(statement_timeout=30000)
+                esg_result = await db.execute(esg_query)
+                esg_rows = esg_result.fetchall()
                 
-                logger.warning(f"🔍 배치 쿼리 실행 시작: {len(category_names)}개 카테고리")
-                start_time = __import__('time').time()
+                # ESG 분류 결과를 딕셔너리로 변환
+                esg_map = {}
+                for row in esg_rows:
+                    esg_map[row.category_name] = {
+                        'category_id': row.category_id,
+                        'esg_classification_name': row.esg_classification_name or '미분류',
+                        'esg_classification_id': row.esg_classification_id
+                    }
                 
-                result = await db.execute(query)
-                rows = result.fetchall()
+                logger.warning(f"🔍 ESG 분류 조회 완료: {len(esg_map)}개 카테고리")
+                
+                # 2. issuepool DB에서 base_issue_pool 조회 (카테고리 ID 기준)
+                category_ids = [esg_map[name]['category_id'] for name in esg_map.keys()]
+                
+                if category_ids:
+                    issuepool_query = (
+                        select(
+                            MiddleIssueEntity.category_id,
+                            MiddleIssueEntity.id,
+                            MiddleIssueEntity.base_issue_pool,
+                            MiddleIssueEntity.issue_pool,
+                            MiddleIssueEntity.ranking
+                        )
+                        .where(
+                            MiddleIssueEntity.category_id.in_(category_ids)
+                            # company_id, 연도 조건 제거
+                        )
+                        .order_by(MiddleIssueEntity.category_id, MiddleIssueEntity.ranking)
+                    )
+                    
+                    issuepool_result = await db.execute(issuepool_query)
+                    issuepool_rows = issuepool_result.fetchall()
+                    
+                    # 카테고리별로 base_issue_pool 그룹화
+                    issuepool_map = {}
+                    for row in issuepool_rows:
+                        cat_id = row.category_id
+                        if cat_id not in issuepool_map:
+                            issuepool_map[cat_id] = []
+                        
+                        issuepool_map[cat_id].append({
+                            'id': row.id,
+                            'base_issue_pool': row.base_issue_pool,
+                            'issue_pool': row.issue_pool,
+                            'ranking': row.ranking
+                        })
+                    
+                    logger.warning(f"🔍 Base IssuePool 조회 완료: {len(issuepool_map)}개 카테고리")
+                else:
+                    issuepool_map = {}
+                    logger.warning(f"⚠️ ESG 분류가 없어서 Base IssuePool 조회 건너뛰기")
+                
+                # 3. 결과 조합
+                categories_map = {}
+                
+                for category_name, esg_info in esg_map.items():
+                    category_id = esg_info['category_id']
+                    base_issuepools = []
+                    
+                    # 해당 카테고리의 base_issue_pool 가져오기
+                    if category_id in issuepool_map:
+                        # 중복 제거를 위한 set 사용 (공백 포함한 정확한 일치)
+                        seen_pools = set()
+                        for issue in issuepool_map[category_id]:
+                            # 공백을 포함한 문자 그대로 비교하여 중복 체크
+                            pool_key = (issue['base_issue_pool'], issue['issue_pool'])
+                            if pool_key not in seen_pools:
+                                seen_pools.add(pool_key)
+                                base_issue_pool = BaseIssuePool(
+                                    id=issue['id'],
+                                    base_issue_pool=issue['base_issue_pool'],
+                                    issue_pool=issue['issue_pool'],
+                                    ranking=issue['ranking'],
+                                    esg_classification_id=esg_info['esg_classification_id']
+                                )
+                                base_issuepools.append(base_issue_pool)
+                    
+                    # CategoryDetailsResponse 생성
+                    categories_map[category_name] = CategoryDetailsResponse(
+                        category_name=category_name,
+                        category_id=category_id,
+                        esg_classification_name=esg_info['esg_classification_name'],
+                        esg_classification_id=esg_info['esg_classification_id'],
+                        base_issuepools=base_issuepools
+                    )
                 
                 query_time = __import__('time').time() - start_time
-                logger.warning(f"⏱️ 배치 쿼리 실행 완료: {query_time:.2f}초, {len(rows)}개 행")
-                
-                # 결과를 카테고리별로 그룹화
-                categories_map: Dict[str, CategoryDetailsResponse] = {}
-                
-                for row in rows:
-                    category_name = row.category_name
-                    
-                    if category_name not in categories_map:
-                        categories_map[category_name] = CategoryDetailsResponse(
-                            category_name=category_name,
-                            category_id=row.category_id,
-                            esg_classification_name=row.esg_classification_name or '미분류',
-                            esg_classification_id=row.esg_classification_id,
-                            base_issuepools=[]
-                        )
-                    
-                    # base_issue_pool이 있는 경우만 추가
-                    if row.base_issue_pool:
-                        base_issue_pool = BaseIssuePool(
-                            id=row.id,
-                            base_issue_pool=row.base_issue_pool,
-                            issue_pool=row.issue_pool,
-                            ranking=row.ranking,
-                            esg_classification_id=row.esg_classification_id
-                        )
-                        categories_map[category_name].base_issuepools.append(base_issue_pool)
-                
                 total_issuepools = sum(len(cat.base_issuepools) for cat in categories_map.values())
+                
                 logger.warning(f"✅ 배치 조회 완료: {len(categories_map)}개 카테고리, 총 {total_issuepools}개 base_issue_pool")
                 logger.warning(f"⏱️ 전체 처리 시간: {query_time:.2f}초")
                 

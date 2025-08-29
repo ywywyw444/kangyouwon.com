@@ -384,17 +384,6 @@ def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[
                 "final_score": round(final_score, 6),
                 "articles": b["articles"],
             }
-            
-            # 디버깅을 위한 상세 로그 (로그 레이트 리밋 방지를 위해 제거)
-            # if logger.isEnabledFor(logging.INFO):
-            #     logger.info(f"🔍 카테고리 '{key}' 점수 계산 상세:")
-            #     logger.info(f"   - 빈도: {c}/{total_articles} = {frequency:.4f}")
-            #     logger.info(f"   - 관련성: {b['relevance_sum']}/{c} = {relevance:.4f}")
-            #     logger.info(f"   - 최신성: {b['recent_sum']}/{c} = {recent:.4f}")
-            #     logger.info(f"   - 순위: {b['rank_sum']}/{c} = {rank:.4f}")
-            #     logger.info(f"   - 참조: {b['reference_sum']}/{c} = {reference:.4f}")
-            #     logger.info(f"   - 부정성: {b['negative_count']}/{c} = {negative:.4f}")
-            #     logger.info(f"   - 최종점수: {final_score:.6f}")
 
         return results
     except Exception as e:
