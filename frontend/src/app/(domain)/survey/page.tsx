@@ -50,7 +50,7 @@ export default function SurveyPage() {
           const data: SurveyData = JSON.parse(savedData);
           setSurveyData(data);
           
-                    // ESG 분류별로 카테고리 분리
+          // ESG 분류별로 카테고리 분리
           const environmental: SurveyItem[] = [];
           const social: SurveyItem[] = [];
           const governance: SurveyItem[] = [];
