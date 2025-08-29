@@ -977,3 +977,150 @@ def debug_labeling_results(labeled_articles: List[Dict[str, Any]], category_scor
 # ============================================================================
 # 🚧 디버깅 함수 끝
 # ============================================================================
+
+async def get_all_issuepool_data() -> Dict[str, Any]:
+    """
+    issuepool DB에서 모든 데이터를 가져오는 함수
+    
+    Returns:
+        Dict[str, Any]: issuepool DB의 모든 데이터 (중복 제거, 행 단위 매칭)
+    """
+    try:
+        repository = MiddleIssueRepository()
+        logger.warning("🔍 issuepool DB 전체 데이터 조회 시작")
+        
+        # 1. 모든 카테고리와 ESG 분류 정보 조회
+        all_categories = await repository.get_all_categories_with_esg()
+        
+        # 2. 모든 base issue pool 정보 조회
+        all_base_issuepools = await repository.get_all_base_issuepools()
+        
+        # 3. 데이터 구조화 및 중복 제거
+        structured_data = {
+            "matched_data": [],  # 행 단위로 매칭된 데이터
+            "categories": [],
+            "base_issuepools": [],
+            "esg_classifications": [],
+            "summary": {
+                "total_categories": len(all_categories),
+                "total_base_issuepools": len(all_base_issuepools),
+                "total_matched_rows": 0,
+                "esg_distribution": {}
+            }
+        }
+        
+        # 카테고리 데이터 구조화
+        for cat in all_categories:
+            category_info = {
+                "id": cat.id,
+                "category_name": cat.category_name,
+                "esg_classification_id": cat.esg_classification_id,
+                "esg_classification_name": cat.esg_classification_name if hasattr(cat, 'esg_classification_name') else None,
+                "created_at": str(cat.created_at) if hasattr(cat, 'created_at') else None,
+                "updated_at": str(cat.updated_at) if hasattr(cat, 'updated_at') else None
+            }
+            structured_data["categories"].append(category_info)
+        
+        # Base issue pool 데이터 구조화
+        for pool in all_base_issuepools:
+            pool_info = {
+                "id": pool.id,
+                "base_issue_pool": pool.base_issue_pool,
+                "issue_pool": pool.issue_pool,
+                "category_id": pool.category_id,
+                "ranking": pool.ranking,
+                "corporation_id": pool.corporation_id,
+                "publish_year": pool.publish_year,
+                "created_at": str(pool.created_at) if hasattr(pool, 'created_at') else None,
+                "updated_at": str(pool.updated_at) if hasattr(pool, 'updated_at') else None
+            }
+            structured_data["base_issuepools"].append(pool_info)
+        
+        # 4. 🔥 핵심: 행 단위로 매칭하고 중복 제거
+        logger.warning("🔍 행 단위 매칭 및 중복 제거 시작")
+        
+        # base_issue_pool 기준으로 중복 제거를 위한 set
+        seen_base_issue_pools = set()
+        matched_rows = []
+        
+        for pool in all_base_issuepools:
+            # base_issue_pool 값 (공백 포함)
+            base_issue_pool_value = pool.base_issue_pool.strip() if pool.base_issue_pool else ""
+            
+            # 중복 체크 (공백을 포함한 정확한 값으로)
+            if base_issue_pool_value in seen_base_issue_pools:
+                logger.debug(f"🔍 중복 제거: {base_issue_pool_value}")
+                continue
+            
+            # 중복이 아닌 경우 set에 추가
+            seen_base_issue_pools.add(base_issue_pool_value)
+            
+            # 해당 pool의 category_id로 카테고리 정보 찾기
+            category_info = None
+            for cat in all_categories:
+                if cat.id == pool.category_id:
+                    category_info = cat
+                    break
+            
+            # ESG 분류 정보
+            esg_classification_name = "미분류"
+            if category_info and hasattr(category_info, 'esg_classification_name'):
+                esg_classification_name = category_info.esg_classification_name or "미분류"
+            
+            # 행 단위로 매칭된 데이터 생성
+            matched_row = {
+                "id": pool.id,
+                "base_issue_pool": base_issue_pool_value,
+                "issue_pool": pool.issue_pool,
+                "category_id": pool.category_id,
+                "category_name": category_info.category_name if category_info else "미분류",
+                "esg_classification_id": category_info.esg_classification_id if category_info else None,
+                "esg_classification_name": esg_classification_name,
+                "ranking": pool.ranking,
+                "corporation_id": pool.corporation_id,
+                "publish_year": pool.publish_year,
+                "created_at": str(pool.created_at) if hasattr(pool, 'created_at') else None,
+                "updated_at": str(pool.updated_at) if hasattr(pool, 'updated_at') else None
+            }
+            
+            matched_rows.append(matched_row)
+        
+        # 매칭된 데이터를 structured_data에 추가
+        structured_data["matched_data"] = matched_rows
+        structured_data["summary"]["total_matched_rows"] = len(matched_rows)
+        
+        # 5. ESG 분포 계산 (중복 제거 후)
+        esg_counts = {}
+        for row in matched_rows:
+            esg_name = row.get('esg_classification_name', '미분류')
+            esg_counts[esg_name] = esg_counts.get(esg_name, 0) + 1
+        
+        structured_data["summary"]["esg_distribution"] = esg_counts
+        
+        # 6. 로깅
+        logger.warning(f"✅ issuepool DB 전체 데이터 조회 완료:")
+        logger.warning(f"   - 총 카테고리: {len(all_categories)}개")
+        logger.warning(f"   - 총 Base Issue Pool: {len(all_base_issuepools)}개")
+        logger.warning(f"   - 중복 제거 후 매칭된 행: {len(matched_rows)}개")
+        logger.warning(f"   - 중복 제거된 행: {len(all_base_issuepools) - len(matched_rows)}개")
+        logger.warning(f"   - ESG 분포: {esg_counts}")
+        
+        return {
+            "success": True,
+            "message": "issuepool DB 전체 데이터 조회 완료 (중복 제거, 행 단위 매칭)",
+            "data": structured_data
+        }
+        
+    except Exception as e:
+        error_msg = f"❌ issuepool DB 전체 데이터 조회 중 오류 발생: {str(e)}"
+        logger.error(error_msg)
+        logger.error(f"🔍 오류 상세: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
+        
+        return {
+            "success": False,
+            "message": error_msg,
+            "data": None,
+            "error": str(e)
+        }

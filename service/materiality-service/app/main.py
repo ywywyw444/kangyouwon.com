@@ -106,6 +106,7 @@ async def startup_event():
     logger.info("   - GET  /materiality-service/reports")
     logger.info("   - GET  /materiality-service/middleissue/list")
     logger.info("   - POST /materiality-service/middleissue/create")
+    logger.info("   - GET  /materiality-service/issuepool/all (신규: issuepool DB 전체 데이터)")
     logger.info("   - (search_router 내 엔드포인트들도 /materiality-service/* 로 노출)")
 
 @app.on_event("shutdown")
