@@ -19,7 +19,7 @@ import SurveyResult from '@/component/materiality/box/survey_result';
 import { handleViewReport } from '@/component/materiality/handle_view_report';
 import { loadAssessmentResult } from '@/component/materiality/load_assessment_result';
 import { fetchAllCategories } from '@/component/materiality/fetch_all_categories';
-import { fetchAllIssuepoolData } from '@/component/materiality/fetch_all_issue_pool_data';
+
 import { addNewCategory } from '@/component/materiality/add_new_category';
 import { getESGClassification } from '@/component/materiality/get_esg_classification';
 
@@ -84,17 +84,13 @@ export default function MaterialityHomePage() {
   
   // 새로운 카테고리 추가 모달 상태
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
-  const [allCategories, setAllCategories] = useState<string[]>([]);
+  const [allCategories, setAllCategories] = useState<any[]>([]);
   const [selectedNewCategory, setSelectedNewCategory] = useState<string>('');
   const [newCategoryRank, setNewCategoryRank] = useState<number>(1);
   const [newBaseIssuePool, setNewBaseIssuePool] = useState<string>('');
   const [isCustomBaseIssuePool, setIsCustomBaseIssuePool] = useState(false);
   const [customBaseIssuePoolText, setCustomBaseIssuePoolText] = useState<string>('');
-
-  // issuepool DB 전체 데이터 상태
-  const [issuepoolAllData, setIssuepoolAllData] = useState<any>(null);
-  const [isIssuepoolAllLoading, setIsIssuepoolAllLoading] = useState(false);
-
+  
   // 중대성 평가 관련 상태
   const [issuepoolData, setIssuepoolData] = useState<IssuepoolData | null>(null);
   const [isIssuepoolLoading, setIsIssuepoolLoading] = useState(false);
@@ -369,55 +365,139 @@ export default function MaterialityHomePage() {
           {/* 최종 이슈풀 확인하기 */}
           <FinalIssuepool />
   
-          {/* Issuepool DB 전체 데이터 관리 */}
-          <div id="issuepool-management" className="bg-white rounded-xl shadow-lg p-6 mb-12">
-            <h2 className="text-2xl font-semibold text-gray-800 mb-6">🗄️ Issuepool DB 전체 데이터 관리</h2>
-  
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* 왼쪽 카드 */}
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
-                {/* ... (내용 동일) ... */}
-                <button
-                  onClick={() => fetchAllIssuepoolData(setIsIssuepoolAllLoading, setIssuepoolAllData)}
-                  disabled={isIssuepoolAllLoading}
-                  className={`w-full py-3 px-4 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center ${
-                    isIssuepoolAllLoading ? 'bg-gray-400 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700 text-white'
-                  }`}
-                >
-                  {isIssuepoolAllLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
-                      <span>데이터 로드 중...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      <span>Issuepool DB 전체 데이터 로드</span>
-                    </>
-                  )}
-                </button>
-              </div>
-  
-              {/* 오른쪽 카드 */}
-              <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl p-6 border border-indigo-200">
-                {/* ... (내용 동일) ... */}
-                {issuepoolAllData ? (
-                  <div className="bg-white rounded-lg p-4 border border-indigo-200">{/* ... */}</div>
-                ) : (
-                  <div className="bg-white rounded-lg p-8 border border-indigo-200 text-center">{/* ... */}</div>
-                )}
-              </div>
-            </div>
-          </div>
-  
           {/* 중대성 평가 상세 정보 모달 */}
           {isDetailModalOpen && assessmentResult && (
             <div className="fixed inset-0 flex items-center justify-center z-50">
               <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setIsDetailModalOpen(false)} />
-              <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[95vh] overflow-hidden">
-                {/* ... (모달 내용 동일) ... */}
+              <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[95vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-semibold text-gray-800">🔍 중대성 평가 상세 정보</h2>
+                    <button
+                      onClick={() => setIsDetailModalOpen(false)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용 */}
+                  {(() => {
+                    const resultData = assessmentResult?.data || assessmentResult;
+                    const categories = resultData?.matched_categories || [];
+                    
+                    if (categories.length > 0) {
+                      return (
+                        <div className="space-y-6">
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h3 className="text-lg font-semibold text-blue-800 mb-2">📊 평가 요약</h3>
+                            <p className="text-blue-700">총 {categories.length}개 카테고리가 평가되었습니다.</p>
+                          </div>
+
+                          {/* 카테고리별 상세 정보 */}
+                          <div className="space-y-4">
+                            <h3 className="text-lg font-semibold text-gray-800">📋 카테고리별 상세 정보</h3>
+                            {categories.map((cat: any, index: number) => (
+                              <div key={index} className="border border-gray-200 rounded-lg p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <h4 className="text-lg font-medium text-gray-800">
+                                    {index + 1}. {cat.category || '카테고리명 없음'}
+                                  </h4>
+                                  <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+                                    cat.esg_classification === '환경' ? 'bg-green-100 text-green-700' :
+                                    cat.esg_classification === '사회' ? 'bg-orange-100 text-orange-700' :
+                                    cat.esg_classification === '지배구조' ? 'bg-blue-100 text-blue-700' :
+                                    cat.esg_classification === '경제' ? 'bg-purple-100 text-purple-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }`}>
+                                    {cat.esg_classification || '미분류'}
+                                  </span>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <h5 className="font-medium text-gray-700 mb-2">📈 점수 정보</h5>
+                                    <div className="space-y-2 text-sm">
+                                      <div className="flex justify-between">
+                                        <span>빈도 점수:</span>
+                                        <span className="font-medium">{cat.frequency_score || 0.0}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>관련성 점수:</span>
+                                        <span className="font-medium">{cat.relevance_score || 0.0}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>최근성 점수:</span>
+                                        <span className="font-medium">{cat.recent_score || 0.0}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>순위 점수:</span>
+                                        <span className="font-medium">{cat.rank_score || 0.0}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>참조 점수:</span>
+                                        <span className="font-medium">{cat.reference_score || 0.0}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span>부정성 점수:</span>
+                                        <span className="font-medium">{cat.negative_score || 0.0}</span>
+                                      </div>
+                                      <div className="border-t pt-2">
+                                        <div className="flex justify-between font-semibold">
+                                          <span>최종 점수:</span>
+                                          <span className="text-blue-600">{cat.final_score || 0.0}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div>
+                                    <h5 className="font-medium text-gray-700 mb-2">📋 선택된 항목</h5>
+                                    {cat.selected_base_issue_pool ? (
+                                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                        <span className="text-green-700 font-medium">
+                                          {cat.selected_base_issue_pool}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <div className="text-gray-500 text-sm">
+                                        선택된 base issue pool이 없습니다.
+                                      </div>
+                                    )}
+                                    
+                                    <div className="mt-3">
+                                      <h6 className="font-medium text-gray-700 mb-2">📊 통계</h6>
+                                      <div className="space-y-1 text-sm">
+                                        <div className="flex justify-between">
+                                          <span>총 이슈풀:</span>
+                                          <span>{cat.total_issuepools || 0}개</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span>순위:</span>
+                                          <span>{cat.rank || index + 1}위</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="text-center py-8">
+                          <div className="text-gray-500 text-lg">
+                            평가된 카테고리가 없습니다.
+                          </div>
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
               </div>
             </div>
           )}
@@ -427,7 +507,100 @@ export default function MaterialityHomePage() {
             <div className="fixed inset-0 flex items-center justify-center z-50">
               <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setIsBaseIssuePoolModalOpen(false)} />
               <div className="relative bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4">
-                {/* ... (모달 내용 동일) ... */}
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-semibold text-gray-800">📋 Base Issue Pool 선택</h2>
+                    <button
+                      onClick={() => setIsBaseIssuePoolModalOpen(false)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* 선택된 카테고리 정보 */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h3 className="font-medium text-blue-800 mb-2">선택된 카테고리</h3>
+                    <p className="text-blue-700 text-lg font-semibold">{selectedCategory.category}</p>
+                    {selectedCategory.esg_classification && (
+                      <div className="mt-2">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          selectedCategory.esg_classification === '환경' ? 'bg-green-100 text-green-700' :
+                          selectedCategory.esg_classification === '사회' ? 'bg-orange-100 text-orange-700' :
+                          selectedCategory.esg_classification === '지배구조' ? 'bg-blue-100 text-blue-700' :
+                          selectedCategory.esg_classification === '경제' ? 'bg-purple-100 text-purple-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          ESG 분류: {selectedCategory.esg_classification}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Base Issue Pool 선택 */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium text-gray-700">Base Issue Pool 선택</h3>
+                    
+                    {baseIssuePoolOptions.length > 0 ? (
+                      <div className="space-y-2">
+                        {baseIssuePoolOptions.map((option: string, index: number) => (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              setSelectedBaseIssuePool(option);
+                              // 선택된 base issue pool을 카테고리에 저장
+                              const resultData = assessmentResult?.data || assessmentResult;
+                              const updatedCategories = [...(resultData?.matched_categories || [])];
+                              if (updatedCategories[editingCategoryIndex]) {
+                                updatedCategories[editingCategoryIndex].selected_base_issue_pool = option;
+                                
+                                // 상태 업데이트
+                                if (assessmentResult?.data) {
+                                  setAssessmentResult({
+                                    ...assessmentResult,
+                                    data: {
+                                      ...assessmentResult.data,
+                                      matched_categories: updatedCategories
+                                    }
+                                  });
+                                } else {
+                                  setAssessmentResult({
+                                    ...assessmentResult,
+                                    matched_categories: updatedCategories
+                                  });
+                                }
+                              }
+                              
+                              // 모달 닫기
+                              setIsBaseIssuePoolModalOpen(false);
+                              alert(`✅ "${option}"이(가) 선택되었습니다.`);
+                            }}
+                            className={`w-full text-left p-4 rounded-lg border transition-all duration-200 ${
+                              selectedBaseIssuePool === option
+                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{option}</span>
+                              {selectedBaseIssuePool === option && (
+                                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-500 py-8">
+                        선택할 수 있는 base issue pool이 없습니다.
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -436,8 +609,169 @@ export default function MaterialityHomePage() {
           {isAddCategoryModalOpen && (
             <div className="fixed inset-0 flex items-center justify-center z-50">
               <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setIsAddCategoryModalOpen(false)} />
-              <div className="relative bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4">
-                {/* ... (모달 내용 동일) ... */}
+              <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[95vh] overflow-y-auto">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-2xl font-semibold text-gray-800">➕ 새로운 카테고리 추가</h2>
+                    <button
+                      onClick={() => setIsAddCategoryModalOpen(false)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* 왼쪽: 카테고리 선택 */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium text-gray-700">1️⃣ 카테고리 선택</h3>
+                      <div className="max-h-96 overflow-y-auto border border-gray-200 rounded-lg p-4">
+                        <div className="grid grid-cols-1 gap-2">
+                          {allCategories.map((category: any, index: number) => (
+                            <button
+                              key={index}
+                              onClick={() => {
+                                setSelectedNewCategory(category.name || category);
+                                setNewBaseIssuePool('');
+                                // 카테고리 선택 시 해당 카테고리의 base issue pool 옵션 설정
+                                if (category.base_issue_pools) {
+                                  setBaseIssuePoolOptions(category.base_issue_pools);
+                                } else {
+                                  // 기존 구조와의 호환성을 위한 기본 옵션
+                                  setBaseIssuePoolOptions([
+                                    `${category.name || category} 관련 이슈 1`,
+                                    `${category.name || category} 관련 이슈 2`,
+                                    `${category.name || category} 관련 이슈 3`
+                                  ]);
+                                }
+                              }}
+                              className={`w-full text-left p-3 rounded-lg border transition-all duration-200 ${
+                                selectedNewCategory === (category.name || category)
+                                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                  : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{category.name || category}</span>
+                                {category.esg_classification && (
+                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    category.esg_classification === '환경' ? 'bg-green-100 text-green-700' :
+                                    category.esg_classification === '사회' ? 'bg-orange-100 text-orange-700' :
+                                    category.esg_classification === '지배구조' ? 'bg-blue-100 text-blue-700' :
+                                    category.esg_classification === '경제' ? 'bg-purple-100 text-purple-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }`}>
+                                    {category.esg_classification}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 오른쪽: Base Issue Pool 선택 및 순위 설정 */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-medium text-gray-700">2️⃣ Base Issue Pool 선택</h3>
+                      
+                      {selectedNewCategory && (
+                        <div className="space-y-4">
+                          {/* 선택된 카테고리 정보 */}
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <h4 className="font-medium text-blue-800 mb-2">선택된 카테고리</h4>
+                            <p className="text-blue-700">{selectedNewCategory}</p>
+                            {(() => {
+                              const selectedCat = allCategories.find(cat => cat.name === selectedNewCategory);
+                              return selectedCat?.esg_classification ? (
+                                <div className="mt-2">
+                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    selectedCat.esg_classification === '환경' ? 'bg-green-100 text-green-700' :
+                                    selectedCat.esg_classification === '사회' ? 'bg-orange-100 text-orange-700' :
+                                    selectedCat.esg_classification === '지배구조' ? 'bg-blue-100 text-blue-700' :
+                                    selectedCat.esg_classification === '경제' ? 'bg-purple-100 text-purple-700' :
+                                    'bg-gray-100 text-gray-700'
+                                  }`}>
+                                    ESG 분류: {selectedCat.esg_classification}
+                                  </span>
+                                </div>
+                              ) : null;
+                            })()}
+                          </div>
+
+                          {/* Base Issue Pool 선택 */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Base Issue Pool
+                            </label>
+                            <select
+                              value={newBaseIssuePool}
+                              onChange={(e) => setNewBaseIssuePool(e.target.value)}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            >
+                              <option value="">Base Issue Pool을 선택하세요</option>
+                              {baseIssuePoolOptions.map((option: string, index: number) => (
+                                <option key={index} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* 순위 설정 */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              순위
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={newCategoryRank}
+                              onChange={(e) => setNewCategoryRank(parseInt(e.target.value) || 1)}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+
+                          {/* 추가 버튼 */}
+                          <button
+                            onClick={() => {
+                              addNewCategory(
+                                selectedNewCategory,
+                                newBaseIssuePool,
+                                newCategoryRank,
+                                assessmentResult,
+                                setAssessmentResult,
+                                setIsAddCategoryModalOpen,
+                                setSelectedNewCategory,
+                                setNewCategoryRank,
+                                setNewBaseIssuePool,
+                                setIsCustomBaseIssuePool,
+                                setCustomBaseIssuePoolText,
+                                allCategories
+                              );
+                            }}
+                            disabled={!selectedNewCategory || !newBaseIssuePool}
+                            className={`w-full py-3 px-4 rounded-lg font-medium transition-colors duration-200 ${
+                              selectedNewCategory && newBaseIssuePool
+                                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            }`}
+                          >
+                            ✅ 카테고리 추가하기
+                          </button>
+                        </div>
+                      )}
+
+                      {!selectedNewCategory && (
+                        <div className="text-center text-gray-500 py-8">
+                          왼쪽에서 카테고리를 선택해주세요
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

@@ -15,6 +15,7 @@ from app.router.media_router import media_router
 from app.router.search_router import search_router
 from app.router.issuepool_router import issuepool_router
 from app.router.middleissue_router import middleissue_router
+from app.router.category_router import category_router
 
 # 환경 변수 로드 (Railway 환경에서는 건너뛰기)
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
@@ -62,6 +63,7 @@ app.include_router(media_router,  prefix="/materiality-service", tags=["material
 app.include_router(search_router, prefix="/materiality-service", tags=["search"])
 app.include_router(issuepool_router, prefix="/materiality-service", tags=["issuepool"])
 app.include_router(middleissue_router, prefix="/materiality-service", tags=["middleissue"])
+app.include_router(category_router, prefix="/materiality-service", tags=["category"])
 
 @app.get("/")
 async def root():
@@ -107,6 +109,7 @@ async def startup_event():
     logger.info("   - GET  /materiality-service/middleissue/list")
     logger.info("   - POST /materiality-service/middleissue/create")
     logger.info("   - GET  /materiality-service/issuepool/all (신규: issuepool DB 전체 데이터)")
+    logger.info("   - POST /materiality-service/category/categories/all (신규: 전체 카테고리 목록)")
     logger.info("   - (search_router 내 엔드포인트들도 /materiality-service/* 로 노출)")
 
 @app.on_event("shutdown")

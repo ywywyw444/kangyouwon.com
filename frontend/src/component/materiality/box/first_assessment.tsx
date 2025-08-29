@@ -3,6 +3,7 @@ import axios from 'axios';
 import { handleViewReport } from '../handle_view_report';
 import { loadAssessmentResult } from '../load_assessment_result';
 import { fetchAllCategories } from '../fetch_all_categories';
+import { addNewCategory } from '../add_new_category';
 
 interface FirstAssessmentProps {
   companyId: string;
@@ -17,7 +18,7 @@ interface FirstAssessmentProps {
   editingCategoryIndex: number;
   baseIssuePoolOptions: string[];
   selectedBaseIssuePool: string;
-  allCategories: string[];
+  allCategories: any[];
   selectedNewCategory: string;
   newCategoryRank: number;
   newBaseIssuePool: string;
@@ -32,7 +33,7 @@ interface FirstAssessmentProps {
   setEditingCategoryIndex: (index: number) => void;
   setBaseIssuePoolOptions: (options: string[]) => void;
   setSelectedBaseIssuePool: (option: string) => void;
-  setAllCategories: (categories: string[]) => void;
+  setAllCategories: (categories: any[]) => void;
   setSelectedNewCategory: (category: string) => void;
   setNewCategoryRank: (rank: number) => void;
   setNewBaseIssuePool: (pool: string) => void;
