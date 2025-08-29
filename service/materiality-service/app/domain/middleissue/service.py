@@ -382,7 +382,7 @@ async def match_categories_with_esg_and_issuepool(
                     )
                 
                 if category_details:
-                    # 이미 모든 정보가 포함된 CategoryDetailsResponse에서 추출
+                    # materiality_category DB에서 ESG 분류 정보 우선 사용
                     esg_classification = category_details.esg_classification_name or '미분류'
                     esg_classification_id = category_details.esg_classification_id
                     
@@ -412,7 +412,7 @@ async def match_categories_with_esg_and_issuepool(
                     matched_categories.append(matched_category)
                     
                     # 카테고리-ESG 매핑 및 base issuepool 매핑 결과 로그
-                    logger.info(f"✅ 카테고리 '{name_or_id}' 매칭 완료:")
+                    logger.info(f"✅ 카테고리 '{name_or_id}' 매칭 완료 (materiality_category DB 사용):")
                     logger.info(f"   - ESG 분류: {esg_classification} (ID: {esg_classification_id})")
                     logger.info(f"   - Base IssuePool 수: {len(base_issuepools)}개")
                     if base_issuepools:
@@ -421,17 +421,34 @@ async def match_categories_with_esg_and_issuepool(
                         if len(base_issuepools) > 3:
                             logger.info(f"     ... 외 {len(base_issuepools) - 3}개")
                 else:
-                    # 매칭되지 않은 경우 기본값으로 설정
-                    matched_category = {
-                        **category_info,
-                        "esg_classification": "미분류",
-                        "esg_classification_id": None,
-                        "base_issuepools": [],
-                        "total_issuepools": 0
-                    }
-                    matched_categories.append(matched_category)
+                    # materiality_category DB에서 직접 ESG 분류 조회 시도
+                    logger.info(f"🔍 카테고리 '{name_or_id}' materiality_category DB에서 직접 ESG 분류 조회 시도")
+                    direct_esg = await repository.get_category_esg_direct(name_or_id)
                     
-                    logger.warning(f"⚠️ 카테고리 '{name_or_id}' 매칭 실패: ESG 분류 및 이슈풀 정보 없음")
+                    if direct_esg:
+                        # materiality_category DB에서 ESG 분류는 찾았지만 이슈풀은 없는 경우
+                        matched_category = {
+                            **category_info,
+                            "esg_classification": direct_esg,
+                            "esg_classification_id": None,  # ID는 별도 조회 필요
+                            "base_issuepools": [],
+                            "total_issuepools": 0
+                        }
+                        matched_categories.append(matched_category)
+                        
+                        logger.info(f"✅ 카테고리 '{name_or_id}' ESG 분류만 매칭 (materiality_category DB): {direct_esg}")
+                    else:
+                        # 매칭되지 않은 경우 기본값으로 설정
+                        matched_category = {
+                            **category_info,
+                            "esg_classification": "미분류",
+                            "esg_classification_id": None,
+                            "base_issuepools": [],
+                            "total_issuepools": 0
+                        }
+                        matched_categories.append(matched_category)
+                        
+                        logger.warning(f"⚠️ 카테고리 '{name_or_id}' 매칭 실패: materiality_category DB에서도 ESG 분류 정보 없음")
                     
             except Exception as e:
                 logger.error(f"❌ 카테고리 '{name_or_id}' 매칭 중 오류: {str(e)}")
@@ -523,6 +540,46 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
             request.company_id, 
             search_year
         )
+
+        # 6) 최종 순위 결정 및 ESG 분류 매칭
+        logger.info(f"🔍 최종 순위 결정 및 ESG 분류 매칭 시작")
+        
+        # materiality_category DB에서 카테고리별 ESG 분류 정보 조회
+        category_esg_mapping = {}
+        for category_info in matched_categories:
+            category_name = category_info.get('category')
+            if category_name:
+                try:
+                    # materiality_category DB에서 해당 카테고리의 ESG 분류 조회
+                    category_details = await repository.get_category_details(
+                        corporation_name=company_id,
+                        category_id=category_name,
+                        year=search_year
+                    )
+                    
+                    if category_details and category_details.esg_classification_name:
+                        category_esg_mapping[category_name] = category_details.esg_classification_name
+                        logger.info(f"✅ 카테고리 '{category_name}' ESG 분류 매칭: {category_details.esg_classification_name}")
+                    else:
+                        # materiality_category DB에서 직접 조회 시도
+                        category_esg = await repository.get_category_esg_direct(category_name)
+                        if category_esg:
+                            category_esg_mapping[category_name] = category_esg
+                            logger.info(f"✅ 카테고리 '{category_name}' 직접 ESG 분류 조회: {category_esg}")
+                        else:
+                            category_esg_mapping[category_name] = '미분류'
+                            logger.warning(f"⚠️ 카테고리 '{category_name}' ESG 분류 없음 → '미분류'로 설정")
+                except Exception as e:
+                    logger.error(f"❌ 카테고리 '{category_name}' ESG 분류 조회 중 오류: {e}")
+                    category_esg_mapping[category_name] = '미분류'
+        
+        # 최종 결과에 ESG 분류 정보 추가
+        for category_info in matched_categories:
+            category_name = category_info.get('category')
+            if category_name:
+                category_info['esg_classification'] = category_esg_mapping.get(category_name, '미분류')
+        
+        logger.info(f"✅ ESG 분류 매칭 완료: {len(category_esg_mapping)}개 카테고리")
 
         # 9) 통계/로깅
         negative_count = sum(1 for a in labeled_articles if a["sentiment"] == "negative")

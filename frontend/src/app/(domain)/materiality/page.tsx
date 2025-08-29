@@ -1339,24 +1339,7 @@ export default function MaterialityHomePage() {
               
               {assessmentResult ? (
                 <div className="space-y-4">
-                  {/* 디버깅 정보 표시 */}
-                  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    <p className="text-sm text-blue-800">
-                      <strong>디버깅:</strong> assessmentResult 상태 확인
-                    </p>
-                    <p className="text-xs text-blue-600">
-                      전체 구조: {assessmentResult ? JSON.stringify(Object.keys(assessmentResult)) : 'undefined'}
-                    </p>
-                    <p className="text-xs text-blue-600">
-                      data 키 존재: {assessmentResult?.data ? '있음' : '없음'}
-                    </p>
-                    <p className="text-xs text-blue-600">
-                      matched_categories 직접: {assessmentResult?.matched_categories ? `${assessmentResult.matched_categories.length}개` : '없음'}
-                    </p>
-                    <p className="text-xs text-blue-600">
-                      data.matched_categories: {assessmentResult?.data?.matched_categories ? `${assessmentResult.data.matched_categories.length}개` : '없음'}
-                    </p>
-                  </div>
+
                   
                   {/* 전체 카테고리 목록 */}
                   {(() => {

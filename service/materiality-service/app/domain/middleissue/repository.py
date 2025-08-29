@@ -206,26 +206,26 @@ class MiddleIssueRepository:
                     logger.error(f"❌ 카테고리 ID 변환 실패: {category_id}, 오류: {e}")
                     # 변환 실패 시 원본 값 사용하되 로그 기록
                 
-                # 3. 안전한 publish_year 비교를 위한 조건 구성
+                # 2. 안전한 publish_year 비교를 위한 조건 구성
                 year_condition = None
                 if year is not None:
                     # 연도 규약 통일: 내부에서 -1 적용
                     target_year = year - 1
+                    logger.info(f"🔍 연도 조건 구성: {target_year}년도 또는 NULL/빈문자열/0 (입력: {year}년)")
+                    
+                    # 더 간단하고 명확한 연도 조건
                     year_condition = or_(
                         MiddleIssueEntity.publish_year.is_(None),
                         MiddleIssueEntity.publish_year == '',  # 빈 문자열도 공통 이슈로 처리
                         MiddleIssueEntity.publish_year == '0',  # '0'도 공통 이슈로 처리
+                        # 숫자로만 구성된 문자열인지 확인하고 해당 연도와 비교
                         and_(
-                            # 빈 문자열이 아닌지 확인
                             MiddleIssueEntity.publish_year != '',
                             MiddleIssueEntity.publish_year != '0',
-                            # 숫자로만 구성된 문자열인지 확인
                             MiddleIssueEntity.publish_year.op('~')(r'^\s*\d+\s*$'),
-                            # 안전하게 trim 후 캐스팅하여 비교
                             cast(func.trim(MiddleIssueEntity.publish_year), Integer) == target_year
                         )
                     )
-                    logger.info(f"🔍 연도 조건 구성: {target_year}년도 또는 NULL/빈문자열/0 (입력: {year}년)")
                 else:
                     # year가 None이면 publish_year가 NULL이거나 빈 문자열이거나 '0'인 것만 조회
                     year_condition = or_(
@@ -262,6 +262,63 @@ class MiddleIssueRepository:
                 issue_rows = result.all()
                 
                 logger.info(f"🔍 이슈풀 조회 결과: {len(issue_rows)}개 행")
+                
+                # 연도 조건으로 데이터가 없으면, 연도 조건 없이 데이터 존재 여부 확인
+                if len(issue_rows) == 0 and year_condition is not None:
+                    logger.info(f"🔍 연도 조건으로 데이터가 없음. 연도 조건 없이 데이터 존재 여부 확인")
+                    
+                    # 연도 조건 없이 데이터 확인
+                    no_year_query = select(
+                        MiddleIssueEntity,
+                        ESGClassificationEntity.esg.label('esg_classification_name')
+                    ).outerjoin(
+                        ESGClassificationEntity,
+                        MiddleIssueEntity.esg_classification_id == ESGClassificationEntity.id
+                    ).where(
+                        and_(
+                            MiddleIssueEntity.corporation_id == corporation.id,
+                            MiddleIssueEntity.category_id == int(normalized_category_id)
+                        )
+                    )
+                    
+                    no_year_result = await db.execute(no_year_query)
+                    no_year_rows = no_year_result.all()
+                    
+                    if len(no_year_rows) > 0:
+                        logger.info(f"🔍 연도 조건 없이 데이터 존재: {len(no_year_rows)}개 행")
+                        logger.info(f"🔍 publish_year 값들: {[row[0].publish_year for row in no_year_rows]}")
+                        
+                        # 연도 조건을 완화하여 재시도
+                        relaxed_year_condition = or_(
+                            MiddleIssueEntity.publish_year.is_(None),
+                            MiddleIssueEntity.publish_year == '',
+                            MiddleIssueEntity.publish_year == '0'
+                        )
+                        
+                        relaxed_query = select(
+                            MiddleIssueEntity,
+                            ESGClassificationEntity.esg.label('esg_classification_name')
+                        ).outerjoin(
+                            ESGClassificationEntity,
+                            MiddleIssueEntity.esg_classification_id == ESGClassificationEntity.id
+                        ).where(
+                            and_(
+                                MiddleIssueEntity.corporation_id == corporation.id,
+                                MiddleIssueEntity.category_id == int(normalized_category_id),
+                                relaxed_year_condition
+                            )
+                        )
+                        
+                        relaxed_result = await db.execute(relaxed_query)
+                        relaxed_rows = relaxed_result.all()
+                        
+                        if len(relaxed_rows) > 0:
+                            logger.info(f"🔍 완화된 연도 조건으로 데이터 발견: {len(relaxed_rows)}개 행")
+                            issue_rows = relaxed_rows
+                        else:
+                            logger.warning(f"⚠️ 완화된 연도 조건으로도 데이터 없음")
+                    else:
+                        logger.warning(f"⚠️ 해당 기업/카테고리 조합에 데이터가 전혀 없음")
                 
                 if not issue_rows:
                     logger.warning(f"⚠️ 카테고리 '{category_id}'에 해당하는 이슈풀을 찾을 수 없습니다.")
@@ -385,6 +442,36 @@ class MiddleIssueRepository:
             logger.error(f"❌ 카테고리 이름으로 ID 조회 중 오류: {str(e)}")
             return None
 
+    async def get_category_esg_direct(self, category_name: str) -> Optional[str]:
+        """materiality_category DB에서 카테고리 이름으로 직접 ESG 분류 조회"""
+        try:
+            async for db in get_db():
+                # materiality_category 테이블에서 직접 ESG 분류 조회
+                query = select(
+                    ESGClassificationEntity.esg.label('esg_classification_name')
+                ).join(
+                    CategoryEntity,
+                    CategoryEntity.esg_classification_id == ESGClassificationEntity.id
+                ).where(
+                    CategoryEntity.category_name == category_name
+                )
+                
+                logger.info(f"🔍 materiality_category에서 ESG 분류 직접 조회: {category_name}")
+                
+                result = await db.execute(query)
+                esg_classification = result.scalar_one_or_none()
+                
+                if esg_classification:
+                    logger.info(f"✅ 카테고리 '{category_name}' ESG 분류 조회 성공: {esg_classification}")
+                    return esg_classification
+                else:
+                    logger.warning(f"⚠️ 카테고리 '{category_name}'에 해당하는 ESG 분류가 없습니다.")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"❌ materiality_category에서 ESG 분류 조회 중 오류: {str(e)}")
+            return None
+
     async def get_middle_issue_with_relations(self, issue_id: int) -> Optional[MiddleIssueBase]:
         """이슈 ID로 이슈 정보와 관련 정보를 함께 조회"""
         try:
@@ -506,6 +593,71 @@ class MiddleIssueRepository:
                 issue_rows = result.all()
                 
                 logger.info(f"🔍 직접 조회 결과: {len(issue_rows)}개 행")
+                
+                # 연도 조건으로 데이터가 없으면, 연도 조건 없이 데이터 존재 여부 확인
+                if len(issue_rows) == 0 and year_condition is not None:
+                    logger.info(f"🔍 연도 조건으로 데이터가 없음. 연도 조건 없이 데이터 존재 여부 확인")
+                    
+                    # 연도 조건 없이 데이터 확인
+                    no_year_query = select(
+                        MiddleIssueEntity,
+                        CategoryEntity.category_name,
+                        ESGClassificationEntity.esg.label('esg_classification_name')
+                    ).join(
+                        CategoryEntity,
+                        MiddleIssueEntity.category_id == CategoryEntity.id
+                    ).outerjoin(
+                        ESGClassificationEntity,
+                        MiddleIssueEntity.esg_classification_id == ESGClassificationEntity.id
+                    ).where(
+                        and_(
+                            MiddleIssueEntity.corporation_id == corporation.id,
+                            CategoryEntity.category_name == category_name
+                        )
+                    )
+                    
+                    no_year_result = await db.execute(no_year_query)
+                    no_year_rows = no_year_result.all()
+                    
+                    if len(no_year_rows) > 0:
+                        logger.info(f"🔍 연도 조건 없이 데이터 존재: {len(no_year_rows)}개 행")
+                        logger.info(f"🔍 publish_year 값들: {[row[0].publish_year for row in no_year_rows]}")
+                        
+                        # 연도 조건을 완화하여 재시도
+                        relaxed_year_condition = or_(
+                            MiddleIssueEntity.publish_year.is_(None),
+                            MiddleIssueEntity.publish_year == '',
+                            MiddleIssueEntity.publish_year == '0'
+                        )
+                        
+                        relaxed_query = select(
+                            MiddleIssueEntity,
+                            CategoryEntity.category_name,
+                            ESGClassificationEntity.esg.label('esg_classification_name')
+                        ).join(
+                            CategoryEntity,
+                            MiddleIssueEntity.category_id == CategoryEntity.id
+                        ).outerjoin(
+                            ESGClassificationEntity,
+                            MiddleIssueEntity.esg_classification_id == ESGClassificationEntity.id
+                        ).where(
+                            and_(
+                                MiddleIssueEntity.corporation_id == corporation.id,
+                                CategoryEntity.category_name == category_name,
+                                relaxed_year_condition
+                            )
+                        )
+                        
+                        relaxed_result = await db.execute(relaxed_query)
+                        relaxed_rows = relaxed_result.all()
+                        
+                        if len(relaxed_rows) > 0:
+                            logger.info(f"🔍 완화된 연도 조건으로 데이터 발견: {len(relaxed_rows)}개 행")
+                            issue_rows = relaxed_rows
+                        else:
+                            logger.warning(f"⚠️ 완화된 연도 조건으로도 데이터 없음")
+                    else:
+                        logger.warning(f"⚠️ 해당 기업/카테고리 조합에 데이터가 전혀 없음")
                 
                 if not issue_rows:
                     logger.warning(f"⚠️ 카테고리 '{category_name}'에 해당하는 이슈풀을 찾을 수 없습니다.")
