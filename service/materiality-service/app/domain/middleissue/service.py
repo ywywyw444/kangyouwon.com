@@ -806,7 +806,7 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
 # 🚧 성능 향상을 위한 타임아웃 래퍼 함수
 # ============================================================================
 
-async def start_assessment_with_timeout(request: MiddleIssueRequest, timeout_seconds: int = 300) -> Dict[str, Any]:
+async def start_assessment_with_timeout(request: MiddleIssueRequest, timeout_seconds: int = 1000) -> Dict[str, Any]:
     """
     중대성 평가를 타임아웃과 함께 실행 (500 에러 방지)
     
