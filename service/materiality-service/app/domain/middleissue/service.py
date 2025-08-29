@@ -458,7 +458,7 @@ async def match_categories_with_esg_and_issuepool(
         logger.info(f"✅ 배치 ESG 분류 조회 완료: {len(esg_mapping)}개 카테고리")
         
         # 3. 🔥 새로운 배치 조회 메서드 사용 (N+1 문제 해결)
-        logger.info(f"🔍 배치 Base IssuePool 조회 시작 (새로운 메서드)")
+        logger.warning(f"🔍 배치 Base IssuePool 조회 시작 (새로운 메서드)")
         details_map = {}
         
         try:
@@ -469,8 +469,24 @@ async def match_categories_with_esg_and_issuepool(
                 year=search_year  # year는 전달하되 내부에서 무시됨
             )
             
-            logger.info(f"✅ 배치 Base IssuePool 조회 완료: {len(details_map)}개 카테고리")
-            logger.info(f"🔍 연도 조건 없이 카테고리만 매칭하여 base issue pool 조회됨")
+            logger.warning(f"✅ 배치 Base IssuePool 조회 완료: {len(details_map)}개 카테고리")
+            logger.warning(f"🔍 연도 조건 없이 카테고리만 매칭하여 base issue pool 조회됨")
+            
+            # 🔍 디버깅: 각 카테고리별 조회 결과 확인
+            for category_key in category_keys:
+                details = details_map.get(category_key)
+                if details:
+                    base_issuepools = details.base_issuepools if details.base_issuepools else []
+                    logger.warning(f"🔍 카테고리 '{category_key}': {len(base_issuepools)}개 base_issuepool 매칭")
+                    
+                    # 상위 3개만 상세 로깅
+                    for i, pool in enumerate(base_issuepools[:3]):
+                        logger.warning(f"   {i+1}. {pool.base_issue_pool} → {pool.issue_pool}")
+                    
+                    if len(base_issuepools) > 3:
+                        logger.warning(f"   ... 외 {len(base_issuepools) - 3}개")
+                else:
+                    logger.warning(f"⚠️ 카테고리 '{category_key}': base_issuepool 매칭 실패")
             
         except Exception as e:
             logger.error(f"❌ 배치 Base IssuePool 조회 실패: {str(e)}")
@@ -604,6 +620,7 @@ async def _fallback_individual_matching(
                 try:
                     if category_name.isdigit():
                         # ID로 조회하되 연도 조건 제거
+                        logger.warning(f"🔍 Fallback: 카테고리 ID '{category_name}'로 base_issuepool 조회 시도")
                         category_details = await repository.get_category_details(
                             corporation_name=company_id,
                             category_id=int(category_name),
@@ -611,6 +628,7 @@ async def _fallback_individual_matching(
                         )
                     else:
                         # 이름으로 직접 조회하되 연도 조건 제거
+                        logger.warning(f"🔍 Fallback: 카테고리 이름 '{category_name}'로 base_issuepool 조회 시도")
                         category_details = await repository.get_category_by_name_direct(
                             corporation_name=company_id,
                             category_name=category_name,
@@ -618,6 +636,8 @@ async def _fallback_individual_matching(
                         )
                     
                     if category_details and category_details.base_issuepools:
+                        logger.warning(f"✅ Fallback: 카테고리 '{category_name}' base_issuepool 조회 성공 - {len(category_details.base_issuepools)}개")
+                        
                         # 중복 제거를 위한 set 사용
                         seen_pools = set()
                         for issue in category_details.base_issuepools:
@@ -633,6 +653,17 @@ async def _fallback_individual_matching(
                                     "esg_classification_id": category_details.esg_classification_id,
                                     "esg_classification_name": esg_classification
                                 })
+                        
+                        logger.warning(f"🔍 Fallback: 중복 제거 후 {len(base_issuepools)}개 base_issuepool 유지")
+                        
+                        # 상위 3개만 상세 로깅
+                        for i, pool in enumerate(base_issuepools[:3]):
+                            logger.warning(f"   {i+1}. {pool['base_issue_pool']} → {pool['issue_pool']}")
+                        
+                        if len(base_issuepools) > 3:
+                            logger.warning(f"   ... 외 {len(base_issuepools) - 3}개")
+                    else:
+                        logger.warning(f"⚠️ Fallback: 카테고리 '{category_name}' base_issuepool 없음")
                         
                 except Exception as e:
                     logger.warning(f"⚠️ Fallback: 카테고리 '{category_name}' base_issuepool 조회 실패: {str(e)}")
