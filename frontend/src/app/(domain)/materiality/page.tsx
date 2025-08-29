@@ -58,16 +58,27 @@ export default function MaterialityHomePage() {
     isValid: isExcelValid,
     fileName: excelFilename,
     base64Data: excelBase64,
+    // 설문 대상 업로드 데이터만을 위한 상태
+    surveyUploadData,
+    surveyUploadFileName,
+    surveyUploadBase64,
+    surveyUploadIsValid,
     setExcelData,
     setIsValid: setIsExcelValid,
     setFileName: setExcelFilename,
     setBase64Data: setExcelBase64,
+    // 설문 대상 업로드 데이터 설정 메서드
+    setSurveyUploadData,
+    setSurveyUploadFileName,
+    setSurveyUploadBase64,
+    setSurveyUploadIsValid,
     updateRow,
     deleteRow,
     reset,
     loadFromStorage,
     saveToLocalStorage,
-    loadUploadedExcelData
+    loadUploadedExcelData,
+    loadSurveyUploadData
   } = useExcelDataStore();
 
   // 화면 표시 제어를 위한 별도 상태
@@ -104,6 +115,9 @@ export default function MaterialityHomePage() {
     total_categories: 0
   });
 
+  // 설문 결과 상태
+  const [surveyResult, setSurveyResult] = useState<any>(null);
+
   // 로그인한 사용자의 기업 정보 가져오기
   useEffect(() => {
     const getUserCompany = () => {
@@ -125,10 +139,24 @@ export default function MaterialityHomePage() {
     getUserCompany();
   }, [companyId]);
 
-  // 페이지 로드 시 업로드된 엑셀 데이터만 자동 불러오기
+  // 페이지 로드 시 설문 대상 업로드 데이터만 자동 불러오기
   useEffect(() => {
-    loadUploadedExcelData();
-  }, []); // loadUploadedExcelData는 Zustand store에서 가져오므로 의존성 배열에서 제외
+    loadSurveyUploadData();
+  }, []); // loadSurveyUploadData는 Zustand store에서 가져오므로 의존성 배열에서 제외
+
+  // 페이지 로드 시 설문 결과 데이터 로드
+  useEffect(() => {
+    try {
+      const savedSurveyResult = localStorage.getItem('surveyResult');
+      if (savedSurveyResult) {
+        const parsedResult = JSON.parse(savedSurveyResult);
+        setSurveyResult(parsedResult);
+        console.log('✅ 설문 결과 데이터 로드 완료:', parsedResult);
+      }
+    } catch (error) {
+      console.error('❌ 설문 결과 데이터 로드 실패:', error);
+    }
+  }, []);
 
   // 기업 목록 가져오기
   useEffect(() => {
@@ -290,6 +318,7 @@ export default function MaterialityHomePage() {
             isCustomBaseIssuePool={isCustomBaseIssuePool}
             customBaseIssuePoolText={customBaseIssuePoolText}
             setAssessmentResult={setAssessmentResult}
+            setIsAssessmentStarting={setIsAssessmentStarting}
             setIsIssuepoolLoading={setIsIssuepoolLoading}
             setIssuepoolData={setIssuepoolData}
             setIsBaseIssuePoolModalOpen={setIsBaseIssuePoolModalOpen}
@@ -437,27 +466,32 @@ export default function MaterialityHomePage() {
           </div>
 
           {/* 설문 관리 섹션 */}
-          <SurveyManagement excelData={excelData} />
+          <SurveyManagement excelData={surveyUploadData} />
 
           {/* 설문 대상 업로드 */}
           <SurveyUpload
-            excelData={excelData}
-            isExcelValid={isExcelValid}
-            excelFilename={excelFilename}
-            excelBase64={excelBase64}
+            excelData={surveyUploadData}
+            isExcelValid={surveyUploadIsValid}
+            excelFilename={surveyUploadFileName}
+            excelBase64={surveyUploadBase64}
             isDataHidden={isDataHidden}
-            setIsExcelValid={(valid: boolean | null) => setIsExcelValid(valid || false)}
-            setExcelFilename={setExcelFilename}
-            setExcelBase64={setExcelBase64}
-            setExcelData={setExcelData}
+            setIsExcelValid={(valid: boolean | null) => setSurveyUploadIsValid(valid || false)}
+            setExcelFilename={setSurveyUploadFileName}
+            setExcelBase64={setSurveyUploadBase64}
+            setExcelData={setSurveyUploadData}
             setIsDataHidden={setIsDataHidden}
             updateRow={updateRow}
             deleteRow={deleteRow}
-            loadUploadedExcelData={loadUploadedExcelData}
+            loadUploadedExcelData={loadSurveyUploadData}
           />
 
           {/* 설문 결과 확인 */}
-          <SurveyResult excelData={excelData} />
+          {surveyResult && (
+            <SurveyResult 
+              excelData={surveyUploadData} 
+              surveyResult={surveyResult}
+            />
+          )}
   
           {/* 최종 이슈풀 확인하기 */}
           <FinalIssuepool />

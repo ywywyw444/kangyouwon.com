@@ -11,8 +11,8 @@ interface IndexItem {
 const indexItems: IndexItem[] = [
   { id: 'media-search', title: '미디어 검색', icon: '🔍' },
   { id: 'first-assessment', title: '1차 중대성 평가 결과', icon: '📑' },
-  { id: 'survey-upload', title: '설문 대상 업로드', icon: '📊' },
   { id: 'survey-management', title: '설문 관리', icon: '📝' },
+  { id: 'survey-upload', title: '설문 대상 업로드', icon: '📊' },
   { id: 'survey-results', title: '설문 결과 확인', icon: '📊' },
   { id: 'final-issuepool', title: '최종 이슈풀 확인하기', icon: '📋' },
 ];

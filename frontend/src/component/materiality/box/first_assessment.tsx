@@ -25,6 +25,7 @@ interface FirstAssessmentProps {
   isCustomBaseIssuePool: boolean;
   customBaseIssuePoolText: string;
   setAssessmentResult: (result: any) => void;
+  setIsAssessmentStarting: (starting: boolean) => void;
   setIsIssuepoolLoading: (loading: boolean) => void;
   setIssuepoolData: (data: any) => void;
   setIsBaseIssuePoolModalOpen: (open: boolean) => void;
@@ -63,6 +64,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
   isCustomBaseIssuePool,
   customBaseIssuePoolText,
   setAssessmentResult,
+  setIsAssessmentStarting,
   setIsIssuepoolLoading,
   setIssuepoolData,
   setIsBaseIssuePoolModalOpen,
@@ -87,17 +89,21 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
         const resultData = assessmentResult?.data || assessmentResult;
         const categories = resultData?.matched_categories || [];
         
-        // selected_base_issue_pool 정보가 포함된 데이터 생성
+        // 필수 정보만 포함하여 데이터 크기 최적화
+        const optimizedCategories = categories.map((cat: any) => ({
+          rank: cat.rank || 0,
+          category: cat.category || '',
+          esg_classification: cat.esg_classification || '',
+          selected_base_issue_pool: cat.selected_base_issue_pool || '',
+          final_score: cat.final_score || 0,
+          total_issuepools: cat.total_issuepools || 0
+        }));
+        
         const dataToSave = {
           assessment_result: {
-            ...assessmentResult,
-            data: {
-              ...resultData,
-              matched_categories: categories.map((cat: any) => ({
-                ...cat,
-                selected_base_issue_pool: cat.selected_base_issue_pool || ''
-              }))
-            }
+            company_id: companyId,
+            search_period: resultData?.search_period || '',
+            matched_categories: optimizedCategories
           },
           company_id: companyId,
           timestamp: new Date().toISOString(),
@@ -105,11 +111,27 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
           categories_with_base_issue_pool: categories.filter((cat: any) => cat.selected_base_issue_pool).length
         };
         
-        localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
-        console.log('💾 중대성 평가 결과 저장 완료:', dataToSave);
-        console.log('📋 저장된 카테고리 수:', categories.length);
-        console.log('📋 Base Issue Pool이 설정된 카테고리 수:', categories.filter((cat: any) => cat.selected_base_issue_pool).length);
-        alert(`✅ 중대성 평가 결과가 성공적으로 저장되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n📋 Base Issue Pool 설정: ${categories.filter((cat: any) => cat.selected_base_issue_pool).length}개`);
+        // localStorage 용량 확인 및 정리
+        try {
+          localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+          console.log('💾 중대성 평가 결과 저장 완료:', dataToSave);
+          console.log('📋 저장된 카테고리 수:', categories.length);
+          console.log('📋 Base Issue Pool이 설정된 카테고리 수:', categories.filter((cat: any) => cat.selected_base_issue_pool).length);
+          alert(`✅ 중대성 평가 결과가 성공적으로 저장되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n📋 Base Issue Pool 설정: ${categories.filter((cat: any) => cat.selected_base_issue_pool).length}개`);
+        } catch (storageError: any) {
+          if (storageError.name === 'QuotaExceededError') {
+            // localStorage 용량 부족 시 기존 데이터 정리
+            console.log('⚠️ localStorage 용량 부족, 기존 데이터 정리 중...');
+            localStorage.clear();
+            
+            // 다시 저장 시도
+            localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+            console.log('💾 중대성 평가 결과 저장 완료 (용량 정리 후):', dataToSave);
+            alert(`✅ 중대성 평가 결과가 성공적으로 저장되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n📋 Base Issue Pool 설정: ${categories.filter((cat: any) => cat.selected_base_issue_pool).length}개`);
+          } else {
+            throw storageError;
+          }
+        }
       } catch (error) {
         console.error('❌ 중대성 평가 결과 저장 실패:', error);
         alert('❌ 중대성 평가 결과 저장에 실패했습니다.');
@@ -162,6 +184,10 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
               alert('검색된 기사가 없습니다. 미디어 검색을 먼저 완료해주세요.');
               return;
             }
+
+
+            // 로딩 상태 시작
+            setIsAssessmentStarting(true);
 
             try {
               // 3. 기사 데이터 구조 검증 및 안전한 매핑
@@ -221,17 +247,8 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                   setAssessmentResult(responseData);
                   console.log('🔍 assessmentResult 상태 설정:', responseData);
                   
-                  // 상위 5개 카테고리 정보를 alert로 표시
-                  const topCategories = matchedCategories.slice(0, 5);
-                  let alertMessage = '✅ 중간 중대성 평가 완료\n\n🏆 상위 5개 카테고리:\n';
-                  
-                  topCategories.forEach((cat: any, index: number) => {
-                    const esgName = cat.esg_classification || '미분류';
-                    const issueCount = cat.total_issuepools || 0;
-                    alertMessage += `${index + 1}. ${cat.category}\n   ESG: ${esgName}\n   이슈풀: ${issueCount}개\n\n`;
-                  });
-                  
-                  alert(alertMessage);
+                  // 간단한 완료 메시지만 표시
+                  alert('✅ 중간 중대성 평가 완료');
                 } else {
                   console.log('⚠️ matched_categories가 비어있음');
                   // 6. 빈 결과도 상태에 저장하여 UI에서 처리할 수 있도록 함
@@ -265,6 +282,9 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
               } else {
                 alert('❌ 중대성 평가 시작 중 오류가 발생했습니다.\n\n' + (error.message || '알 수 없는 오류'));
               }
+            } finally {
+              // 로딩 상태 종료 (성공/실패 상관없이)
+              setIsAssessmentStarting(false);
             }
           }}
           disabled={isAssessmentStarting}
@@ -276,12 +296,12 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
         >
           {isAssessmentStarting ? (
             <>
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              <span>중간 중대성 평가 진행 중</span>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+              <span>중간 중대성 평가 진행 중...</span>
             </>
           ) : (
             <>
-              <span>🚀</span>
+              <span className="mr-2">🚀</span>
               <span>새로운 중대성 평가 시작</span>
             </>
           )}

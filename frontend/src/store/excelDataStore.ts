@@ -13,10 +13,20 @@ interface ExcelDataStore {
   isValid: boolean | null;
   fileName: string | null;
   base64Data: string | null;
+  // 설문 대상 업로드 데이터만을 위한 별도 상태
+  surveyUploadData: ExcelRow[];
+  surveyUploadFileName: string | null;
+  surveyUploadBase64: string | null;
+  surveyUploadIsValid: boolean | null;
   setExcelData: (data: ExcelRow[]) => void;
   setIsValid: (isValid: boolean) => void;
   setFileName: (name: string | null) => void;
   setBase64Data: (data: string | null) => void;
+  // 설문 대상 업로드 데이터 설정 메서드
+  setSurveyUploadData: (data: ExcelRow[]) => void;
+  setSurveyUploadFileName: (name: string | null) => void;
+  setSurveyUploadBase64: (data: string | null) => void;
+  setSurveyUploadIsValid: (isValid: boolean) => void;
   updateRow: (index: number, updatedData: ExcelRow) => void;
   deleteRow: (index: number) => void;
   reset: () => void;
@@ -26,6 +36,9 @@ interface ExcelDataStore {
   saveUploadedExcelData: () => void;
   // 저장된 업로드 데이터만 불러오는 메서드 추가
   loadUploadedExcelData: () => void;
+  // 설문 대상 업로드 데이터 저장/로드 메서드
+  saveSurveyUploadData: () => void;
+  loadSurveyUploadData: () => void;
 }
 
 const saveToLocalStorage = (state: Partial<ExcelDataStore>) => {
@@ -77,6 +90,32 @@ const loadUploadedExcelData = (): Partial<ExcelDataStore> => {
   }
 };
 
+// 설문 대상 업로드 데이터 저장 함수
+const saveSurveyUploadData = (state: Partial<ExcelDataStore>) => {
+  try {
+    localStorage.setItem('surveyUploadData', JSON.stringify({
+      surveyUploadData: state.surveyUploadData,
+      surveyUploadFileName: state.surveyUploadFileName,
+      surveyUploadBase64: state.surveyUploadBase64,
+      surveyUploadIsValid: state.surveyUploadIsValid,
+    }));
+    console.log('💾 설문 대상 업로드 데이터 저장 완료');
+  } catch (error) {
+    console.error('Failed to save survey upload data:', error);
+  }
+};
+
+// 설문 대상 업로드 데이터 로드 함수
+const loadSurveyUploadData = (): Partial<ExcelDataStore> => {
+  try {
+    const saved = localStorage.getItem('surveyUploadData');
+    return saved ? JSON.parse(saved) : {};
+  } catch (error) {
+    console.error('Failed to load survey upload data:', error);
+    return {};
+  }
+};
+
 export const useExcelDataStore = create<ExcelDataStore>((set, get) => {
   // 초기 상태를 로컬스토리지에서 불러옴
   const savedState = loadFromLocalStorage();
@@ -86,6 +125,11 @@ export const useExcelDataStore = create<ExcelDataStore>((set, get) => {
     isValid: savedState.isValid || null,
     fileName: savedState.fileName || null,
     base64Data: savedState.base64Data || null,
+    // 설문 대상 업로드 데이터 초기 상태
+    surveyUploadData: [],
+    surveyUploadFileName: null,
+    surveyUploadBase64: null,
+    surveyUploadIsValid: null,
 
     setExcelData: (data) => {
       set({ excelData: data });
@@ -109,6 +153,27 @@ export const useExcelDataStore = create<ExcelDataStore>((set, get) => {
       set({ base64Data: data });
       // 업로드된 엑셀 데이터만 별도로 저장
       saveUploadedExcelData({ ...get(), base64Data: data });
+    },
+
+    // 설문 대상 업로드 데이터 설정 메서드들
+    setSurveyUploadData: (data) => {
+      set({ surveyUploadData: data });
+      saveSurveyUploadData({ ...get(), surveyUploadData: data });
+    },
+
+    setSurveyUploadFileName: (name) => {
+      set({ surveyUploadFileName: name });
+      saveSurveyUploadData({ ...get(), surveyUploadFileName: name });
+    },
+
+    setSurveyUploadBase64: (data) => {
+      set({ surveyUploadBase64: data });
+      saveSurveyUploadData({ ...get(), surveyUploadBase64: data });
+    },
+
+    setSurveyUploadIsValid: (isValid) => {
+      set({ surveyUploadIsValid: isValid });
+      saveSurveyUploadData({ ...get(), surveyUploadIsValid: isValid });
     },
 
     updateRow: (index: number, updatedData: ExcelRow) => {
@@ -158,6 +223,21 @@ export const useExcelDataStore = create<ExcelDataStore>((set, get) => {
         isValid: savedState.isValid || false,
         fileName: savedState.fileName || null,
         base64Data: savedState.base64Data || null,
+      });
+    },
+
+    saveSurveyUploadData: () => {
+      const currentState = get();
+      saveSurveyUploadData(currentState);
+    },
+
+    loadSurveyUploadData: () => {
+      const savedState = loadSurveyUploadData();
+      set({
+        surveyUploadData: savedState.surveyUploadData || [],
+        surveyUploadFileName: savedState.surveyUploadFileName || null,
+        surveyUploadBase64: savedState.surveyUploadBase64 || null,
+        surveyUploadIsValid: savedState.surveyUploadIsValid || null,
       });
     },
   };
