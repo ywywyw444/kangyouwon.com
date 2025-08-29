@@ -278,31 +278,91 @@ def calculate_category_scores(articles: List[Dict[str, Any]]) -> Dict[str, Dict[
             b["articles"].append(a)
             b["relevance_sum"] += 1.0 if a.get("relevance_label") else 0.0
             b["recent_sum"] += float(a.get("recent_value", 0.0))
-            if a.get("sentiment") == "negative":
-                b["negative_count"] += 1
+            
+            # 안전한 부정점수 계산
+            sentiment = a.get("sentiment")
+            if sentiment is not None:
+                # 대소문자 구분 없이 비교
+                if str(sentiment).lower() == "negative":
+                    b["negative_count"] += 1
+                    logger.debug(f"🔍 부정 기사 감지: {sentiment}")
+                elif str(sentiment).lower() not in ["positive", "other"]:
+                    logger.warning(f"⚠️ 예상치 못한 sentiment 값: '{sentiment}'")
+            else:
+                logger.warning(f"⚠️ sentiment 값이 None인 기사 발견")
+            
             # rank와 reference를 합계로 누적
-            b["rank_sum"] += 1.0 if a.get("rank_label") else 0.0
-            b["reference_sum"] += 1.0 if a.get("reference_label") else 0.0
+            rank_label = a.get("rank_label")
+            reference_label = a.get("reference_label")
+            
+            # 안전한 rank_label 처리
+            if rank_label is not None:
+                if isinstance(rank_label, bool):
+                    b["rank_sum"] += 1.0 if rank_label else 0.0
+                elif isinstance(rank_label, (int, float)):
+                    b["rank_sum"] += float(rank_label)
+                else:
+                    logger.warning(f"⚠️ 예상치 못한 rank_label 타입: {type(rank_label)}, 값: {rank_label}")
+                    b["rank_sum"] += 0.0
+            else:
+                b["rank_sum"] += 0.0
+            
+            # 안전한 reference_label 처리
+            if reference_label is not None:
+                if isinstance(reference_label, bool):
+                    b["reference_sum"] += 1.0 if reference_label else 0.0
+                elif isinstance(reference_label, (int, float)):
+                    b["reference_sum"] += float(reference_label)
+                else:
+                    logger.warning(f"⚠️ 예상치 못한 reference_label 타입: {type(reference_label)}, 값: {reference_label}")
+                    b["reference_sum"] += 0.0
+            else:
+                b["reference_sum"] += 0.0
 
         results: Dict[str, Dict[str, Any]] = {}
         for key, b in buckets.items():
             c = b["count"]
-            frequency = c / total_articles
-            relevance = (b["relevance_sum"] / c) if c else 0.0
-            recent = (b["recent_sum"] / c) if c else 0.0
-            # rank와 reference를 평균으로 계산
-            rank = (b["rank_sum"] / c) if c else 0.0
-            reference = (b["reference_sum"] / c) if c else 0.0
-            negative = (b["negative_count"] / c) if c else 0.0
+            
+            # 안전한 빈도점수 계산
+            try:
+                frequency = c / total_articles if total_articles > 0 else 0.0
+                # 논리적 검증: 빈도가 1을 초과할 수 없음
+                if frequency > 1.0:
+                    logger.warning(f"⚠️ 카테고리 '{key}' 빈도점수 비정상: {frequency:.4f} > 1.0, 1.0으로 조정")
+                    frequency = 1.0
+            except Exception as e:
+                logger.error(f"❌ 카테고리 '{key}' 빈도점수 계산 오류: {e}, 기본값 0.0 사용")
+                frequency = 0.0
+            
+            # 안전한 다른 점수들 계산
+            relevance = (b["relevance_sum"] / c) if c > 0 else 0.0
+            recent = (b["recent_sum"] / c) if c > 0 else 0.0
+            rank = (b["rank_sum"] / c) if c > 0 else 0.0
+            reference = (b["reference_sum"] / c) if c > 0 else 0.0
+            negative = (b["negative_count"] / c) if c > 0 else 0.0
 
-            final_score = (
-                0.4 * frequency
-                + 0.6 * relevance
-                + 0.2 * recent
-                + 0.4 * rank
-                + 0.6 * reference
-                + 0.8 * negative * (1 + 0.5 * frequency + 0.5 * relevance)
-            )
+            # 안전한 최종 점수 계산
+            try:
+                final_score = (
+                    0.4 * frequency
+                    + 0.6 * relevance
+                    + 0.2 * recent
+                    + 0.4 * rank
+                    + 0.6 * reference
+                    + 0.8 * negative * (1 + 0.5 * frequency + 0.5 * relevance)
+                )
+                
+                # 점수 범위 검증 (0~10 범위로 가정)
+                if final_score < 0:
+                    logger.warning(f"⚠️ 카테고리 '{key}' 최종점수 음수: {final_score:.6f}, 0으로 조정")
+                    final_score = 0.0
+                elif final_score > 10:
+                    logger.warning(f"⚠️ 카테고리 '{key}' 최종점수 과대: {final_score:.6f}, 10으로 조정")
+                    final_score = 10.0
+                    
+            except Exception as e:
+                logger.error(f"❌ 카테고리 '{key}' 최종점수 계산 오류: {e}, 기본값 0.0 사용")
+                final_score = 0.0
 
             results[key] = {
                 "count": c,
