@@ -702,9 +702,9 @@ class MiddleIssueRepository:
         """
         try:
             async for db in get_db():
-                # 성능 최적화를 위한 설정
-                await db.execute(text("SET LOCAL statement_timeout = '30000ms'"))
-                await db.execute(text("SET LOCAL work_mem = '256MB'"))
+                # 성능 최적화를 위한 설정 (SET LOCAL 제거 - 500 에러 방지)
+                # await db.execute(text("SET LOCAL statement_timeout = '30000ms'"))
+                # await db.execute(text("SET LOCAL work_mem = '256MB'"))
                 
                 logger.warning(f"🔍 배치 쿼리 실행 시작: {len(category_names)}개 카테고리")
                 start_time = __import__('time').time()

@@ -666,7 +666,16 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         # 4) (검색 기준연도 - 1) & 공통(NULL) 카테고리 조회
         db_query_start = datetime.now()
         repository = MiddleIssueRepository()
-        search_year = int(request.report_period["end_date"][:4])  # 검색 기준연도 (YYYY)
+        
+        # 안전한 연도 파싱
+        try:
+            search_year = int(request.report_period["end_date"][:4])  # 검색 기준연도 (YYYY)
+        except (KeyError, ValueError, IndexError) as e:
+            logger.error(f"❌ 연도 파싱 실패: {str(e)}")
+            logger.error(f"🔍 report_period: {request.report_period}")
+            # 기본값으로 현재 연도 사용
+            search_year = datetime.now().year
+            logger.warning(f"⚠️ 기본값 사용: {search_year}년")
         
         # repository 내부에서 -1 처리하므로 search_year를 그대로 전달
         corp_issues_prev = await repository.get_corporation_issues(
@@ -705,47 +714,6 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
 
         # 🔍 디버깅: 라벨링 결과 분석
         debug_labeling_results(labeled_articles, category_scores)
-
-        # 📊 디버깅용 Excel 파일 자동 생성
-        excel_start = datetime.now()
-        try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            company_name = request.company_id.replace(" ", "_").replace("/", "_")
-            
-            # /tmp 디렉토리에 저장 (권한 문제 해결)
-            import os
-            tmp_dir = "/tmp"
-            if not os.path.exists(tmp_dir):
-                # Windows 환경에서는 현재 디렉토리 사용
-                tmp_dir = os.getcwd()
-            
-            logger.info(f"📁 Excel 파일 저장 디렉토리: {tmp_dir}")
-            
-            # 1. 통합 분석 Excel (라벨링 + 점수)
-            combined_filename = os.path.join(tmp_dir, f"combined_analysis_{company_name}_{timestamp}.xlsx")
-            export_combined_analysis_to_excel(labeled_articles, category_scores, combined_filename)
-            
-            # 2. 라벨링된 기사 Excel
-            labeled_filename = os.path.join(tmp_dir, f"labeled_articles_{company_name}_{timestamp}.xlsx")
-            export_labeled_articles_to_excel(labeled_articles, labeled_filename)
-            
-            # 3. 카테고리 점수 Excel
-            scores_filename = os.path.join(tmp_dir, f"category_scores_{company_name}_{timestamp}.xlsx")
-            export_category_scores_to_excel(category_scores, scores_filename)
-            
-            logger.info(f"📊 디버깅용 Excel 파일 생성 완료:")
-            logger.info(f"   - 통합 분석: {combined_filename}")
-            logger.info(f"   - 라벨링 기사: {labeled_filename}")
-            logger.info(f"   - 카테고리 점수: {scores_filename}")
-            logger.info(f"📁 파일 저장 위치: {tmp_dir}")
-            
-        except Exception as e:
-            logger.warning(f"⚠️ Excel 파일 생성 실패: {str(e)}")
-            import traceback
-            logger.warning(f"⚠️ Excel 파일 생성 실패 상세: {traceback.format_exc()}")
-        
-        excel_time = (datetime.now() - excel_start).total_seconds()
-        logger.info(f"⏱️ Excel 파일 생성 완료: {excel_time:.2f}초")
 
         # 7) 카테고리 랭킹
         ranking_start = datetime.now()
@@ -798,7 +766,6 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         logger.info(f"   - DB 조회: {db_query_time:.2f}초")
         logger.info(f"   - 라벨 부여: {labeling_time:.2f}초")
         logger.info(f"   - 점수 계산: {scoring_time:.2f}초")
-        logger.info(f"   - Excel 생성: {excel_time:.2f}초")
         logger.info(f"   - 카테고리 랭킹: {ranking_time:.2f}초")
         logger.info(f"   - ESG/이슈풀 매칭: {matching_time:.2f}초")
         logger.info(f"   - 총 처리 시간: {total_time:.2f}초")
@@ -909,372 +876,32 @@ async def start_assessment_with_timeout(request: MiddleIssueRequest, timeout_sec
                     "article_count": len(request.articles)
                 }
             }
+    
+    except Exception as e:
+        error_msg = f"❌ start_assessment_with_timeout 함수 실행 중 예상치 못한 오류: {str(e)}"
+        logger.error(error_msg)
+        logger.error(f"🔍 오류 타입: {type(e).__name__}")
+        import traceback
+        logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
+        return {
+            "success": False, 
+            "message": error_msg, 
+            "data": None,
+            "error_type": type(e).__name__
+        }
 
 
 # ============================================================================
 # 🚧 디버깅용 Excel 내보내기 함수들 (나중에 삭제 가능)
 # ============================================================================
 
-def export_labeled_articles_to_excel(labeled_articles: List[Dict[str, Any]], output_path: str = "labeled_articles_debug.xlsx"):
-    """
-    라벨링된 기사들을 Excel로 내보내기 (디버깅용)
-    
-    Args:
-        labeled_articles: 라벨링된 기사 리스트
-        output_path: 출력 파일 경로
-    
-    Note: 이 함수는 디버깅 목적으로만 사용되며, 나중에 삭제 가능합니다.
-    """
-    try:
-        import pandas as pd
-        from datetime import datetime
-        
-        logger.info(f"📊 라벨링된 기사 Excel 내보내기 시작: {len(labeled_articles)}개 기사")
-        
-        # 1. Raw Data 시트
-        raw_data = []
-        for article in labeled_articles:
-            raw_data.append({
-                'company': article.get('company', ''),
-                'issue': article.get('issue', ''),
-                'original_category': article.get('original_category', ''),
-                'title': article.get('title', ''),
-                'description': article.get('description', ''),
-                'pubDate': article.get('pubDate', ''),
-                'sentiment': article.get('sentiment', ''),
-                'relevance_label': article.get('relevance_label', False),
-                'recent_label': article.get('recent_label', False),
-                'rank_label': article.get('rank_label', False),
-                'reference_label': article.get('reference_label', False),
-                'relevance_score': article.get('relevance_score', 0.0),
-                'recent_score': article.get('recent_score', 0.0),
-                'rank_score': article.get('rank_score', 0.0),
-                'reference_score': article.get('reference_score', 0.0),
-                'negative_score': article.get('negative_score', 0.0)
-            })
-        
-        # 2. Summary 시트
-        summary_data = {
-            '총 기사 수': len(labeled_articles),
-            '부정적 기사 수': sum(1 for a in labeled_articles if a.get('sentiment') == 'negative'),
-            '긍정적 기사 수': sum(1 for a in labeled_articles if a.get('sentiment') == 'positive'),
-            '중립적 기사 수': sum(1 for a in labeled_articles if a.get('sentiment') == 'neutral'),
-            'relevance_label True': sum(1 for a in labeled_articles if a.get('relevance_label')),
-            'recent_label True': sum(1 for a in labeled_articles if a.get('recent_label')),
-            'rank_label True': sum(1 for a in labeled_articles if a.get('rank_label')),
-            'reference_label True': sum(1 for a in labeled_articles if a.get('reference_label'))
-        }
-        
-        # 3. Category Stats 시트
-        category_stats = {}
-        for article in labeled_articles:
-            category = article.get('original_category', '')
-            if category not in category_stats:
-                category_stats[category] = {
-                    'count': 0,
-                    'negative_count': 0,
-                    'relevance_true': 0,
-                    'recent_true': 0,
-                    'rank_true': 0,
-                    'reference_true': 0
-                }
-            
-            category_stats[category]['count'] += 1
-            if article.get('sentiment') == 'negative':
-                category_stats[category]['negative_count'] += 1
-            if article.get('relevance_label'):
-                category_stats[category]['relevance_true'] += 1
-            if article.get('recent_label'):
-                category_stats[category]['recent_true'] += 1
-            if article.get('rank_label'):
-                category_stats[category]['rank_true'] += 1
-            if article.get('reference_label'):
-                category_stats[category]['reference_true'] += 1
-        
-        # Excel 파일 생성
-        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-            # Raw Data
-            pd.DataFrame(raw_data).to_excel(writer, sheet_name='Raw Data', index=False)
-            
-            # Summary
-            pd.DataFrame([summary_data]).to_excel(writer, sheet_name='Summary', index=False)
-            
-            # Category Stats
-            category_df = pd.DataFrame.from_dict(category_stats, orient='index')
-            category_df.to_excel(writer, sheet_name='Category Stats')
-        
-        logger.info(f"✅ 라벨링된 기사 Excel 내보내기 완료: {output_path}")
-        
-    except Exception as e:
-        logger.error(f"❌ 라벨링된 기사 Excel 내보내기 실패: {str(e)}")
-
-
-def export_category_scores_to_excel(category_scores: Dict[str, Dict[str, Any]], output_path: str = "category_scores_debug.xlsx"):
-    """
-    카테고리 점수들을 Excel로 내보내기 (디버깅용)
-    
-    Args:
-        category_scores: 카테고리별 점수 딕셔너리
-        output_path: 출력 파일 경로
-    
-    Note: 이 함수는 디버깅 목적으로만 사용되며, 나중에 삭제 가능합니다.
-    """
-    try:
-        import pandas as pd
-        
-        logger.info(f"📊 카테고리 점수 Excel 내보내기 시작: {len(category_scores)}개 카테고리")
-        
-        # 1. Sorted Scores 시트 (최종 점수 순)
-        sorted_scores = []
-        for category, scores in category_scores.items():
-            sorted_scores.append({
-                'category': category,
-                'final_score': scores.get('final_score', 0.0),
-                'frequency_score': scores.get('frequency_score', 0.0),
-                'relevance_score': scores.get('relevance_score', 0.0),
-                'recent_score': scores.get('recent_score', 0.0),
-                'rank_score': scores.get('rank_score', 0.0),
-                'reference_score': scores.get('reference_score', 0.0),
-                'negative_score': scores.get('negative_score', 0.0),
-                'total_articles': scores.get('total_articles', 0),
-                'negative_articles': scores.get('negative_articles', 0)
-            })
-        
-        # 최종 점수 순으로 정렬
-        sorted_scores.sort(key=lambda x: x['final_score'], reverse=True)
-        
-        # 2. Raw Scores 시트 (원본 데이터)
-        raw_scores = []
-        for category, scores in category_scores.items():
-            raw_scores.append({
-                'category': category,
-                **scores
-            })
-        
-        # 3. Score Distribution 시트
-        score_ranges = {
-            '0-1': 0, '1-2': 0, '2-3': 0, '3-4': 0, '4-5': 0,
-            '5-6': 0, '6-7': 0, '7-8': 0, '8-9': 0, '9-10': 0
-        }
-        
-        for category, scores in category_scores.items():
-            final_score = scores.get('final_score', 0.0)
-            if final_score < 1:
-                score_ranges['0-1'] += 1
-            elif final_score < 2:
-                score_ranges['1-2'] += 1
-            elif final_score < 3:
-                score_ranges['2-3'] += 1
-            elif final_score < 4:
-                score_ranges['3-4'] += 1
-            elif final_score < 5:
-                score_ranges['4-5'] += 1
-            elif final_score < 6:
-                score_ranges['5-6'] += 1
-            elif final_score < 7:
-                score_ranges['6-7'] += 1
-            elif final_score < 8:
-                score_ranges['7-8'] += 1
-            elif final_score < 9:
-                score_ranges['8-9'] += 1
-            else:
-                score_ranges['9-10'] += 1
-        
-        # 4. Top/Bottom Categories 시트
-        top_categories = sorted_scores[:10]  # 상위 10개
-        bottom_categories = sorted_scores[-10:]  # 하위 10개
-        
-        # Excel 파일 생성
-        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-            # Sorted Scores
-            pd.DataFrame(sorted_scores).to_excel(writer, sheet_name='Sorted Scores', index=False)
-            
-            # Raw Scores
-            pd.DataFrame(raw_scores).to_excel(writer, sheet_name='Raw Scores', index=False)
-            
-            # Score Distribution
-            distribution_df = pd.DataFrame([score_ranges])
-            distribution_df.to_excel(writer, sheet_name='Score Distribution', index=False)
-            
-            # Top Categories
-            pd.DataFrame(top_categories).to_excel(writer, sheet_name='Top Categories', index=False)
-            
-            # Bottom Categories
-            pd.DataFrame(bottom_categories).to_excel(writer, sheet_name='Bottom Categories', index=False)
-        
-        logger.info(f"✅ 카테고리 점수 Excel 내보내기 완료: {output_path}")
-        
-    except Exception as e:
-        logger.error(f"❌ 카테고리 점수 Excel 내보내기 실패: {str(e)}")
-
+# 엑셀 기능 제거 - 500 에러 방지
+# def export_labeled_articles_to_excel(...)
+# def export_category_scores_to_excel(...)
+# def export_combined_analysis_to_excel(...)
 
 # ============================================================================
 # 🚧 디버깅용 Excel 내보내기 함수들 끝
-# ============================================================================
-
-def export_combined_analysis_to_excel(
-    labeled_articles: List[Dict[str, Any]], 
-    category_scores: Dict[str, Dict[str, Any]], 
-    output_path: str = "combined_analysis_debug.xlsx"
-):
-    """
-    라벨링과 카테고리 점수를 하나의 시트에 열을 길게 이어붙여서 하나의 Excel로 내보내기 (디버깅용)
-    
-    Args:
-        labeled_articles: 라벨링된 기사 리스트
-        category_scores: 카테고리별 점수 딕셔너리
-        output_path: 출력 파일 경로
-    
-    Note: 이 함수는 디버깅 목적으로만 사용되며, 나중에 삭제 가능합니다.
-    """
-    try:
-        import pandas as pd
-        
-        logger.info(f"📊 통합 분석 Excel 내보내기 시작")
-        logger.info(f"   - 라벨링된 기사: {len(labeled_articles)}개")
-        logger.info(f"   - 카테고리 점수: {len(category_scores)}개")
-        
-        # 1. 라벨링 데이터를 DataFrame으로 변환
-        labeled_df = pd.DataFrame(labeled_articles)
-        
-        # 2. 카테고리 점수를 DataFrame으로 변환
-        scores_data = []
-        for category, scores in category_scores.items():
-            scores_data.append({
-                'category': category,
-                **scores
-            })
-        scores_df = pd.DataFrame(scores_data)
-        
-        # 3. 두 DataFrame을 열 방향으로 연결 (가로로 이어붙이기)
-        # 라벨링 데이터가 더 길면 scores_df를 반복하여 맞춤
-        if len(labeled_df) > len(scores_df):
-            # scores_df를 labeled_df 길이만큼 반복
-            repeated_scores = []
-            for i in range(len(labeled_df)):
-                category_idx = i % len(scores_df)
-                repeated_scores.append(scores_data[category_idx])
-            scores_df_extended = pd.DataFrame(repeated_scores)
-            
-            # 열 방향으로 연결
-            combined_df = pd.concat([labeled_df, scores_df_extended], axis=1)
-            
-        else:
-            # labeled_df를 scores_df 길이만큼 반복
-            repeated_labeled = []
-            for i in range(len(scores_df)):
-                article_idx = i % len(labeled_df) if len(labeled_df) > 0 else 0
-                if len(labeled_df) > 0:
-                    repeated_labeled.append(labeled_articles[article_idx])
-                else:
-                    # labeled_articles가 비어있는 경우 빈 딕셔너리로 채움
-                    repeated_labeled.append({})
-            labeled_df_extended = pd.DataFrame(repeated_labeled)
-            
-            # 열 방향으로 연결
-            combined_df = pd.concat([labeled_df_extended, scores_df], axis=1)
-        
-        # 4. 열 이름 정리 및 순서 조정
-        # 라벨링 관련 열들
-        labeled_columns = [
-            'company', 'issue', 'original_category', 'title', 'description', 
-            'pubDate', 'sentiment', 'sentiment_confidence', 'neg_keywords', 
-            'pos_keywords', 'sentiment_basis', 'relevance_label', 'recent_value', 
-            'rank_label', 'reference_label', 'label_reasons'
-        ]
-        
-        # 점수 관련 열들
-        score_columns = [
-            'category', 'count', 'frequency_score', 'relevance_score', 
-            'recent_score', 'rank_score', 'reference_score', 'negative_score', 
-            'final_score'
-        ]
-        
-        # 실제 존재하는 열들만 필터링
-        existing_labeled_cols = [col for col in labeled_columns if col in combined_df.columns]
-        existing_score_cols = [col for col in score_columns if col in combined_df.columns]
-        
-        # 열 순서 재정렬
-        final_columns = existing_labeled_cols + existing_score_cols
-        combined_df = combined_df[final_columns]
-        
-        # 5. Excel 파일 생성
-        with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
-            # 통합 데이터 시트
-            combined_df.to_excel(writer, sheet_name='Combined Analysis', index=False)
-            
-            # 요약 통계 시트
-            summary_data = {
-                '분석 항목': [
-                    '총 기사 수',
-                    '총 카테고리 수',
-                    '부정적 기사 수',
-                    '긍정적 기사 수',
-                    '중립적 기사 수',
-                    'relevance_label True',
-                    'recent_label True',
-                    'rank_label True',
-                    'reference_label True',
-                    '최고 점수 카테고리',
-                    '최저 점수 카테고리',
-                    '평균 최종 점수'
-                ],
-                '값': [
-                    len(labeled_articles),
-                    len(category_scores),
-                    sum(1 for a in labeled_articles if a.get('sentiment') == 'negative'),
-                    sum(1 for a in labeled_articles if a.get('sentiment') == 'positive'),
-                    sum(1 for a in labeled_articles if a.get('sentiment') == 'neutral'),
-                    sum(1 for a in labeled_articles if a.get('relevance_label')),
-                    sum(1 for a in labeled_articles if a.get('recent_value', 0) > 0),
-                    sum(1 for a in labeled_articles if a.get('rank_label')),
-                    sum(1 for a in labeled_articles if a.get('reference_label')),
-                    max(category_scores.items(), key=lambda x: x[1].get('final_score', 0))[0] if category_scores else 'N/A',
-                    min(category_scores.items(), key=lambda x: x[1].get('final_score', 0))[0] if category_scores else 'N/A',
-                    round(sum(s.get('final_score', 0) for s in category_scores.values()) / len(category_scores), 3) if category_scores else 0.0
-                ]
-            }
-            
-            summary_df = pd.DataFrame(summary_data)
-            summary_df.to_excel(writer, sheet_name='Summary', index=False)
-            
-            # 카테고리별 점수 순위 시트
-            if category_scores:
-                sorted_scores = sorted(
-                    [(cat, scores) for cat, scores in category_scores.items()],
-                    key=lambda x: x[1].get('final_score', 0),
-                    reverse=True
-                )
-                
-                ranking_data = []
-                for i, (category, scores) in enumerate(sorted_scores, 1):
-                    ranking_data.append({
-                        '순위': i,
-                        '카테고리': category,
-                        '최종점수': scores.get('final_score', 0.0),
-                        '빈도점수': scores.get('frequency_score', 0.0),
-                        '관련성점수': scores.get('relevance_score', 0.0),
-                        '최신성점수': scores.get('recent_score', 0.0),
-                        '순위점수': scores.get('rank_score', 0.0),
-                        '참조점수': scores.get('reference_score', 0.0),
-                        '부정성점수': scores.get('negative_score', 0.0),
-                        '기사수': scores.get('count', 0)
-                    })
-                
-                ranking_df = pd.DataFrame(ranking_data)
-                ranking_df.to_excel(writer, sheet_name='Category Ranking', index=False)
-        
-        logger.info(f"✅ 통합 분석 Excel 내보내기 완료: {output_path}")
-        logger.info(f"📊 총 {len(combined_df)}행, {len(combined_df.columns)}열의 데이터 생성")
-        
-    except Exception as e:
-        logger.error(f"❌ 통합 분석 Excel 내보내기 실패: {str(e)}")
-        import traceback
-        logger.error(f"❌ 스택 트레이스: {traceback.format_exc()}")
-
-
-# ============================================================================
-# 🚧 통합 분석 Excel 내보내기 함수 끝
 # ============================================================================
 
 def debug_labeling_results(labeled_articles: List[Dict[str, Any]], category_scores: Dict[str, Dict[str, Any]]):
