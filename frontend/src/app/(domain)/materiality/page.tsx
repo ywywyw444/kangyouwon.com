@@ -430,7 +430,7 @@ export default function MaterialityHomePage() {
                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                    설문 페이지로 이동
+                    설문 미리보기
                   </button>
                 </div>
             </div>
@@ -719,6 +719,28 @@ export default function MaterialityHomePage() {
                             }
                             
                             alert(`✅ ${selectedCategory.category} 카테고리가 "${selectedBaseIssuePool}"로 업데이트되었습니다.`);
+                            
+                            // 자동으로 중대성 평가 결과 저장
+                            try {
+                              const dataToSave = {
+                                assessment_result: {
+                                  ...assessmentResult,
+                                  data: {
+                                    ...resultData,
+                                    matched_categories: updatedCategories
+                                  }
+                                },
+                                company_id: companyId,
+                                timestamp: new Date().toISOString(),
+                                total_categories: updatedCategories.length,
+                                categories_with_base_issue_pool: updatedCategories.filter((cat: any) => cat.selected_base_issue_pool).length
+                              };
+                              
+                              localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+                              console.log('💾 Base Issue Pool 선택 후 자동 저장 완료:', dataToSave);
+                            } catch (error) {
+                              console.error('❌ 자동 저장 실패:', error);
+                            }
                           }
                         }
                         setIsBaseIssuePoolModalOpen(false);

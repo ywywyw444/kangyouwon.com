@@ -54,26 +54,37 @@ export default function SurveyPage() {
           const social: SurveyItem[] = [];
           const governance: SurveyItem[] = [];
           
-          data.categories.forEach((cat, index) => {
-            const surveyItem: SurveyItem = {
-              id: `${cat.esg_classification.toLowerCase()}_${index + 1}`,
-              title: `Q${cat.rank}. ${cat.selected_base_issue_pool || cat.category}`,
-              description: `• ${cat.selected_base_issue_pool || cat.category}이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• ${cat.selected_base_issue_pool || cat.category}에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)`,
-              outsideScore: null,
-              insideScore: null,
-              category: cat.category,
-              esg_classification: cat.esg_classification,
-              rank: cat.rank
-            };
+                     data.categories.forEach((cat, index) => {
+             const surveyItem: SurveyItem = {
+               id: `${cat.esg_classification.toLowerCase()}_${index + 1}`,
+               title: `Q${index + 1}. ${cat.selected_base_issue_pool || cat.category} (${cat.category})`,
+               description: `• ${cat.selected_base_issue_pool || cat.category}이(가) 회사의 재무성과(기회/위험)에 미치는 중요도는 어느 정도입니까? (Outside-in)\n• ${cat.selected_base_issue_pool || cat.category}에 대해 우리 회사 활동의 환경·사회 영향 중요도는 어느 정도입니까? (Inside-out)`,
+               outsideScore: null,
+               insideScore: null,
+               category: cat.category,
+               esg_classification: cat.esg_classification,
+               rank: index + 1
+             };
+             
+             console.log('📝 설문 항목 생성:', {
+               id: surveyItem.id,
+               title: surveyItem.title,
+               esg_classification: surveyItem.esg_classification
+             });
             
-            // ESG 분류에 따라 적절한 배열에 추가
-            if (cat.esg_classification.includes('환경')) {
-              environmental.push(surveyItem);
-            } else if (cat.esg_classification.includes('사회')) {
-              social.push(surveyItem);
-            } else if (cat.esg_classification.includes('지배구조') || cat.esg_classification.includes('경제')) {
-              governance.push(surveyItem);
-            }
+                         // ESG 분류에 따라 적절한 배열에 추가
+             if (cat.esg_classification.includes('환경')) {
+               environmental.push(surveyItem);
+               console.log('🌱 Environmental에 추가:', surveyItem.id);
+             } else if (cat.esg_classification.includes('사회')) {
+               social.push(surveyItem);
+               console.log('👥 Social에 추가:', surveyItem.id);
+             } else if (cat.esg_classification.includes('지배구조') || cat.esg_classification.includes('경제')) {
+               governance.push(surveyItem);
+               console.log('🏛️ Governance에 추가:', surveyItem.id);
+             } else {
+               console.log('⚠️ 분류되지 않은 항목:', cat.esg_classification, surveyItem.id);
+             }
           });
           
           setEnvironmentalItems(environmental);
@@ -98,10 +109,13 @@ export default function SurveyPage() {
   }, []);
 
   const handleScoreChange = (itemId: string, scoreType: 'outside' | 'inside', value: number) => {
-    // Environmental 항목 체크
-    if (itemId.startsWith('env')) {
-      setEnvironmentalItems(items =>
-        items.map(item =>
+    console.log('🔍 점수 변경 시도:', { itemId, scoreType, value });
+    
+    // Environmental 항목에서 찾기
+    const envItem = environmentalItems.find(item => item.id === itemId);
+    if (envItem) {
+      setEnvironmentalItems(prevItems =>
+        prevItems.map(item =>
           item.id === itemId
             ? {
                 ...item,
@@ -110,11 +124,15 @@ export default function SurveyPage() {
             : item
         )
       );
+      console.log('✅ Environmental 항목 업데이트 완료');
+      return;
     }
-    // Social 항목 체크
-    else if (itemId.startsWith('soc')) {
-      setSocialItems(items =>
-        items.map(item =>
+
+    // Social 항목에서 찾기
+    const socItem = socialItems.find(item => item.id === itemId);
+    if (socItem) {
+      setSocialItems(prevItems =>
+        prevItems.map(item =>
           item.id === itemId
             ? {
                 ...item,
@@ -123,11 +141,15 @@ export default function SurveyPage() {
             : item
         )
       );
+      console.log('✅ Social 항목 업데이트 완료');
+      return;
     }
-    // Governance & Economic 항목 체크
-    else if (itemId.startsWith('gov')) {
-      setGovernanceItems(items =>
-        items.map(item =>
+
+    // Governance 항목에서 찾기
+    const govItem = governanceItems.find(item => item.id === itemId);
+    if (govItem) {
+      setGovernanceItems(prevItems =>
+        prevItems.map(item =>
           item.id === itemId
             ? {
                 ...item,
@@ -136,7 +158,11 @@ export default function SurveyPage() {
             : item
         )
       );
+      console.log('✅ Governance 항목 업데이트 완료');
+      return;
     }
+
+    console.log('❌ 해당 ID를 찾을 수 없음:', itemId);
   };
 
   // 다음 단계로 이동
@@ -169,6 +195,14 @@ export default function SurveyPage() {
         alert('모든 Social 항목에 대해 응답해주세요.');
         return;
       }
+    } else if (currentStep === 4) {
+      const isAllAnswered = governanceItems.every(
+        item => item.outsideScore !== null && item.insideScore !== null
+      );
+      if (!isAllAnswered) {
+        alert('모든 Governance & Economic 항목에 대해 응답해주세요.');
+        return;
+      }
     }
 
     // 최대 단계는 ESG 섹션 수에 따라 동적으로 결정
@@ -176,6 +210,54 @@ export default function SurveyPage() {
     
     if (currentStep < maxStep) {
       setCurrentStep(currentStep + 1);
+    } else if (currentStep === maxStep) {
+      // 설문 제출
+      handleSubmit();
+    }
+  };
+
+  // 설문 제출
+  const handleSubmit = () => {
+    try {
+      // 모든 응답 데이터 수집
+      const allResponses = [
+        ...environmentalItems.map(item => ({
+          ...item,
+          section: 'Environmental'
+        })),
+        ...socialItems.map(item => ({
+          ...item,
+          section: 'Social'
+        })),
+        ...governanceItems.map(item => ({
+          ...item,
+          section: 'Governance'
+        }))
+      ];
+
+      // 설문 결과 데이터 생성
+      const surveyResult = {
+        company_id: surveyData?.company_id,
+        respondent_type: respondentType,
+        timestamp: new Date().toISOString(),
+        total_items: allResponses.length,
+        responses: allResponses,
+        original_survey_data: surveyData
+      };
+
+      // localStorage에 설문 결과 저장
+      localStorage.setItem('surveyResult', JSON.stringify(surveyResult));
+      
+      console.log('📋 설문 제출 완료:', surveyResult);
+      
+      alert('✅ 설문이 성공적으로 제출되었습니다!\n\n설문 결과는 localStorage에 저장되었습니다.');
+      
+      // 중대성 평가 페이지로 돌아가기
+      window.location.href = '/materiality';
+      
+    } catch (error) {
+      console.error('❌ 설문 제출 실패:', error);
+      alert('❌ 설문 제출에 실패했습니다. 다시 시도해주세요.');
     }
   };
 

@@ -83,15 +83,33 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
   const saveAssessmentResult = () => {
     if (assessmentResult) {
       try {
+        // 데이터 구조 통일: assessmentResult.data가 우선, 없으면 assessmentResult 직접 사용
+        const resultData = assessmentResult?.data || assessmentResult;
+        const categories = resultData?.matched_categories || [];
+        
+        // selected_base_issue_pool 정보가 포함된 데이터 생성
         const dataToSave = {
-          assessment_result: assessmentResult,
+          assessment_result: {
+            ...assessmentResult,
+            data: {
+              ...resultData,
+              matched_categories: categories.map((cat: any) => ({
+                ...cat,
+                selected_base_issue_pool: cat.selected_base_issue_pool || ''
+              }))
+            }
+          },
           company_id: companyId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          total_categories: categories.length,
+          categories_with_base_issue_pool: categories.filter((cat: any) => cat.selected_base_issue_pool).length
         };
         
-        localStorage.setItem('savedAssessmentResult', JSON.stringify(dataToSave));
+        localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
         console.log('💾 중대성 평가 결과 저장 완료:', dataToSave);
-        alert('✅ 중대성 평가 결과가 성공적으로 저장되었습니다.');
+        console.log('📋 저장된 카테고리 수:', categories.length);
+        console.log('📋 Base Issue Pool이 설정된 카테고리 수:', categories.filter((cat: any) => cat.selected_base_issue_pool).length);
+        alert(`✅ 중대성 평가 결과가 성공적으로 저장되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n📋 Base Issue Pool 설정: ${categories.filter((cat: any) => cat.selected_base_issue_pool).length}개`);
       } catch (error) {
         console.error('❌ 중대성 평가 결과 저장 실패:', error);
         alert('❌ 중대성 평가 결과 저장에 실패했습니다.');
