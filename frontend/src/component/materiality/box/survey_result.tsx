@@ -65,42 +65,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
 
   const stats = calculateSurveyStats();
 
-  // JSON 데이터 다운로드
-  const downloadSurveyResult = () => {
-    try {
-      if (surveyResult) {
-        const dataStr = JSON.stringify(surveyResult, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `survey_result_${surveyResult.company_id || 'company'}_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        alert('✅ 설문 결과가 JSON 파일로 다운로드되었습니다.');
-      }
-    } catch (error) {
-      console.error('❌ JSON 다운로드 실패:', error);
-      alert('❌ JSON 다운로드에 실패했습니다.');
-    }
-  };
 
-  // JSON 데이터 클립보드 복사
-  const copySurveyResult = async () => {
-    try {
-      if (surveyResult) {
-        const dataStr = JSON.stringify(surveyResult, null, 2);
-        await navigator.clipboard.writeText(dataStr);
-        alert('✅ 설문 결과가 클립보드에 복사되었습니다.');
-      }
-    } catch (error) {
-      console.error('❌ 클립보드 복사 실패:', error);
-      alert('❌ 클립보드 복사에 실패했습니다.');
-    }
-  };
 
   if (!surveyResult) {
     return (
@@ -151,18 +116,84 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
           {/* ESG 분류별 통계 */}
           <div className="bg-green-50 rounded-lg p-6 border border-green-200">
             <h3 className="text-lg font-semibold text-green-800 mb-4">🌱 ESG 분류별 통계</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{stats.environmental}</div>
-                <div className="text-sm text-green-600">Environmental (환경)</div>
+            
+            {/* 세로 막대 그래프 */}
+            <div className="space-y-4">
+              {/* Environmental */}
+              <div className="flex items-center">
+                <div className="w-24 text-sm font-medium text-gray-700">환경 ({stats.environmental}개)</div>
+                <div className="flex-1 mx-4">
+                  <div className="bg-gray-200 rounded-full h-8 relative">
+                    <div 
+                      className="bg-green-500 h-8 rounded-full transition-all duration-500 ease-out"
+                      style={{ 
+                        width: `${stats.total > 0 ? (stats.environmental / stats.total) * 100 : 0}%` 
+                      }}
+                    ></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-white font-semibold text-sm">
+                        {stats.total > 0 ? Math.round((stats.environmental / stats.total) * 100) : 0}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="w-16 text-right text-sm font-medium text-gray-700">
+                  {stats.total > 0 ? Math.round((stats.environmental / stats.total) * 100) : 0}%
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{stats.social}</div>
-                <div className="text-sm text-green-600">Social (사회)</div>
+
+              {/* Social */}
+              <div className="flex items-center">
+                <div className="w-24 text-sm font-medium text-gray-700">사회 ({stats.social}개)</div>
+                <div className="flex-1 mx-4">
+                  <div className="bg-gray-200 rounded-full h-8 relative">
+                    <div 
+                      className="bg-orange-500 h-8 rounded-full transition-all duration-500 ease-out"
+                      style={{ 
+                        width: `${stats.total > 0 ? (stats.social / stats.total) * 100 : 0}%` 
+                      }}
+                    ></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-white font-semibold text-sm">
+                        {stats.total > 0 ? Math.round((stats.social / stats.total) * 100) : 0}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="w-16 text-right text-sm font-medium text-gray-700">
+                  {stats.total > 0 ? Math.round((stats.social / stats.total) * 100) : 0}%
+                </div>
               </div>
+
+              {/* Governance */}
+              <div className="flex items-center">
+                <div className="w-24 text-sm font-medium text-gray-700">지배구조/경제 ({stats.governance}개)</div>
+                <div className="flex-1 mx-4">
+                  <div className="bg-gray-200 rounded-full h-8 relative">
+                    <div 
+                      className="bg-blue-500 h-8 rounded-full transition-all duration-500 ease-out"
+                      style={{ 
+                        width: `${stats.total > 0 ? (stats.governance / stats.total) * 100 : 0}%` 
+                      }}
+                    ></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-white font-semibold text-sm">
+                        {stats.total > 0 ? Math.round((stats.governance / stats.total) * 100) : 0}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="w-16 text-right text-sm font-medium text-gray-700">
+                  {stats.total > 0 ? Math.round((stats.governance / stats.total) * 100) : 0}%
+                </div>
+              </div>
+            </div>
+
+            {/* 총계 정보 */}
+            <div className="mt-6 pt-4 border-t border-green-200">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{stats.governance}</div>
-                <div className="text-sm text-green-600">Governance (지배구조)</div>
+                <div className="text-lg font-semibold text-green-700">총 {stats.total}개 항목</div>
+                <div className="text-sm text-green-600">ESG 분류별 중요도 평가</div>
               </div>
             </div>
           </div>
@@ -252,24 +283,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
             </div>
           </div>
 
-          {/* 액션 버튼들 */}
-          <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">💾 데이터 내보내기</h3>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={downloadSurveyResult}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
-              >
-                📥 JSON 파일 다운로드
-              </button>
-              <button
-                onClick={copySurveyResult}
-                className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors duration-200"
-              >
-                📋 클립보드에 복사
-              </button>
-            </div>
-          </div>
+          
         </div>
       )}
     </div>
