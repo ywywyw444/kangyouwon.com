@@ -19,6 +19,7 @@ const indexItems: IndexItem[] = [
 
 export default function IndexBar() {
   const [activeSection, setActiveSection] = useState('');
+  const [isMinimized, setIsMinimized] = useState(false);
 
   // 스크롤 위치에 따라 현재 섹션 업데이트
   useEffect(() => {
@@ -71,26 +72,56 @@ export default function IndexBar() {
     }
   };
 
+  // 토글 기능
+  const toggleMinimize = () => {
+    setIsMinimized(!isMinimized);
+  };
+
   return (
     <div className="fixed left-8 top-1/2 transform -translate-y-1/2 z-50">
-      <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200 min-w-[200px]">
-        <div className="space-y-2">
-          {indexItems.map((item) => (
+      {isMinimized ? (
+        // 최소화된 상태 - 작은 토글 버튼만 표시
+        <button
+          onClick={toggleMinimize}
+          className="bg-white rounded-xl shadow-lg p-3 border border-gray-200 hover:bg-gray-50 transition-colors duration-200"
+          title="인덱스 바 열기"
+        >
+          <span className="text-lg">📋</span>
+        </button>
+      ) : (
+        // 확장된 상태 - 전체 인덱스 바 표시
+        <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200 min-w-[200px]">
+          {/* 헤더와 토글 버튼 */}
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-700">빠른 이동</h3>
             <button
-              key={item.id}
-              onClick={() => scrollToSection(item.id)}
-              className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors duration-200 ${
-                activeSection === item.id
-                  ? 'bg-purple-100 text-purple-800'
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
+              onClick={toggleMinimize}
+              className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+              title="인덱스 바 최소화"
             >
-              <span className="mr-2">{item.icon}</span>
-              <span className="text-sm whitespace-nowrap">{item.title}</span>
+              <span className="text-lg">−</span>
             </button>
-          ))}
+          </div>
+          
+          {/* 인덱스 아이템들 */}
+          <div className="space-y-2">
+            {indexItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => scrollToSection(item.id)}
+                className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors duration-200 ${
+                  activeSection === item.id
+                    ? 'bg-purple-100 text-purple-800'
+                    : 'hover:bg-gray-100 text-gray-700'
+                }`}
+              >
+                <span className="mr-2">{item.icon}</span>
+                <span className="text-sm whitespace-nowrap">{item.title}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
