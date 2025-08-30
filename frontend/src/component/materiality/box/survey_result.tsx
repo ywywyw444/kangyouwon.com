@@ -107,10 +107,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                  <span className="text-gray-700 font-medium w-32">설문 항목:</span>
                  <span className="text-gray-900">0개</span>
                </div>
-               <div className="flex items-center">
-                 <span className="text-gray-700 font-medium w-32">예상 소요시간:</span>
-                 <span className="text-gray-900">약 10분</span>
-               </div>
+
              </div>
            </div>
 
