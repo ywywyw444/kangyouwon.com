@@ -1,8 +1,10 @@
 import logging
+import json
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc, text
+
 
 from app.domain.survey.entity import SurveyEntity, SurveyResponseEntity
 from app.domain.survey.schema import (
@@ -12,30 +14,47 @@ from app.domain.survey.schema import (
     SurveyResponsesResponse,
     SurveyListResponse
 )
+from app.common.database.survey_db import get_sync_session
 
 logger = logging.getLogger(__name__)
 
 class SurveyRepository:
     """설문 데이터 리포지토리"""
     
-    def __init__(self, session: Session):
-        self.session = session
+    def __init__(self):
+        """리포지토리 초기화 - 세션은 필요할 때마다 생성"""
+        pass
+    
+    def _get_session(self) -> Session:
+        """데이터베이스 세션 생성"""
+        return get_sync_session()
+    
+    def _prepare_json_data(self, data: Any) -> str:
+        """JSON 데이터를 PostgreSQL에 저장하기 위해 JSON 문자열로 변환"""
+        if isinstance(data, (dict, list)):
+            # JSON 문자열로 변환 (::jsonb 캐스팅을 위해)
+            return json.dumps(data, ensure_ascii=False)
+        elif data is None:
+            return None
+        else:
+            return str(data)
     
     def _check_corporation_exists(self, corporation_id: str) -> bool:
         """기업 ID가 존재하는지 확인"""
         try:
-            result = self.session.execute(
-                text("SELECT COUNT(*) FROM corporation WHERE id = :corporation_id"),
-                {"corporation_id": corporation_id}
-            )
-            count = result.scalar()
-            exists = count > 0
-            
-            if not exists:
-                logger.warning(f"기업 ID가 존재하지 않습니다: {corporation_id}")
-            
-            return exists
-            
+            with self._get_session() as session:
+                result = session.execute(
+                    text("SELECT COUNT(*) FROM corporation WHERE id = :corporation_id"),
+                    {"corporation_id": corporation_id}
+                )
+                count = result.scalar()
+                exists = count > 0
+                
+                if not exists:
+                    logger.warning(f"기업 ID가 존재하지 않습니다: {corporation_id}")
+                
+                return exists
+                
         except Exception as e:
             logger.error(f"기업 존재 여부 확인 중 오류: {e}")
             return False
@@ -43,18 +62,19 @@ class SurveyRepository:
     def _check_survey_exists(self, survey_id: str) -> bool:
         """설문 ID가 존재하는지 확인"""
         try:
-            result = self.session.execute(
-                text("SELECT COUNT(*) FROM surveys WHERE survey_id = :survey_id"),
-                {"survey_id": survey_id}
-            )
-            count = result.scalar()
-            exists = count > 0
-            
-            if not exists:
-                logger.warning(f"설문 ID가 존재하지 않습니다: {survey_id}")
-            
-            return exists
-            
+            with self._get_session() as session:
+                result = session.execute(
+                    text("SELECT COUNT(*) FROM surveys WHERE survey_id = :survey_id"),
+                    {"survey_id": survey_id}
+                )
+                count = result.scalar()
+                exists = count > 0
+                
+                if not exists:
+                    logger.warning(f"설문 ID가 존재하지 않습니다: {survey_id}")
+                
+                return exists
+                
         except Exception as e:
             logger.error(f"설문 존재 여부 확인 중 오류: {e}")
             return False
@@ -62,33 +82,47 @@ class SurveyRepository:
     def create_survey(self, request: SurveyCreateRequest) -> SurveyEntity:
         """설문 생성"""
         try:
-            # Frontend에서 보내는 corporation_id를 그대로 사용
-            corporation_id = request.corporation_id
-            
-            # 기업 존재 여부 먼저 확인
-            if not self._check_corporation_exists(corporation_id):
-                raise ValueError(f"기업 ID {corporation_id}가 존재하지 않습니다.")
-            
-            # 고유한 설문 ID 생성
-            survey_id = f"{corporation_id}_{int(datetime.now().timestamp())}"
-            
-            # 설문 엔티티 생성
-            survey_entity = SurveyEntity(
-                survey_id=survey_id,
-                corporation_id=corporation_id,
-                timestamp=datetime.now(),
-                total_categories=len(request.categories),
-                categories=request.categories,  # 이미 Dict 형태로 전달됨
-                excel_data=request.excel_data
-            )
-            
-            # 데이터베이스에 저장
-            self.session.add(survey_entity)
-            self.session.flush()  # ID 생성을 위한 flush
-            
-            logger.info(f"설문 생성 완료: {survey_id}, 회사: {corporation_id}")
-            return survey_entity
-            
+            with self._get_session() as session:
+                # Frontend에서 보내는 corporation_id를 그대로 사용
+                corporation_id = request.corporation_id
+                
+                # 기업 존재 여부 먼저 확인
+                if not self._check_corporation_exists(corporation_id):
+                    raise ValueError(f"기업 ID {corporation_id}가 존재하지 않습니다.")
+                
+                # 고유한 설문 ID 생성
+                survey_id = f"{corporation_id}_{int(datetime.now().timestamp())}"
+                
+                # JSON 데이터를 PostgreSQL에 저장하기 위해 준비
+                categories_json = self._prepare_json_data(request.categories)
+                excel_data_json = self._prepare_json_data(request.excel_data)
+                
+                # 직접 SQL을 사용하여 INSERT (::jsonb 캐스팅)
+                sql = """
+                INSERT INTO surveys (survey_id, corporation_id, "timestamp", total_categories, categories, excel_data)
+                VALUES (:survey_id, :corporation_id, :timestamp, :total_categories, :categories::jsonb, :excel_data::jsonb)
+                """
+                
+                params = {
+                    "survey_id": survey_id,
+                    "corporation_id": corporation_id,
+                    "timestamp": datetime.now(),
+                    "total_categories": len(request.categories),
+                    "categories": categories_json,  # JSON 문자열
+                    "excel_data": excel_data_json   # JSON 문자열
+                }
+                
+                session.execute(text(sql), params)
+                session.commit()
+                
+                # 생성된 엔티티 조회하여 반환
+                survey_entity = session.query(SurveyEntity).filter(
+                    SurveyEntity.survey_id == survey_id
+                ).first()
+                
+                logger.info(f"설문 생성 완료: {survey_id}, 회사: {corporation_id}")
+                return survey_entity
+                
         except Exception as e:
             logger.error(f"설문 생성 실패: {e}")
             raise
@@ -96,11 +130,12 @@ class SurveyRepository:
     def get_survey(self, survey_id: str) -> Optional[SurveyEntity]:
         """설문 조회"""
         try:
-            survey = self.session.query(SurveyEntity).filter(
-                SurveyEntity.survey_id == survey_id
-            ).first()
-            return survey
-            
+            with self._get_session() as session:
+                survey = session.query(SurveyEntity).filter(
+                    SurveyEntity.survey_id == survey_id
+                ).first()
+                return survey
+                
         except Exception as e:
             logger.error(f"설문 조회 실패: {e}")
             raise
@@ -108,16 +143,17 @@ class SurveyRepository:
     def get_surveys_by_corporation(self, corporation_id: str) -> List[SurveyEntity]:
         """회사별 설문 목록 조회"""
         try:
-            # 기업 존재 여부 먼저 확인
-            if not self._check_corporation_exists(corporation_id):
-                logger.warning(f"기업 ID가 존재하지 않습니다: {corporation_id}")
-                return []
-            
-            surveys = self.session.query(SurveyEntity).filter(
-                SurveyEntity.corporation_id == corporation_id
-            ).order_by(desc(SurveyEntity.created_at)).all()
-            return surveys
-            
+            with self._get_session() as session:
+                # 기업 존재 여부 먼저 확인
+                if not self._check_corporation_exists(corporation_id):
+                    logger.warning(f"기업 ID가 존재하지 않습니다: {corporation_id}")
+                    return []
+                
+                surveys = session.query(SurveyEntity).filter(
+                    SurveyEntity.corporation_id == corporation_id
+                ).order_by(desc(SurveyEntity.created_at)).all()
+                return surveys
+                
         except Exception as e:
             logger.error(f"회사별 설문 조회 실패: {e}")
             raise
@@ -125,11 +161,12 @@ class SurveyRepository:
     def get_all_surveys(self) -> List[SurveyEntity]:
         """모든 설문 목록 조회"""
         try:
-            surveys = self.session.query(SurveyEntity).order_by(
-                desc(SurveyEntity.created_at)
-            ).all()
-            return surveys
-            
+            with self._get_session() as session:
+                surveys = session.query(SurveyEntity).order_by(
+                    desc(SurveyEntity.created_at)
+                ).all()
+                return surveys
+                
         except Exception as e:
             logger.error(f"모든 설문 목록 조회 실패: {e}")
             raise
@@ -137,22 +174,26 @@ class SurveyRepository:
     def delete_survey(self, survey_id: str) -> bool:
         """설문 삭제"""
         try:
-            # 설문 조회
-            survey = self.get_survey(survey_id)
-            if not survey:
-                return False
-            
-            # 관련 응답도 삭제
-            self.session.query(SurveyResponseEntity).filter(
-                SurveyResponseEntity.survey_id == survey_id
-            ).delete()
-            
-            # 설문 삭제
-            self.session.delete(survey)
-            
-            logger.info(f"설문 삭제 완료: {survey_id}")
-            return True
-            
+            with self._get_session() as session:
+                # 설문 조회
+                survey = session.query(SurveyEntity).filter(
+                    SurveyEntity.survey_id == survey_id
+                ).first()
+                
+                if not survey:
+                    return False
+                
+                # 관련 응답도 삭제
+                session.query(SurveyResponseEntity).filter(
+                    SurveyResponseEntity.survey_id == survey_id
+                ).delete()
+                
+                # 설문 삭제
+                session.delete(survey)
+                
+                logger.info(f"설문 삭제 완료: {survey_id}")
+                return True
+                
         except Exception as e:
             logger.error(f"설문 삭제 실패: {e}")
             raise
@@ -160,48 +201,64 @@ class SurveyRepository:
     def submit_survey_response(self, request: SurveyResponseRequest) -> SurveyResponseEntity:
         """설문 응답 제출"""
         try:
-            # Frontend에서 보내는 corporation_id를 그대로 사용
-            corporation_id = request.corporation_id
-            
-            # 기업 존재 여부 먼저 확인
-            if not self._check_corporation_exists(corporation_id):
-                raise ValueError(f"기업 ID {corporation_id}가 존재하지 않습니다.")
-            
-            # 설문 존재 여부 먼저 확인
-            if not self._check_survey_exists(request.survey_id):
-                raise ValueError(f"설문 ID {request.survey_id}가 존재하지 않습니다.")
-            
-            # 중복 응답 확인
-            existing_response = self.session.query(SurveyResponseEntity).filter(
-                and_(
-                    SurveyResponseEntity.participant_email == request.participant.email,
-                    SurveyResponseEntity.survey_id == request.survey_id
-                )
-            ).first()
-            
-            if existing_response:
-                raise ValueError("이미 이 설문에 응답하셨습니다.")
-            
-            # 응답 엔티티 생성
-            response_entity = SurveyResponseEntity(
-                participant_id=f"{request.participant.email}_{int(datetime.now().timestamp())}",
-                survey_id=request.survey_id,
-                corporation_id=corporation_id,
-                participant_name=request.participant.name,
-                participant_company=request.participant.company,
-                participant_position=request.participant.position,
-                participant_email=request.participant.email,
-                responses=request.responses,  # 이미 Dict 형태로 전달됨
-                timestamp=datetime.now()
-            )
-            
-            # 데이터베이스에 저장
-            self.session.add(response_entity)
-            self.session.flush()
-            
-            logger.info(f"설문 응답 제출 완료: {request.survey_id}, 참여자: {request.participant.name}")
-            return response_entity
-            
+            with self._get_session() as session:
+                # Frontend에서 보내는 corporation_id를 그대로 사용
+                corporation_id = request.corporation_id
+                
+                # 기업 존재 여부 먼저 확인
+                if not self._check_corporation_exists(corporation_id):
+                    raise ValueError(f"기업 ID {corporation_id}가 존재하지 않습니다.")
+                
+                # 설문 존재 여부 먼저 확인
+                if not self._check_survey_exists(request.survey_id):
+                    raise ValueError(f"설문 ID {request.survey_id}가 존재하지 않습니다.")
+                
+                # 중복 응답 확인
+                existing_response = session.query(SurveyResponseEntity).filter(
+                    and_(
+                        SurveyResponseEntity.participant_email == request.participant.email,
+                        SurveyResponseEntity.survey_id == request.survey_id
+                    )
+                ).first()
+                
+                if existing_response:
+                    raise ValueError("이미 이 설문에 응답하셨습니다.")
+                
+                # JSON 데이터를 PostgreSQL에 저장하기 위해 준비
+                responses_json = self._prepare_json_data(request.responses)
+                
+                # 고유한 참여자 ID 생성
+                participant_id = f"{request.participant.email}_{int(datetime.now().timestamp())}"
+                
+                # 직접 SQL을 사용하여 INSERT (::jsonb 캐스팅)
+                sql = """
+                INSERT INTO survey_responses (participant_id, survey_id, corporation_id, participant_name, participant_company, participant_position, participant_email, responses, "timestamp")
+                VALUES (:participant_id, :survey_id, :corporation_id, :participant_name, :participant_company, :participant_position, :participant_email, :responses::jsonb, :timestamp)
+                """
+                
+                params = {
+                    "participant_id": participant_id,
+                    "survey_id": request.survey_id,
+                    "corporation_id": corporation_id,
+                    "participant_name": request.participant.name,
+                    "participant_company": request.participant.company,
+                    "participant_position": request.participant.position,
+                    "participant_email": request.participant.email,
+                    "responses": responses_json,  # JSON 문자열
+                    "timestamp": datetime.now()
+                }
+                
+                session.execute(text(sql), params)
+                session.commit()
+                
+                # 생성된 엔티티 조회하여 반환
+                response_entity = session.query(SurveyResponseEntity).filter(
+                    SurveyResponseEntity.participant_id == participant_id
+                ).first()
+                
+                logger.info(f"설문 응답 제출 완료: {request.survey_id}, 참여자: {request.participant.name}")
+                return response_entity
+                
         except Exception as e:
             logger.error(f"설문 응답 제출 실패: {e}")
             raise
@@ -209,16 +266,17 @@ class SurveyRepository:
     def get_survey_responses(self, survey_id: str) -> List[SurveyResponseEntity]:
         """설문 응답 목록 조회"""
         try:
-            # 설문 존재 여부 먼저 확인
-            if not self._check_survey_exists(survey_id):
-                logger.warning(f"설문 ID가 존재하지 않습니다: {survey_id}")
-                return []
-            
-            responses = self.session.query(SurveyResponseEntity).filter(
-                SurveyResponseEntity.survey_id == survey_id
-            ).order_by(SurveyResponseEntity.created_at).all()
-            return responses
-            
+            with self._get_session() as session:
+                # 설문 존재 여부 먼저 확인
+                if not self._check_survey_exists(survey_id):
+                    logger.warning(f"설문 ID가 존재하지 않습니다: {survey_id}")
+                    return []
+                
+                responses = session.query(SurveyResponseEntity).filter(
+                    SurveyResponseEntity.survey_id == survey_id
+                ).order_by(SurveyResponseEntity.created_at).all()
+                return responses
+                
         except Exception as e:
             logger.error(f"설문 응답 목록 조회 실패: {e}")
             raise
@@ -226,11 +284,12 @@ class SurveyRepository:
     def get_response_count(self, survey_id: str) -> int:
         """설문 응답 수 조회"""
         try:
-            count = self.session.query(SurveyResponseEntity).filter(
-                SurveyResponseEntity.survey_id == survey_id
-            ).count()
-            return count
-            
+            with self._get_session() as session:
+                count = session.query(SurveyResponseEntity).filter(
+                    SurveyResponseEntity.survey_id == survey_id
+                ).count()
+                return count
+                
         except Exception as e:
             logger.error(f"응답 수 조회 실패: {e}")
             raise

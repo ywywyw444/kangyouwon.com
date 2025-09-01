@@ -12,7 +12,6 @@ from app.domain.survey.schema import (
     SurveyListResponse
 )
 from app.domain.survey.service import SurveyService
-from app.domain.survey.repository import SurveyRepository
 
 logger = logging.getLogger(__name__)
 
@@ -23,37 +22,107 @@ class SurveyController:
         """컨트롤러 초기화"""
         self.service = SurveyService()
     
-    async def create_survey(self, request: SurveyCreateRequest, repository: SurveyRepository) -> SurveyDataResponse:
+    async def create_survey(self, request: SurveyCreateRequest) -> SurveyDataResponse:
         """설문 생성 - 서비스 호출"""
-        logger.info(f"컨트롤러: 설문 생성 요청 처리 시작")
-        return await self.service.create_survey(request, repository)
+        try:
+            logger.info(f"🔍 컨트롤러: 설문 생성 요청을 Service로 전달 - {request.corporation_id}")
+            
+            # BaseModel을 Service로 전달 (데이터베이스 연결 없음)
+            result = await self.service.create_survey(request)
+            
+            logger.info(f"✅ 컨트롤러: Service 응답 수신 - {result.survey_id}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ 컨트롤러: Service 호출 중 오류 - {str(e)}")
+            raise
     
-    async def get_survey(self, survey_id: str, repository: SurveyRepository) -> Optional[SurveyDataResponse]:
+    async def get_survey(self, survey_id: str) -> Optional[SurveyDataResponse]:
         """설문 조회 - 서비스 호출"""
-        logger.info(f"컨트롤러: 설문 조회 요청 처리 시작")
-        return await self.service.get_survey(survey_id, repository)
+        try:
+            logger.info(f"🔍 컨트롤러: 설문 조회 요청을 Service로 전달 - {survey_id}")
+            
+            # survey_id를 Service로 전달 (데이터베이스 연결 없음)
+            result = await self.service.get_survey(survey_id)
+            
+            logger.info(f"✅ 컨트롤러: Service 응답 수신 - {result.survey_id if result else 'Not found'}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ 컨트롤러: Service 호출 중 오류 - {str(e)}")
+            raise
     
-    async def get_surveys_by_corporation(self, corporation_id: str, repository: SurveyRepository) -> List[SurveyDataResponse]:
+    async def get_surveys_by_corporation(self, corporation_id: str) -> List[SurveyDataResponse]:
         """회사별 설문 목록 조회 - 서비스 호출"""
-        logger.info(f"컨트롤러: 회사별 설문 조회 요청 처리 시작")
-        return await self.service.get_surveys_by_corporation(corporation_id, repository)
+        try:
+            logger.info(f"🔍 컨트롤러: 회사별 설문 조회 요청을 Service로 전달 - {corporation_id}")
+            
+            # corporation_id를 Service로 전달 (데이터베이스 연결 없음)
+            result = await self.service.get_surveys_by_corporation(corporation_id)
+            
+            logger.info(f"✅ 컨트롤러: Service 응답 수신 - {len(result)}개 설문")
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ 컨트롤러: Service 호출 중 오류 - {str(e)}")
+            raise
     
-    async def submit_survey_response(self, request: SurveyResponseRequest, repository: SurveyRepository) -> Dict[str, Any]:
+    async def submit_survey_response(self, request: SurveyResponseRequest) -> Dict[str, Any]:
         """설문 응답 제출 - 서비스 호출"""
-        logger.info(f"컨트롤러: 설문 응답 제출 요청 처리 시작")
-        return await self.service.submit_survey_response(request, repository)
+        try:
+            logger.info(f"🔍 컨트롤러: 설문 응답 제출 요청을 Service로 전달 - {request.survey_id}")
+            
+            # BaseModel을 Service로 전달 (데이터베이스 연결 없음)
+            result = await self.service.submit_survey_response(request)
+            
+            logger.info(f"✅ 컨트롤러: Service 응답 수신 - {result.get('message', 'Unknown')}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ 컨트롤러: Service 호출 중 오류 - {str(e)}")
+            raise
     
-    async def get_survey_responses(self, survey_id: str, repository: SurveyRepository) -> SurveyResponsesResponse:
+    async def get_survey_responses(self, survey_id: str) -> SurveyResponsesResponse:
         """설문 응답 목록 조회 - 서비스 호출"""
-        logger.info(f"컨트롤러: 설문 응답 목록 조회 요청 처리 시작")
-        return await self.service.get_survey_responses(survey_id, repository)
+        try:
+            logger.info(f"🔍 컨트롤러: 설문 응답 목록 조회 요청을 Service로 전달 - {survey_id}")
+            
+            # survey_id를 Service로 전달 (데이터베이스 연결 없음)
+            result = await self.service.get_survey_responses(survey_id)
+            
+            logger.info(f"✅ 컨트롤러: Service 응답 수신 - {result.total_responses}개 응답")
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ 컨트롤러: Service 호출 중 오류 - {str(e)}")
+            raise
     
-    async def get_all_surveys(self, repository: SurveyRepository) -> SurveyListResponse:
+    async def get_all_surveys(self) -> SurveyListResponse:
         """모든 설문 목록 조회 - 서비스 호출"""
-        logger.info(f"컨트롤러: 모든 설문 목록 조회 요청 처리 시작")
-        return await self.service.get_all_surveys(repository)
+        try:
+            logger.info("🔍 컨트롤러: 모든 설문 목록 조회 요청을 Service로 전달")
+            
+            # Service로 전달 (데이터베이스 연결 없음)
+            result = await self.service.get_all_surveys()
+            
+            logger.info(f"✅ 컨트롤러: Service 응답 수신 - {result.total_count}개 설문")
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ 컨트롤러: Service 호출 중 오류 - {str(e)}")
+            raise
     
-    async def delete_survey(self, survey_id: str, repository: SurveyRepository) -> bool:
+    async def delete_survey(self, survey_id: str) -> bool:
         """설문 삭제 - 서비스 호출"""
-        logger.info(f"컨트롤러: 설문 삭제 요청 처리 시작")
-        return await self.service.delete_survey(survey_id, repository)
+        try:
+            logger.info(f"🔍 컨트롤러: 설문 삭제 요청을 Service로 전달 - {survey_id}")
+            
+            # survey_id를 Service로 전달 (데이터베이스 연결 없음)
+            result = await self.service.delete_survey(survey_id)
+            
+            logger.info(f"✅ 컨트롤러: Service 응답 수신 - {result}")
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ 컨트롤러: Service 호출 중 오류 - {str(e)}")
+            raise

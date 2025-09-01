@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Float, DateTime, Text, JSON, ForeignKey
+from sqlalchemy import Column, String, Integer, Float, DateTime, Text, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
@@ -12,8 +12,8 @@ class SurveyEntity(Base):
     corporation_id = Column(String(255), ForeignKey('corporation.id'), nullable=False, index=True)  # corporation 테이블의 id 참조
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
     total_categories = Column(Integer, nullable=False)
-    categories = Column(JSON, nullable=False)  # JSON 형태로 카테고리 데이터 저장
-    excel_data = Column(JSON, nullable=True)   # JSON 형태로 엑셀 데이터 저장
+    categories = Column(Text, nullable=False)  # 카테고리 데이터 저장
+    excel_data = Column(Text, nullable=True)   # 엑셀 데이터 저장
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -29,7 +29,7 @@ class SurveyResponseEntity(Base):
     participant_company = Column(String(255), nullable=False)
     participant_position = Column(String(255), nullable=False)
     participant_email = Column(String(255), nullable=False, index=True)
-    responses = Column(JSON, nullable=False)  # JSON 형태로 응답 데이터 저장
+    responses = Column(Text, nullable=False)  # 응답 데이터 저장
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from datetime import datetime
 
 # 라우터
 from app.router.media_router import media_router
@@ -61,7 +62,7 @@ app.add_middleware(
 # 라우터 등록 (prefix는 여기에서만 부여)
 # ─────────────────────────────────────────────────────────
 # app.include_router(media_router,  prefix="/materiality-service", tags=["materiality"])
-app.include_router(media_router,  prefix="/materiality-service", tags=["survey"])
+app.include_router(media_router,  prefix="/materiality-service", tags=["survey", "materiality"])
 app.include_router(search_router, prefix="/materiality-service", tags=["search"])
 app.include_router(issuepool_router, prefix="/materiality-service", tags=["issuepool"])
 app.include_router(middleissue_router, prefix="/materiality-service", tags=["middleissue"])

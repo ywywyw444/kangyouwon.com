@@ -65,25 +65,6 @@ app.add_middleware(
 
 app.add_middleware(AuthMiddleware)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://www.kangyouwon.com",
-        "https://kangyouwon.com",
-        "https://esg-mate.vercel.app",
-        "https://esg-mate-lywmmygs7-ywyw74s-projects.vercel.app",
-        "https://zustand-beta.vercel.app",
-        "https://zustand-git-main-ywyw74s-projects.vercel.app",
-        "https://zustand-owlotwu22-ywyw74s-projects.vercel.app",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://frontend:3000",
-    ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-)
-
 # 모든 요청 로깅 미들웨어 추가
 @app.middleware("http")
 async def log_all_requests(request: Request, call_next):
@@ -96,8 +77,6 @@ async def log_all_requests(request: Request, call_next):
     logger.info(f"🌐 응답 상태: {response.status_code}")
     return response
 
-# ===== [여기부터 핵심 수정] 내부 서비스로 넘길 때 붙일 기본 prefix =====
-FORWARD_BASE_PATH = "api/v1"
 # ================================================================
 
 # 라우터 생성
@@ -125,8 +104,9 @@ async def proxy_get(
         service_factory = request.app.state.service_factory
         headers = dict(request.headers)
 
-        # Service Factory가 모든 서비스 라우팅을 담당
-        forward_path = f"/{service}/{path}"
+        # 쿼리 스트링 포함하여 전달
+        query = str(request.url.query)
+        forward_path = f"/{service}/{path}" + (f"?{query}" if query else "")
         logger.info(f"🎯 Service Factory로 전달: {forward_path}")
 
         response = await service_factory.forward_request(
@@ -173,7 +153,10 @@ async def proxy_post_json(
 
         # Service Factory가 모든 서비스 라우팅을 담당
         service_factory = request.app.state.service_factory
-        forward_path = f"/{service}/{path}"
+        
+        # 쿼리 스트링 포함하여 전달
+        query = str(request.url.query)
+        forward_path = f"/{service}/{path}" + (f"?{query}" if query else "")
         logger.info(f"🎯 Service Factory로 전달: {forward_path}")
         logger.info(f"🔧 전달할 body 크기: {len(body) if body else 0} bytes")
         logger.info(f"🔧 전달할 headers: {headers}")
@@ -206,7 +189,10 @@ async def proxy_put(service: str, path: str, request: Request):
 
         # ===== [수정] 내부로 넘길 경로 재작성 =====
         # auth-service는 /auth-service 경로를 포함해서 전달
-        forward_path = f"/auth-service/{path}"
+        # forward_path = f"/auth-service/{path}"
+        # 쿼리 스트링 포함하여 전달
+        query = str(request.url.query)
+        forward_path = f"/{service}/{path}" + (f"?{query}" if query else "")
         logger.info(f"🎯 최종 전달 경로(PUT): {forward_path}")
 
         response = await service_factory.forward_request(
@@ -231,9 +217,12 @@ async def proxy_delete(service: str, path: str, request: Request):
         service_factory = request.app.state.service_factory
         headers = dict(request.headers)
 
-        # ===== [수정] 내부로 넘길 경로 재작성 =====
+ # ===== [수정] 내부로 넘길 경로 재작성 =====
         # auth-service는 /auth-service 경로를 포함해서 전달
-        forward_path = f"/auth-service/{path}"
+        # forward_path = f"/auth-service/{path}"
+        # 쿼리 스트링 포함하여 전달
+        query = str(request.url.query)
+        forward_path = f"/{service}/{path}" + (f"?{query}" if query else "")
         logger.info(f"🎯 최종 전달 경로(DELETE): {forward_path}")
 
         response = await service_factory.forward_request(
@@ -258,9 +247,10 @@ async def proxy_patch(service: str, path: str, request: Request):
         service_factory = request.app.state.service_factory
         headers = dict(request.headers)
 
-        # ===== [수정] 내부로 넘길 경로 재작성 =====
-        # auth-service는 /auth-service 경로를 포함해서 전달
-        forward_path = f"/auth-service/{path}"
+
+        # 쿼리 스트링 포함하여 전달
+        query = str(request.url.query)
+        forward_path = f"/{service}/{path}" + (f"?{query}" if query else "")
         logger.info(f"🎯 최종 전달 경로(PATCH): {forward_path}")
 
         response = await service_factory.forward_request(
