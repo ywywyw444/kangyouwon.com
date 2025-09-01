@@ -680,31 +680,80 @@ export default function MaterialityHomePage() {
                 <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
                   <div className="mb-4">
                     <p className="text-gray-600 mb-4">
-                      <strong>{selectedCategory.category}</strong> 카테고리에 매칭되는 base issue pool을 선택하세요.
+                      <strong>{selectedCategory.category}</strong> 카테고리에 매칭되는 base issue pool을 선택하거나 직접 입력하세요.
                     </p>
                     
-                    {baseIssuePoolOptions.length > 0 ? (
-                      <div className="space-y-3">
+                    {/* 기존 옵션들 */}
+                    {baseIssuePoolOptions.length > 0 && (
+                      <div className="space-y-3 mb-6">
+                        <h4 className="text-sm font-semibold text-gray-700">기존 옵션에서 선택:</h4>
                         {baseIssuePoolOptions.map((option, index) => (
                           <label key={index} className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-3 rounded-lg">
                             <input
                               type="radio"
                               name="baseIssuePool"
                               value={option}
-                              checked={selectedBaseIssuePool === option}
-                              onChange={(e) => setSelectedBaseIssuePool(e.target.value)}
+                              checked={selectedBaseIssuePool === option && !isCustomBaseIssuePool}
+                              onChange={(e) => {
+                                setSelectedBaseIssuePool(e.target.value);
+                                setIsCustomBaseIssuePool(false);
+                                setCustomBaseIssuePoolText('');
+                              }}
                               className="text-blue-600 focus:ring-blue-500"
                             />
                             <span className="text-gray-700">{option}</span>
                           </label>
                         ))}
                       </div>
-                    ) : (
-                      <div className="text-center text-gray-500 py-8">
-                        <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    )}
+                    
+                    {/* 구분선 */}
+                    {baseIssuePoolOptions.length > 0 && (
+                      <div className="flex items-center my-6">
+                        <div className="flex-1 border-t border-gray-300"></div>
+                        <span className="px-3 text-sm text-gray-500 bg-white">또는</span>
+                        <div className="flex-1 border-t border-gray-300"></div>
+                      </div>
+                    )}
+                    
+                    {/* 직접 입력 옵션 */}
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-gray-700">직접 입력:</h4>
+                      <label className="flex items-start space-x-3 cursor-pointer hover:bg-gray-50 p-3 rounded-lg">
+                        <input
+                          type="radio"
+                          name="baseIssuePool"
+                          checked={isCustomBaseIssuePool}
+                          onChange={() => {
+                            setIsCustomBaseIssuePool(true);
+                            setSelectedBaseIssuePool('');
+                          }}
+                          className="text-blue-600 focus:ring-blue-500 mt-1"
+                        />
+                        <div className="flex-1">
+                          <span className="text-gray-700 font-medium">새로운 base issue pool 직접 작성</span>
+                          {isCustomBaseIssuePool && (
+                            <textarea
+                              value={customBaseIssuePoolText}
+                              onChange={(e) => setCustomBaseIssuePoolText(e.target.value)}
+                              placeholder="새로운 base issue pool을 입력하세요..."
+                              className="w-full mt-2 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                              rows={3}
+                              autoFocus
+                            />
+                          )}
+                        </div>
+                      </label>
+                    </div>
+                    
+                    {/* 옵션이 없는 경우 안내 */}
+                    {baseIssuePoolOptions.length === 0 && (
+                      <div className="text-center text-gray-500 py-4 mb-4">
+                        <svg className="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        <p>이 카테고리에 매칭되는 base issue pool이 없습니다.</p>
+                        <p className="text-sm">이 카테고리에 매칭되는 base issue pool이 없습니다.</p>
+                        <p className="text-xs text-gray-400 mt-1">아래에서 직접 입력해주세요.</p>
                       </div>
                     )}
                   </div>
@@ -721,7 +770,12 @@ export default function MaterialityHomePage() {
                     </button>
                     <button
                       onClick={() => {
-                        if (selectedBaseIssuePool && editingCategoryIndex >= 0) {
+                        // 선택된 값 결정 (기존 옵션 또는 커스텀 입력)
+                        const finalSelectedValue = isCustomBaseIssuePool 
+                          ? customBaseIssuePoolText.trim() 
+                          : selectedBaseIssuePool;
+                        
+                        if (finalSelectedValue && editingCategoryIndex >= 0) {
                           // 선택된 base issue pool로 카테고리 업데이트
                           const resultData = assessmentResult?.data || assessmentResult;
                           const updatedCategories = [...(resultData?.matched_categories || [])];
@@ -729,7 +783,7 @@ export default function MaterialityHomePage() {
                           if (updatedCategories[editingCategoryIndex]) {
                             updatedCategories[editingCategoryIndex] = {
                               ...updatedCategories[editingCategoryIndex],
-                              selected_base_issue_pool: selectedBaseIssuePool
+                              selected_base_issue_pool: finalSelectedValue
                             };
                             
                             // 상태 업데이트
@@ -748,7 +802,8 @@ export default function MaterialityHomePage() {
                               });
                             }
                             
-                            alert(`✅ ${selectedCategory.category} 카테고리가 "${selectedBaseIssuePool}"로 업데이트되었습니다.`);
+                            const selectionType = isCustomBaseIssuePool ? '직접 입력' : '기존 옵션';
+                            alert(`✅ ${selectedCategory.category} 카테고리가 "${finalSelectedValue}"로 업데이트되었습니다.\n(${selectionType})`);
                             
                             // 자동으로 중대성 평가 결과 저장
                             try {
@@ -775,9 +830,9 @@ export default function MaterialityHomePage() {
                         }
                         setIsBaseIssuePoolModalOpen(false);
                       }}
-                      disabled={!selectedBaseIssuePool}
+                      disabled={!(selectedBaseIssuePool || (isCustomBaseIssuePool && customBaseIssuePoolText.trim()))}
                       className={`px-4 py-2 font-medium rounded-lg transition-colors duration-200 ${
-                        selectedBaseIssuePool
+                        (selectedBaseIssuePool || (isCustomBaseIssuePool && customBaseIssuePoolText.trim()))
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
