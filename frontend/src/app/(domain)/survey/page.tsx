@@ -53,19 +53,27 @@ export default function SurveyPage() {
   
   // 설문 데이터 로드 및 설문 항목 생성
   useEffect(() => {
-    const loadSurveyData = () => {
+    const loadSurveyData = async () => {
       try {
         // URL에서 설문 ID 확인
         const urlParams = new URLSearchParams(window.location.search);
         const id = urlParams.get('id');
         setSurveyId(id);
         
-        // 설문 ID에 따라 데이터 로드
-        const dataKey = id ? `surveyData_${id}` : 'surveyData';
-        const savedData = localStorage.getItem(dataKey);
-        
-        if (savedData) {
-          const data: SurveyData = JSON.parse(savedData);
+        if (id) {
+          // 백엔드에서 설문 데이터 로드
+          const response = await fetch(`/api/gateway/materiality-service/surveys/${id}`);
+          
+          if (!response.ok) {
+            if (response.status === 404) {
+              console.log('⚠️ 설문을 찾을 수 없습니다.');
+              setSurveyData(null);
+              return;
+            }
+            throw new Error(`설문 데이터 로드 실패: ${response.status}`);
+          }
+          
+          const data: SurveyData = await response.json();
           setSurveyData(data);
           
           // ESG 분류별로 카테고리 분리
@@ -250,7 +258,7 @@ export default function SurveyPage() {
   };
 
   // 설문 제출
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     try {
       // 모든 응답 데이터 수집
       const allResponses = [
@@ -280,19 +288,43 @@ export default function SurveyPage() {
 
       // 설문 링크로 접근한 경우 응답자 정보 포함
       if (surveyId && participantInfo.name) {
-        surveyResult.participant = participantInfo;
-        surveyResult.survey_id = surveyId;
-        
-        // 기존 응답에 추가
-        const existingResponses = JSON.parse(localStorage.getItem('surveyResponses') || '[]');
-        const responseData = {
-          participant: participantInfo,
-          responses: allResponses,
-          timestamp: new Date().toISOString(),
-          survey_id: surveyId
-        };
-        const updatedResponses = [...existingResponses, responseData];
-        localStorage.setItem('surveyResponses', JSON.stringify(updatedResponses));
+        try {
+          // 백엔드로 설문 응답 전송
+          const responseRequest = {
+            survey_id: surveyId,
+            participant: participantInfo,
+            responses: allResponses,
+            company_id: surveyData?.company_id
+          };
+
+          const response = await fetch(`/api/gateway/materiality-service/surveys/${surveyId}/responses`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(responseRequest)
+          });
+
+          if (!response.ok) {
+            if (response.status === 400) {
+              const errorData = await response.json();
+              alert(`⚠️ ${errorData.detail}`);
+              return;
+            }
+            throw new Error(`설문 응답 제출 실패: ${response.status}`);
+          }
+
+          const result = await response.json();
+          console.log('✅ 설문 응답 백엔드 저장 완료:', result);
+          
+          // 설문 결과에 응답자 정보 포함
+          surveyResult.participant = participantInfo;
+          surveyResult.survey_id = surveyId;
+        } catch (error) {
+          console.error('❌ 설문 응답 제출 실패:', error);
+          alert(`❌ 설문 응답 제출에 실패했습니다.\n\n오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+          return;
+        }
       }
 
       // localStorage에 설문 결과 저장
@@ -573,29 +605,47 @@ export default function SurveyPage() {
               </>
             )}
 
-            {/* 설문 데이터가 없을 때 안내 메시지 */}
-            {!surveyData && (
-              <div className="text-center py-12">
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">설문 데이터가 없습니다</h3>
-                <p className="text-gray-600 mb-6">
-                  중대성 평가 페이지에서 설문을 생성한 후 다시 시도해주세요.
-                </p>
-                <a
-                  href="/materiality"
-                  className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  중대성 평가 페이지로 이동
-                </a>
-              </div>
-            )}
+                         {/* 설문 데이터가 없을 때 안내 메시지 */}
+             {!surveyData && (
+               <div className="text-center py-12">
+                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                   <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                   </svg>
+                 </div>
+                 <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                   {surveyId ? '설문을 찾을 수 없습니다' : '설문 데이터가 없습니다'}
+                 </h3>
+                 <p className="text-gray-600 mb-6">
+                   {surveyId 
+                     ? `설문 ID "${surveyId}"에 해당하는 설문을 찾을 수 없습니다. 설문 링크가 올바른지 확인해주세요.`
+                     : '중대성 평가 페이지에서 설문을 생성한 후 다시 시도해주세요.'
+                   }
+                 </p>
+                 <div className="space-x-4">
+                   <a
+                     href="/materiality"
+                     className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
+                   >
+                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                     </svg>
+                     중대성 평가 페이지로 이동
+                   </a>
+                   {surveyId && (
+                     <button
+                       onClick={() => window.location.reload()}
+                       className="inline-flex items-center px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
+                     >
+                       <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                       </svg>
+                       페이지 새로고침
+                     </button>
+                   )}
+                 </div>
+               </div>
+             )}
 
                          {/* 단계 2-4: ESG 평가 */}
              {surveyData && currentStep > 1 && currentStep < 5 && (
@@ -848,15 +898,20 @@ export default function SurveyPage() {
                              </div>
              )}
 
-             {/* 단계 5: 설문 결과 확인 */}
-             {currentStep === 5 && (
-               <div className="mb-8">
-                 <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                   🎉 설문 완료!
-                 </h2>
-                 <p className="text-gray-600 mb-6">
-                   설문이 성공적으로 제출되었습니다.
-                 </p>
+                           {/* 단계 5: 설문 결과 확인 */}
+              {currentStep === 5 && (
+                <div className="mb-8">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                    🎉 설문 완료!
+                  </h2>
+                  <p className="text-gray-600 mb-6">
+                    설문이 성공적으로 제출되었습니다.
+                    {surveyId && (
+                      <span className="block mt-2 text-sm text-blue-600">
+                        💡 이 설문 링크는 다른 사람들과 공유하여 추가 응답을 받을 수 있습니다.
+                      </span>
+                    )}
+                  </p>
                  
                  {/* 설문 결과 확인 버튼 */}
                  <div className="mb-6">
@@ -888,13 +943,55 @@ export default function SurveyPage() {
                    </button>
                  </div>
                  
-                 {/* SurveyResult 컴포넌트 표시 */}
-                 <SurveyResult 
-                   excelData={[]} 
-                   surveyResult={JSON.parse(localStorage.getItem('surveyResult') || '{}')}
-                 />
-               </div>
-             )}
+                                   {/* SurveyResult 컴포넌트 표시 */}
+                  <SurveyResult 
+                    excelData={[]} 
+                    surveyResult={JSON.parse(localStorage.getItem('surveyResult') || '{}')}
+                  />
+                  
+                  {/* 설문 링크로 접근한 경우 재시작 옵션 */}
+                  {surveyId && (
+                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <h3 className="text-lg font-semibold text-blue-800 mb-2">
+                        🔄 설문 재시작
+                      </h3>
+                      <p className="text-blue-700 text-sm mb-3">
+                        다른 사람이 이 설문에 참여할 수 있도록 설문을 다시 시작할 수 있습니다.
+                      </p>
+                      <button
+                        onClick={() => {
+                          // 설문 상태 초기화
+                          setCurrentStep(0); // 응답자 정보 입력 단계로 돌아가기
+                          setParticipantInfo({
+                            name: '',
+                            company: '',
+                            position: '',
+                            email: ''
+                          });
+                          setRespondentType('');
+                          
+                          // 응답 데이터 초기화
+                          setEnvironmentalItems(prev => 
+                            prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
+                          );
+                          setSocialItems(prev => 
+                            prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
+                          );
+                          setGovernanceItems(prev => 
+                            prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
+                          );
+                        }}
+                        className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        설문 다시 시작
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
              {/* 진행 상태 표시 */}
             <div className="mt-8">

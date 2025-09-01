@@ -16,6 +16,7 @@ from app.router.search_router import search_router
 from app.router.issuepool_router import issuepool_router
 from app.router.middleissue_router import middleissue_router
 from app.router.category_router import category_router
+from app.router.survey_router import survey_router
 
 # 환경 변수 로드 (Railway 환경에서는 건너뛰기)
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
@@ -59,11 +60,13 @@ app.add_middleware(
 # ─────────────────────────────────────────────────────────
 # 라우터 등록 (prefix는 여기에서만 부여)
 # ─────────────────────────────────────────────────────────
-app.include_router(media_router,  prefix="/materiality-service", tags=["materiality"])
+# app.include_router(media_router,  prefix="/materiality-service", tags=["materiality"])
+app.include_router(media_router,  prefix="/materiality-service", tags=["survey"])
 app.include_router(search_router, prefix="/materiality-service", tags=["search"])
 app.include_router(issuepool_router, prefix="/materiality-service", tags=["issuepool"])
 app.include_router(middleissue_router, prefix="/materiality-service", tags=["middleissue"])
 app.include_router(category_router, prefix="/materiality-service", tags=["category"])
+app.include_router(survey_router, prefix="/materiality-service", tags=["survey"])
 
 @app.get("/")
 async def root():
@@ -102,6 +105,25 @@ async def log_requests(request: Request, call_next):
 async def startup_event():
     """서비스 시작 시 실행되는 이벤트"""
     logger.info(f"🚀 Materiality Service 시작됨 (포트: {PORT})")
+    
+    # 데이터베이스 연결 테스트
+    try:
+        from app.common.database.survey_db import test_connection
+        import asyncio
+        
+        # 비동기 연결 테스트 실행
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            if loop.run_until_complete(test_connection()):
+                logger.info("✅ PostgreSQL 데이터베이스 연결 성공")
+            else:
+                logger.warning("⚠️ PostgreSQL 데이터베이스 연결 실패")
+        finally:
+            loop.close()
+    except Exception as e:
+        logger.warning(f"⚠️ 데이터베이스 연결 테스트 실패: {e}")
+    
     logger.info("📋 등록된 엔드포인트(주요):")
     logger.info("   - POST /materiality-service/search-media")
     logger.info("   - POST /materiality-service/assessment")
@@ -110,6 +132,10 @@ async def startup_event():
     logger.info("   - POST /materiality-service/middleissue/create")
     logger.info("   - GET  /materiality-service/issuepool/all (신규: issuepool DB 전체 데이터)")
     logger.info("   - POST /materiality-service/category/categories/all (신규: 전체 카테고리 목록)")
+    logger.info("   - POST /materiality-service/surveys (신규: 설문 생성)")
+    logger.info("   - GET  /materiality-service/surveys/{survey_id} (신규: 설문 조회)")
+    logger.info("   - GET  /materiality-service/surveys/corporation/{corporation_id} (신규: 회사별 설문 목록)")
+    logger.info("   - POST /materiality-service/surveys/{survey_id}/responses (신규: 설문 응답 제출)")
     logger.info("   - (search_router 내 엔드포인트들도 /materiality-service/* 로 노출)")
 
 @app.on_event("shutdown")

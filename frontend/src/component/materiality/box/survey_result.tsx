@@ -6,11 +6,37 @@ interface SurveyResultProps {
 }
 
 const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) => {
-  // 설문 결과 통계 계산
-  const calculateSurveyStats = () => {
-    if (!surveyResult?.responses) return null;
+  const [backendResponses, setBackendResponses] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(false);
 
-    const allResponses = surveyResult.responses;
+  // 백엔드에서 설문 응답 데이터 로드
+  React.useEffect(() => {
+    const loadBackendResponses = async () => {
+      if (surveyResult?.survey_id) {
+        setLoading(true);
+        try {
+          const response = await fetch(`/api/gateway/materiality-service/surveys/${surveyResult.survey_id}/responses`);
+          if (response.ok) {
+            const data = await response.json();
+            setBackendResponses(data.responses || []);
+          }
+        } catch (error) {
+          console.error('백엔드 응답 데이터 로드 실패:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadBackendResponses();
+  }, [surveyResult?.survey_id]);
+
+  // 설문 결과 통계 계산 (백엔드 데이터 우선 사용)
+  const calculateSurveyStats = () => {
+    const responses = backendResponses.length > 0 ? backendResponses : (surveyResult?.responses || []);
+    if (!responses || responses.length === 0) return null;
+
+    const allResponses = responses;
     
     // 실제 응답자 수 계산 (참여자별로 그룹화)
     const uniqueRespondents = new Set();
@@ -76,6 +102,22 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
   const stats = calculateSurveyStats();
 
 
+
+  if (loading) {
+    return (
+      <div id="survey-results" className="bg-white rounded-xl shadow-lg p-6 mb-12">
+        <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+          📊 설문 결과 확인
+        </h2>
+        
+        <div className="bg-gray-50 rounded-lg p-12 text-center border-2 border-dashed border-gray-300">
+          <div className="text-4xl text-gray-300 mb-4">⏳</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">데이터 로딩 중...</h3>
+          <p className="text-gray-500">백엔드에서 설문 응답 데이터를 불러오고 있습니다.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!surveyResult) {
     return (
