@@ -86,7 +86,7 @@ class SurveyRepository:
             self.session.add(survey_entity)
             self.session.flush()  # ID 생성을 위한 flush
             
-            logger.info(f"설문 생성 완료: {survey_id}, 회사: {request.corporation_id}")
+            logger.info(f"설문 생성 완료: {survey_id}, 회사: {corporation_id}")
             return survey_entity
             
         except Exception as e:

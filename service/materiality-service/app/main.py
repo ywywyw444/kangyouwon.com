@@ -88,7 +88,7 @@ async def health_check():
     }
 
 # 디버깅용 임시 설문 엔드포인트
-@app.post("/debug-surveys")
+@app.get("/debug-surveys")
 async def debug_create_survey():
     """디버깅용 설문 생성 엔드포인트"""
     return {
@@ -133,7 +133,7 @@ async def debug_database():
                     surveys_count = result.fetchone()[0]
                     tables_info.append({"table": "surveys", "count": surveys_count, "exists": True})
                 except Exception as e:
-                    tables_info.append({"table": "surveys", "error": str(e), "exists": False})
+                    tables_info.append({"table": "survey_responses", "error": str(e), "exists": False})
                 
                 # survey_responses 테이블 확인
                 try:
