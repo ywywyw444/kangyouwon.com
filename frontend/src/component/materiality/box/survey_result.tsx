@@ -100,12 +100,12 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                  <span className="text-gray-900">중대성 평가 설문</span>
                </div>
                <div className="flex items-center">
-                 <span className="text-gray-700 font-medium w-32">대상 기업:</span>
-                 <span className="text-gray-900">10개</span>
+                 <span className="text-gray-700 font-medium w-32">총 응답자:</span>
+                 <span className="text-gray-900">{stats.total}명</span>
                </div>
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">설문 항목:</span>
-                 <span className="text-gray-900">0개</span>
+                 <span className="text-gray-900">{stats.total}개</span>
                </div>
 
              </div>

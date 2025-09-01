@@ -512,7 +512,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                   <select
                     value={displayCategoryCount}
                     onChange={(e) => setDisplayCategoryCount(parseInt(e.target.value))}
-                    className="px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium"
+                    className="px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-semibold text-gray-900"
                   >
                     <option value={0}>전체</option>
                     {(() => {
