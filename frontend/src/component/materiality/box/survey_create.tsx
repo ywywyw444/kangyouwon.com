@@ -74,7 +74,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
 
         // 백엔드로 설문 데이터 전송
         const surveyRequest = {
-          company_id: companyId,
+          corporation_id: companyId, // company_id를 corporation_id로 변경
           categories: categoriesWithQuestionNumbers,
           excel_data: excelData.length > 0 ? {
             total_companies: excelData.length,

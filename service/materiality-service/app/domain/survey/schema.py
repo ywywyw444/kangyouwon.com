@@ -38,14 +38,14 @@ class SurveyResponseSchema(BaseModel):
 
 class SurveyCreateRequest(BaseModel):
     """설문 생성 요청 스키마 (Frontend 데이터 구조에 맞춤)"""
-    company_id: str = Field(..., description="회사 ID (Frontend에서 보내는 필드명)")
+    corporation_id: str = Field(..., description="회사 ID (corporation_id로 통일)")
     categories: List[Dict[str, Any]] = Field(..., description="설문 카테고리 목록 (실제 데이터 구조)")
     excel_data: Optional[Dict[str, Any]] = Field(None, description="엑셀 데이터")
 
 class SurveyResponseRequest(BaseModel):
     """설문 응답 요청 스키마 (Frontend 데이터 구조에 맞춤)"""
     survey_id: str = Field(..., description="설문 ID")
-    company_id: str = Field(..., description="회사 ID (Frontend에서 보내는 필드명)")
+    corporation_id: str = Field(..., description="회사 ID (corporation_id로 통일)")
     participant: SurveyParticipantSchema = Field(..., description="참여자 정보")
     responses: List[Dict[str, Any]] = Field(..., description="응답 목록 (실제 데이터 구조)")
 

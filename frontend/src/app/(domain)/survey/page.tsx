@@ -294,7 +294,7 @@ export default function SurveyPage() {
             survey_id: surveyId,
             participant: participantInfo,
             responses: allResponses,
-            company_id: surveyData?.company_id
+            corporation_id: surveyData?.company_id // company_id를 corporation_id로 변경
           };
 
           const response = await fetch(`/api/v1/materiality-service/surveys/${surveyId}/responses`, {

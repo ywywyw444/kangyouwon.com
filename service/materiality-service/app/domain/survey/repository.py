@@ -62,8 +62,8 @@ class SurveyRepository:
     def create_survey(self, request: SurveyCreateRequest) -> SurveyEntity:
         """설문 생성"""
         try:
-            # Frontend에서 보내는 company_id를 corporation_id로 사용
-            corporation_id = request.company_id
+            # Frontend에서 보내는 corporation_id를 그대로 사용
+            corporation_id = request.corporation_id
             
             # 기업 존재 여부 먼저 확인
             if not self._check_corporation_exists(corporation_id):
@@ -160,8 +160,8 @@ class SurveyRepository:
     def submit_survey_response(self, request: SurveyResponseRequest) -> SurveyResponseEntity:
         """설문 응답 제출"""
         try:
-            # Frontend에서 보내는 company_id를 corporation_id로 사용
-            corporation_id = request.company_id
+            # Frontend에서 보내는 corporation_id를 그대로 사용
+            corporation_id = request.corporation_id
             
             # 기업 존재 여부 먼저 확인
             if not self._check_corporation_exists(corporation_id):
