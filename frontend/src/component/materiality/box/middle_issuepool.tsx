@@ -89,14 +89,21 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
         const resultData = assessmentResult?.data || assessmentResult;
         const categories = resultData?.matched_categories || [];
         
-        // 필수 정보만 포함하여 데이터 크기 최적화
+        // 필수 정보 + base_issuepools 목록까지 포함하여 저장
         const optimizedCategories = categories.map((cat: any) => ({
           rank: cat.rank || 0,
           category: cat.category || '',
           esg_classification: cat.esg_classification || '',
           selected_base_issue_pool: cat.selected_base_issue_pool || '',
           final_score: cat.final_score || 0,
-          total_issuepools: cat.total_issuepools || 0
+          total_issuepools: cat.total_issuepools || 0,
+          base_issuepools: Array.isArray(cat.base_issuepools)
+            ? cat.base_issuepools.map((item: any) => ({
+                base_issue_pool: item?.base_issue_pool || item?.issue || '',
+                esg_classification_name: item?.esg_classification_name || '',
+                ranking: item?.ranking || 0
+              }))
+            : []
         }));
         
         const dataToSave = {
