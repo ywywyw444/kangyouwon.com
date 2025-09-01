@@ -11,8 +11,8 @@ import * as XLSX from 'xlsx';
 import { useExcelDataStore } from '@/store/excelDataStore';
 import FinalIssuepool from '@/component/materiality/box/final_issuepool';
 import MediaSearch from '@/component/materiality/box/media_search';
-import SearchResult from '@/component/materiality/box/search_result';
-import FirstAssessment from '@/component/materiality/box/first_assessment';
+import SearchResult from '@/component/materiality/box/media_search_result';
+import FirstAssessment from '@/component/materiality/box/middle_issuepool';
 import SurveyUpload from '@/component/materiality/box/survey_upload';
 import SurveyCreate from '@/component/materiality/box/survey_create';
 import SurveyManagement from '@/component/materiality/box/survey_management';
@@ -660,7 +660,7 @@ export default function MaterialityHomePage() {
               <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setIsBaseIssuePoolModalOpen(false)}></div>
               
               {/* 모달 내용 */}
-              <div className="relative bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4">
+              <div className="relative bg-white rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-hidden">
                 {/* 모달 헤더 */}
                 <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
                   <h3 className="text-xl font-bold text-gray-900">
@@ -677,7 +677,7 @@ export default function MaterialityHomePage() {
                 </div>
                 
                 {/* 모달 바디 */}
-                <div className="p-6">
+                <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
                   <div className="mb-4">
                     <p className="text-gray-600 mb-4">
                       <strong>{selectedCategory.category}</strong> 카테고리에 매칭되는 base issue pool을 선택하세요.
@@ -711,7 +711,7 @@ export default function MaterialityHomePage() {
                 </div>
                 
                 {/* 모달 푸터 */}
-                <div className="flex justify-end p-6 border-t border-gray-200 bg-white">
+                <div className="flex justify-end p-6 border-t border-gray-200 bg-white sticky bottom-0 z-10">
                   <div className="flex space-x-3">
                     <button
                       onClick={() => setIsBaseIssuePoolModalOpen(false)}

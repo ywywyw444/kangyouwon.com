@@ -142,7 +142,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
   };
 
   return (
-    <div id="first-assessment" className="bg-white rounded-xl shadow-lg p-6 mb-12">
+    <div id="middle-issuepool" className="bg-white rounded-xl shadow-lg p-6 mb-12">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">
         📑 {companyId ? `${companyId} 중대성 평가 중간 결과 보기` : '중대성 평가 중간 결과 보기'}
       </h2>

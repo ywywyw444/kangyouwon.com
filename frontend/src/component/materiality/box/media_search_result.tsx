@@ -25,7 +25,7 @@ const SearchResult: React.FC<SearchResultProps> = ({
   setSearchPeriod
 }) => {
   return (
-    <div id="search-result" className="bg-white rounded-xl shadow-lg p-6 mb-12">
+    <div id="media-search-result" className="bg-white rounded-xl shadow-lg p-6 mb-12">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-semibold text-gray-800">
           🔍 미디어 검색 결과
