@@ -18,6 +18,7 @@ interface SurveyItem {
 interface SurveyData {
   company_id: string;
   categories: Array<{
+    question_number?: number;
     rank: number;
     category: string;
     selected_base_issue_pool: string;
@@ -29,6 +30,12 @@ interface SurveyData {
 export default function SurveyPage() {
   // 응답자 정보
   const [respondentType, setRespondentType] = useState<string>('');
+  const [participantInfo, setParticipantInfo] = useState({
+    name: '',
+    company: '',
+    position: '',
+    email: ''
+  });
   
   // 현재 단계
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -41,11 +48,22 @@ export default function SurveyPage() {
   const [socialItems, setSocialItems] = useState<SurveyItem[]>([]);
   const [governanceItems, setGovernanceItems] = useState<SurveyItem[]>([]);
   
+  // 설문 링크 ID 확인
+  const [surveyId, setSurveyId] = useState<string | null>(null);
+  
   // 설문 데이터 로드 및 설문 항목 생성
   useEffect(() => {
     const loadSurveyData = () => {
       try {
-        const savedData = localStorage.getItem('surveyData');
+        // URL에서 설문 ID 확인
+        const urlParams = new URLSearchParams(window.location.search);
+        const id = urlParams.get('id');
+        setSurveyId(id);
+        
+        // 설문 ID에 따라 데이터 로드
+        const dataKey = id ? `surveyData_${id}` : 'surveyData';
+        const savedData = localStorage.getItem(dataKey);
+        
         if (savedData) {
           const data: SurveyData = JSON.parse(savedData);
           setSurveyData(data);
@@ -67,7 +85,7 @@ export default function SurveyPage() {
               insideScore: null,
               category: cat.category,
               esg_classification: cat.esg_classification,
-              rank: globalQuestionNumber
+              rank: cat.question_number || globalQuestionNumber
             };
             
             // ESG 분류에 따라 적절한 배열에 추가
@@ -87,6 +105,11 @@ export default function SurveyPage() {
             // 다음 질문 번호로 증가
             globalQuestionNumber++;
           });
+          
+          // 설문 링크로 접근한 경우 응답자 정보 입력 단계 추가
+          if (id) {
+            setCurrentStep(0); // 응답자 정보 입력 단계
+          }
           
           setEnvironmentalItems(environmental);
           setSocialItems(social);
@@ -175,7 +198,13 @@ export default function SurveyPage() {
     }
 
     // 현재 단계에 따른 유효성 검사
-    if (currentStep === 1) {
+    if (currentStep === 0) {
+      // 응답자 정보 입력 단계 (설문 링크로 접근한 경우)
+      if (!participantInfo.name || !participantInfo.company || !participantInfo.position || !participantInfo.email) {
+        alert('참여자 정보를 모두 입력해주세요.');
+        return;
+      }
+    } else if (currentStep === 1) {
       if (!respondentType) {
         alert('응답자 정보를 선택해주세요.');
         return;
@@ -207,7 +236,9 @@ export default function SurveyPage() {
     }
 
     // 최대 단계는 ESG 섹션 수에 따라 동적으로 결정 (설문 완료 단계는 별도)
-    const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0); // 설문 완료 단계 제외
+    // 설문 링크로 접근한 경우 응답자 정보 입력 단계 추가
+    const baseSteps = surveyId ? 1 : 0; // 설문 링크로 접근한 경우 +1
+    const maxStep = baseSteps + 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0); // 설문 완료 단계 제외
     
     if (currentStep < maxStep) {
       setCurrentStep(currentStep + 1);
@@ -238,7 +269,7 @@ export default function SurveyPage() {
       ];
 
       // 설문 결과 데이터 생성
-      const surveyResult = {
+      const surveyResult: any = {
         company_id: surveyData?.company_id,
         respondent_type: respondentType,
         timestamp: new Date().toISOString(),
@@ -246,6 +277,23 @@ export default function SurveyPage() {
         responses: allResponses,
         original_survey_data: surveyData
       };
+
+      // 설문 링크로 접근한 경우 응답자 정보 포함
+      if (surveyId && participantInfo.name) {
+        surveyResult.participant = participantInfo;
+        surveyResult.survey_id = surveyId;
+        
+        // 기존 응답에 추가
+        const existingResponses = JSON.parse(localStorage.getItem('surveyResponses') || '[]');
+        const responseData = {
+          participant: participantInfo,
+          responses: allResponses,
+          timestamp: new Date().toISOString(),
+          survey_id: surveyId
+        };
+        const updatedResponses = [...existingResponses, responseData];
+        localStorage.setItem('surveyResponses', JSON.stringify(updatedResponses));
+      }
 
       // localStorage에 설문 결과 저장
       localStorage.setItem('surveyResult', JSON.stringify(surveyResult));
@@ -275,7 +323,9 @@ export default function SurveyPage() {
     if (!surveyData) return 0;
     
     // 최대 단계는 ESG 섹션 수에 따라 동적으로 결정 (설문 완료 단계는 별도)
-    const maxStep = 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0); // 설문 완료 단계 제외
+    // 설문 링크로 접근한 경우 응답자 정보 입력 단계 추가
+    const baseSteps = surveyId ? 1 : 0; // 설문 링크로 접근한 경우 +1
+    const maxStep = baseSteps + 1 + (environmentalItems.length > 0 ? 1 : 0) + (socialItems.length > 0 ? 1 : 0) + (governanceItems.length > 0 ? 1 : 0); // 설문 완료 단계 제외
     
     // 설문 완료 상태일 때는 100% 표시
     if (currentStep === 5) {
@@ -412,6 +462,60 @@ export default function SurveyPage() {
 
           {/* 설문 내용 */}
           <div className="p-8">
+            {/* 단계 0: 응답자 정보 입력 (설문 링크로 접근한 경우) */}
+            {currentStep === 0 && (
+              <>
+                <div className="mb-8">
+                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                    참여자 정보 입력
+                    <span className="text-red-500 ml-1">*</span>
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">이름 *</label>
+                      <input
+                        type="text"
+                        value={participantInfo.name}
+                        onChange={(e) => setParticipantInfo(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="이름을 입력하세요"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">회사 *</label>
+                      <input
+                        type="text"
+                        value={participantInfo.company}
+                        onChange={(e) => setParticipantInfo(prev => ({ ...prev, company: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="회사명을 입력하세요"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">직책 *</label>
+                      <input
+                        type="text"
+                        value={participantInfo.position}
+                        onChange={(e) => setParticipantInfo(prev => ({ ...prev, position: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="직책을 입력하세요"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">이메일 *</label>
+                      <input
+                        type="email"
+                        value={participantInfo.email}
+                        onChange={(e) => setParticipantInfo(prev => ({ ...prev, email: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="이메일을 입력하세요"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* 단계 1: 응답자 정보 */}
             {currentStep === 1 && (
               <>
