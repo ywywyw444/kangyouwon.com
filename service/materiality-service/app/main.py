@@ -87,6 +87,31 @@ async def health_check():
         "port": PORT,
     }
 
+# 디버깅용 임시 설문 엔드포인트
+@app.post("/debug-surveys")
+async def debug_create_survey():
+    """디버깅용 설문 생성 엔드포인트"""
+    return {
+        "message": "디버깅용 설문 엔드포인트가 작동 중입니다.",
+        "timestamp": "2025-09-01T11:19:47Z"
+    }
+
+@app.get("/debug-routes")
+async def debug_routes():
+    """등록된 라우터 정보 확인"""
+    routes = []
+    for route in app.routes:
+        if hasattr(route, 'path'):
+            routes.append({
+                "path": route.path,
+                "methods": [method for method in route.methods] if hasattr(route, 'methods') else [],
+                "name": route.name if hasattr(route, 'name') else "Unknown"
+            })
+    return {
+        "total_routes": len(routes),
+        "routes": routes
+    }
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """HTTP 요청 로깅 미들웨어"""
