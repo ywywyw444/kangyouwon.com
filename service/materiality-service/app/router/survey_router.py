@@ -37,14 +37,17 @@ async def create_survey(survey_request: SurveyCreateRequest):
         return result
             
     except ValueError as e:
+        # 데이터 에러 → 400
         logger.error(f"설문 생성 실패 (ValueError): {e}")
         raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        # 스키마/접근 에러 → 400으로 내려 사용자에게 힌트
+        logger.error(f"설문 생성 실패 (RuntimeError): {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"설문 생성 실패 (Exception): {e}")
-        logger.error(f"에러 타입: {type(e)}")
-        import traceback
-        logger.error(f"스택 트레이스: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"설문 생성 실패: {str(e)}")
+        # 진짜 서버 오류만 500
+        logger.exception("설문 생성 실패")
+        raise HTTPException(status_code=500, detail="internal_error")
 
 @survey_router.get("/surveys/{survey_id}", response_model=SurveyDataResponse)
 async def get_survey(survey_id: str):

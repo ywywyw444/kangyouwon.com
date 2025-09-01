@@ -285,19 +285,23 @@ class SurveyTableManager:
                     }
                 ]
                 
-                # 테스트 설문 삽입 (SQLAlchemy text() 콜론 스타일로 통일, TEXT 컬럼 사용)
-                import json
-                categories_json = json.dumps(test_categories, ensure_ascii=False)
+                # 테스트 설문 삽입 (JSONB 타입으로 바인딩)
+                from sqlalchemy import bindparam
+                from sqlalchemy.dialects.postgresql import JSONB
                 
-                conn.execute(text("""
+                sql = text("""
                     INSERT INTO surveys (survey_id, corporation_id, timestamp, total_categories, categories)
                     VALUES (:survey_id, :corporation_id, :timestamp, :total_categories, :categories)
-                """), {
+                """).bindparams(
+                    bindparam("categories", type_=JSONB),
+                )
+                
+                conn.execute(sql, {
                     "survey_id": test_survey_id,
                     "corporation_id": test_corporation_id,
                     "timestamp": datetime.now(),
                     "total_categories": len(test_categories),
-                    "categories": categories_json  # JSON 문자열로 전달
+                    "categories": test_categories  # 파이썬 객체 그대로
                 })
                 
                 # 테스트 데이터 확인

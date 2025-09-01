@@ -3,7 +3,8 @@ import json
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc, text
+from sqlalchemy import and_, desc, text, bindparam
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 from app.domain.survey.entity import SurveyEntity, SurveyResponseEntity
@@ -17,7 +18,7 @@ from app.domain.survey.schema import (
 from app.common.database.survey_db import get_sync_session
 
 logger = logging.getLogger(__name__)
-logger.info(f"[LOAD] SurveyRepository file = {__file__}")
+logger.info(f"[LOAD] SurveyRepository loaded from: {__file__}")
 
 class SurveyRepository:
     """설문 데이터 리포지토리"""
@@ -45,11 +46,10 @@ class SurveyRepository:
         try:
             with self._get_session() as session:
                 result = session.execute(
-                    text("SELECT COUNT(*) FROM corporation WHERE id = :corporation_id"),
-                    {"corporation_id": corporation_id}
-                )
-                count = result.scalar()
-                exists = count > 0
+                    text("SELECT 1 FROM corporation WHERE id = :cid LIMIT 1"),
+                    {"cid": corporation_id}
+                ).first()
+                exists = bool(result)
                 
                 if not exists:
                     logger.warning(f"기업 ID가 존재하지 않습니다: {corporation_id}")
@@ -57,8 +57,10 @@ class SurveyRepository:
                 return exists
                 
         except Exception as e:
-            logger.error(f"기업 존재 여부 확인 중 오류: {e}")
-            return False
+            # 테이블 자체가 없을 때 메시지에 'relation "corporation" does not exist' 등이 들어옴
+            logger.error(f"[SCHEMA?] corporation 테이블 조회 실패: {e}")
+            # 여기서 바로 예외를 올려서 500이 되지 않도록, create_survey 에서 잡아 400으로 변환
+            raise RuntimeError("corporation 테이블이 없거나 접근할 수 없습니다.")
     
     def _check_survey_exists(self, survey_id: str) -> bool:
         """설문 ID가 존재하는지 확인"""
@@ -83,7 +85,7 @@ class SurveyRepository:
     def create_survey(self, request: SurveyCreateRequest) -> SurveyEntity:
         """설문 생성"""
         try:
-            logger.info(f"[CALL] SurveyRepository.create_survey() file = {__file__}")
+            logger.info(f"[CALL] create_survey() in: {__file__}")
             
             with self._get_session() as session:
                 # Frontend에서 보내는 corporation_id를 그대로 사용
@@ -96,29 +98,28 @@ class SurveyRepository:
                 # 고유한 설문 ID 생성
                 survey_id = f"{corporation_id}_{int(datetime.now().timestamp())}"
                 
-                # JSON 데이터를 PostgreSQL에 저장하기 위해 준비 (TEXT 컬럼용)
-                categories_json = json.dumps(request.categories, ensure_ascii=False)
-                excel_data_json = json.dumps(request.excel_data, ensure_ascii=False) if request.excel_data else None
-                
-                # SQLAlchemy text() 콜론 스타일로 통일 (::jsonb 제거, TEXT 컬럼 사용)
-                sql = """
+                # JSONB 타입으로 바인딩 (파이썬 객체 그대로 전달)
+                sql = text("""
                 INSERT INTO surveys (survey_id, corporation_id, "timestamp", total_categories, categories, excel_data)
                 VALUES (:survey_id, :corporation_id, :timestamp, :total_categories, :categories, :excel_data)
-                """
+                """).bindparams(
+                    bindparam("categories", type_=JSONB),
+                    bindparam("excel_data", type_=JSONB),
+                )
                 
                 params = {
                     "survey_id": survey_id,
                     "corporation_id": corporation_id,
                     "timestamp": datetime.now(),
                     "total_categories": len(request.categories),
-                    "categories": categories_json,  # JSON 문자열
-                    "excel_data": excel_data_json   # JSON 문자열 또는 None
+                    "categories": request.categories,              # 파이썬 객체 그대로
+                    "excel_data": request.excel_data or None       # None 허용
                 }
                 
                 logger.info(f"[SQL] {sql}")
                 logger.info(f"[PARAMS keys] {list(params.keys())}")
                 
-                session.execute(text(sql), params)
+                session.execute(sql, params)
                 session.commit()
                 
                 # 생성된 엔티티 조회하여 반환
@@ -207,7 +208,7 @@ class SurveyRepository:
     def submit_survey_response(self, request: SurveyResponseRequest) -> SurveyResponseEntity:
         """설문 응답 제출"""
         try:
-            logger.info(f"[CALL] SurveyRepository.submit_survey_response() file = {__file__}")
+            logger.info(f"[CALL] submit_survey_response() in: {__file__}")
             
             with self._get_session() as session:
                 # Frontend에서 보내는 corporation_id를 그대로 사용
@@ -232,17 +233,16 @@ class SurveyRepository:
                 if existing_response:
                     raise ValueError("이미 이 설문에 응답하셨습니다.")
                 
-                # JSON 데이터를 PostgreSQL에 저장하기 위해 준비 (TEXT 컬럼용)
-                responses_json = json.dumps(request.responses, ensure_ascii=False)
-                
                 # 고유한 참여자 ID 생성
                 participant_id = f"{request.participant.email}_{int(datetime.now().timestamp())}"
                 
-                # SQLAlchemy text() 콜론 스타일로 통일 (::jsonb 제거, TEXT 컬럼 사용)
-                sql = """
+                # JSONB 타입으로 바인딩 (파이썬 객체 그대로 전달)
+                sql = text("""
                 INSERT INTO survey_responses (participant_id, survey_id, corporation_id, participant_name, participant_company, participant_position, participant_email, responses, "timestamp")
                 VALUES (:participant_id, :survey_id, :corporation_id, :participant_name, :participant_company, :participant_position, :participant_email, :responses, :timestamp)
-                """
+                """).bindparams(
+                    bindparam("responses", type_=JSONB),
+                )
                 
                 params = {
                     "participant_id": participant_id,
@@ -252,14 +252,14 @@ class SurveyRepository:
                     "participant_company": request.participant.company,
                     "participant_position": request.participant.position,
                     "participant_email": request.participant.email,
-                    "responses": responses_json,  # JSON 문자열
+                    "responses": request.responses,  # 파이썬 객체 그대로
                     "timestamp": datetime.now()
                 }
                 
                 logger.info(f"[SQL] {sql}")
                 logger.info(f"[PARAMS keys] {list(params.keys())}")
                 
-                session.execute(text(sql), params)
+                session.execute(sql, params)
                 session.commit()
                 
                 # 생성된 엔티티 조회하여 반환
