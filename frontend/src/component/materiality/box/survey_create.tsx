@@ -14,24 +14,27 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
     const categories = resultData?.matched_categories || [];
 
     if (categories.length > 0) {
+      // UI에 표시되는 순서대로 질문 번호 부여 (순위와 관계없이)
+      const categoriesWithQuestionNumbers = categories.map((cat: any, index: number) => ({
+        question_number: index + 1, // UI 표시 순서대로 Q1, Q2, Q3...
+        rank: cat.rank,
+        category: cat.category || '카테고리명 없음',
+        selected_base_issue_pool: cat.selected_base_issue_pool || '',
+        esg_classification: cat.esg_classification || '미분류',
+        final_score: cat.final_score || 0,
+        frequency_score: cat.frequency_score || 0,
+        relevance_score: cat.relevance_score || 0,
+        recent_score: cat.recent_score || 0,
+        rank_score: cat.rank_score || 0,
+        reference_score: cat.reference_score || 0,
+        negative_score: cat.negative_score || 0
+      }));
+
       const surveyData = {
         company_id: companyId,
         timestamp: new Date().toISOString(),
         total_categories: categories.length,
-        categories: categories.map((cat: any, index: number) => ({
-          question_number: index + 1, // Q1, Q2, Q3... 순서대로
-          rank: cat.rank,
-          category: cat.category || '카테고리명 없음',
-          selected_base_issue_pool: cat.selected_base_issue_pool || '',
-          esg_classification: cat.esg_classification || '미분류',
-          final_score: cat.final_score || 0,
-          frequency_score: cat.frequency_score || 0,
-          relevance_score: cat.relevance_score || 0,
-          recent_score: cat.recent_score || 0,
-          rank_score: cat.rank_score || 0,
-          reference_score: cat.reference_score || 0,
-          negative_score: cat.negative_score || 0
-        })),
+        categories: categoriesWithQuestionNumbers,
         excel_data: excelData.length > 0 ? {
           total_companies: excelData.length,
           companies: excelData.map((row: any) => ({
@@ -85,16 +88,19 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
     const categories = resultData?.matched_categories || [];
 
     if (categories.length > 0) {
+      // UI에 표시되는 순서대로 질문 번호 부여 (순위와 관계없이)
+      const categoriesWithQuestionNumbers = categories.map((cat: any, index: number) => ({
+        question_number: index + 1, // UI 표시 순서대로 Q1, Q2, Q3...
+        rank: cat.rank,
+        category: cat.category || '카테고리명 없음',
+        selected_base_issue_pool: cat.selected_base_issue_pool || '',
+        esg_classification: cat.esg_classification || '미분류',
+        final_score: cat.final_score || 0
+      }));
+
       const surveyData = {
         company_id: companyId,
-        categories: categories.map((cat: any, index: number) => ({
-          question_number: index + 1, // Q1, Q2, Q3... 순서대로
-          rank: cat.rank,
-          category: cat.category || '카테고리명 없음',
-          selected_base_issue_pool: cat.selected_base_issue_pool || '',
-          esg_classification: cat.esg_classification || '미분류',
-          final_score: cat.final_score || 0
-        }))
+        categories: categoriesWithQuestionNumbers
       };
 
       localStorage.setItem('surveyData', JSON.stringify(surveyData));
