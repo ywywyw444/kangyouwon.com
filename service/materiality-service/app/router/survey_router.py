@@ -28,17 +28,28 @@ survey_router = APIRouter()
 async def create_survey(request: SurveyCreateRequest):
     """설문 생성"""
     try:
-        logger.info(f"설문 생성 요청: 회사 ID {request.corporation_id}")
+        logger.info(f"설문 생성 요청 시작: 회사 ID {request.company_id}")
+        logger.info(f"요청 데이터: {request.dict()}")
         
         # 데이터베이스 세션 생성 및 repository 초기화
         with get_sync_session() as session:
+            logger.info("데이터베이스 세션 생성 완료")
             repository = SurveyRepository(session)
+            logger.info("Repository 초기화 완료")
+            
             result = await survey_service.create_survey(request, repository)
+            logger.info(f"설문 생성 성공: {result.survey_id}")
             return result
             
+    except ValueError as e:
+        logger.error(f"설문 생성 실패 (ValueError): {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"설문 생성 실패: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"설문 생성 실패 (Exception): {e}")
+        logger.error(f"에러 타입: {type(e)}")
+        import traceback
+        logger.error(f"스택 트레이스: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"설문 생성 실패: {str(e)}")
 
 @survey_router.get("/surveys/{survey_id}", response_model=SurveyDataResponse)
 async def get_survey(survey_id: str):

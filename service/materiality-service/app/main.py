@@ -112,6 +112,57 @@ async def debug_routes():
         "routes": routes
     }
 
+# 디버깅용 데이터베이스 연결 테스트
+@app.get("/debug-db")
+async def debug_database():
+    """데이터베이스 연결 및 테이블 상태 확인"""
+    try:
+        from app.common.database.survey_db import test_connection, get_sync_session
+        from sqlalchemy import text
+        
+        # 연결 테스트
+        connection_ok = await test_connection()
+        
+        # 테이블 존재 여부 확인
+        tables_info = []
+        if connection_ok:
+            with get_sync_session() as session:
+                # surveys 테이블 확인
+                try:
+                    result = session.execute(text("SELECT COUNT(*) FROM surveys"))
+                    surveys_count = result.fetchone()[0]
+                    tables_info.append({"table": "surveys", "count": surveys_count, "exists": True})
+                except Exception as e:
+                    tables_info.append({"table": "surveys", "error": str(e), "exists": False})
+                
+                # survey_responses 테이블 확인
+                try:
+                    result = session.execute(text("SELECT COUNT(*) FROM survey_responses"))
+                    responses_count = result.fetchone()[0]
+                    tables_info.append({"table": "survey_responses", "count": responses_count, "exists": True})
+                except Exception as e:
+                    tables_info.append({"table": "survey_responses", "error": str(e), "exists": False})
+                
+                # corporation 테이블 확인
+                try:
+                    result = session.execute(text("SELECT COUNT(*) FROM corporation"))
+                    corp_count = result.fetchone()[0]
+                    tables_info.append({"table": "corporation", "count": corp_count, "exists": True})
+                except Exception as e:
+                    tables_info.append({"table": "corporation", "error": str(e), "exists": False})
+        
+        return {
+            "database_connection": connection_ok,
+            "tables": tables_info,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """HTTP 요청 로깅 미들웨어"""
