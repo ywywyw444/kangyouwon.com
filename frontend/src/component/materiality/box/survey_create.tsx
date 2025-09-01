@@ -6,16 +6,22 @@ type SurveyCreateProps = {
   companyId: string;
   assessmentResult: any;
   excelData: any[];
+  displayCategoryCount: number;
 };
 
-const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult, excelData }) => {
+const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult, excelData, displayCategoryCount }) => {
   const handleCreate = () => {
     const resultData = assessmentResult?.data || assessmentResult;
     const categories = resultData?.matched_categories || [];
 
     if (categories.length > 0) {
+      // 선택된 개수만큼만 사용 (0이면 전체)
+      const selectedCategories = displayCategoryCount > 0 
+        ? categories.slice(0, displayCategoryCount)
+        : categories;
+
       // UI에 표시되는 순서대로 질문 번호 부여 (순위와 관계없이)
-      const categoriesWithQuestionNumbers = categories.map((cat: any, index: number) => ({
+      const categoriesWithQuestionNumbers = selectedCategories.map((cat: any, index: number) => ({
         question_number: index + 1, // UI 표시 순서대로 Q1, Q2, Q3...
         rank: cat.rank,
         category: cat.category || '카테고리명 없음',
@@ -33,7 +39,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
       const surveyData = {
         company_id: companyId,
         timestamp: new Date().toISOString(),
-        total_categories: categories.length,
+        total_categories: selectedCategories.length,
         categories: categoriesWithQuestionNumbers,
         excel_data: excelData.length > 0 ? {
           total_companies: excelData.length,
@@ -53,7 +59,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
         console.log('📋 설문 진행용 JSON 데이터:', surveyData);
         navigator.clipboard.writeText(JSON.stringify(surveyData, null, 2))
           .then(() => {
-            alert(`✅ 설문 진행용 데이터를 바탕으로 설문이 생성되었습니다\n\n📊 총 ${categories.length}개 카테고리\n🏢 총 ${excelData.length}개 기업\n\nJSON 데이터는 콘솔에서도 확인할 수 있습니다.`);
+            alert(`✅ 설문 진행용 데이터를 바탕으로 설문이 생성되었습니다\n\n📊 총 ${selectedCategories.length}개 카테고리\n🏢 총 ${excelData.length}개 기업\n\nJSON 데이터는 콘솔에서도 확인할 수 있습니다.`);
           })
           .catch(() => {
             const blob = new Blob([JSON.stringify(surveyData, null, 2)], { type: 'application/json' });
@@ -65,7 +71,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-            alert(`✅ 설문 진행용 데이터가 다운로드되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n🏢 총 ${excelData.length}개 기업\n\n파일명: 설문진행데이터_${companyId || 'unknown'}_${new Date().toISOString().split('T')[0]}.json`);
+            alert(`✅ 설문 진행용 데이터가 다운로드되었습니다!\n\n📊 총 ${selectedCategories.length}개 카테고리\n🏢 총 ${excelData.length}개 기업\n\n파일명: 설문진행데이터_${companyId || 'unknown'}_${new Date().toISOString().split('T')[0]}.json`);
           });
       } catch (_) {
         const blob = new Blob([JSON.stringify(surveyData, null, 2)], { type: 'application/json' });
@@ -88,8 +94,13 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
     const categories = resultData?.matched_categories || [];
 
     if (categories.length > 0) {
+      // 선택된 개수만큼만 사용 (0이면 전체)
+      const selectedCategories = displayCategoryCount > 0 
+        ? categories.slice(0, displayCategoryCount)
+        : categories;
+
       // UI에 표시되는 순서대로 질문 번호 부여 (순위와 관계없이)
-      const categoriesWithQuestionNumbers = categories.map((cat: any, index: number) => ({
+      const categoriesWithQuestionNumbers = selectedCategories.map((cat: any, index: number) => ({
         question_number: index + 1, // UI 표시 순서대로 Q1, Q2, Q3...
         rank: cat.rank,
         category: cat.category || '카테고리명 없음',

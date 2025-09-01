@@ -126,6 +126,7 @@ export default function MaterialityHomePage() {
   };
   const [isCustomBaseIssuePool, setIsCustomBaseIssuePool] = useState(false);
   const [customBaseIssuePoolText, setCustomBaseIssuePoolText] = useState<string>('');
+  const [displayCategoryCount, setDisplayCategoryCount] = useState<number>(0);
 
   // 중대성 평가 관련 상태
   const [issuepoolData, setIssuepoolData] = useState<IssuepoolData | null>(null);
@@ -440,6 +441,8 @@ export default function MaterialityHomePage() {
             newBaseIssuePool={newBaseIssuePool}
             isCustomBaseIssuePool={isCustomBaseIssuePool}
             customBaseIssuePoolText={customBaseIssuePoolText}
+            displayCategoryCount={displayCategoryCount}
+            setDisplayCategoryCount={setDisplayCategoryCount}
             setAssessmentResult={setAssessmentResult}
             setIsAssessmentStarting={setIsAssessmentStarting}
             setIsIssuepoolLoading={setIsIssuepoolLoading}
@@ -461,7 +464,7 @@ export default function MaterialityHomePage() {
           />
 
           {/* 설문 진행하기 버튼 */}
-          <SurveyCreate companyId={companyId || ''} assessmentResult={assessmentResult} excelData={excelData} />
+          <SurveyCreate companyId={companyId || ''} assessmentResult={assessmentResult} excelData={excelData} displayCategoryCount={displayCategoryCount} />
 
           {/* 설문 대상 업로드 */}
           <SurveyUpload

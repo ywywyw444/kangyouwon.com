@@ -24,6 +24,8 @@ interface FirstAssessmentProps {
   newBaseIssuePool: string;
   isCustomBaseIssuePool: boolean;
   customBaseIssuePoolText: string;
+  displayCategoryCount: number;
+  setDisplayCategoryCount: (count: number) => void;
   setAssessmentResult: (result: any) => void;
   setIsAssessmentStarting: (starting: boolean) => void;
   setIsIssuepoolLoading: (loading: boolean) => void;
@@ -63,6 +65,8 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
   newBaseIssuePool,
   isCustomBaseIssuePool,
   customBaseIssuePoolText,
+  displayCategoryCount,
+  setDisplayCategoryCount,
   setAssessmentResult,
   setIsAssessmentStarting,
   setIsIssuepoolLoading,
@@ -495,7 +499,32 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
         
         {assessmentResult ? (
           <div className="space-y-4">
-
+            {/* 카테고리 개수 선택 */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-semibold text-blue-800 mb-1">표시할 카테고리 개수 선택</h4>
+                  <p className="text-xs text-blue-600">순위 순서대로 표시할 카테고리 개수를 선택하세요</p>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <label className="text-sm font-medium text-blue-700">개수:</label>
+                  <select
+                    value={displayCategoryCount}
+                    onChange={(e) => setDisplayCategoryCount(parseInt(e.target.value))}
+                    className="px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium"
+                  >
+                    <option value={0}>전체</option>
+                    {(() => {
+                      const resultData = assessmentResult?.data || assessmentResult;
+                      const categories = resultData?.matched_categories || [];
+                      return Array.from({ length: categories.length }, (_, i) => i + 1).map(num => (
+                        <option key={num} value={num}>{num}개</option>
+                      ));
+                    })()}
+                  </select>
+                </div>
+              </div>
+            </div>
             
             {/* 전체 카테고리 목록 */}
             {(() => {
@@ -503,10 +532,15 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
               const resultData = assessmentResult?.data || assessmentResult;
               const categories = resultData?.matched_categories || [];
               
+              // 선택된 개수만큼만 표시 (0이면 전체)
+              const displayCategories = displayCategoryCount > 0 
+                ? categories.slice(0, displayCategoryCount)
+                : categories;
+              
               if (categories.length > 0) {
                 return (
                   <div className="space-y-2">
-                    {categories.map((cat: any, index: number) => (
+                    {displayCategories.map((cat: any, index: number) => (
                       <div key={index} className="flex items-center text-sm group">
                         <span className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">
                           {cat.rank || index + 1}
@@ -596,7 +630,10 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                       </div>
                     ))}
                     <div className="text-center text-xs text-gray-500 mt-3">
-                      총 {categories.length}개 항목
+                      {displayCategoryCount > 0 
+                        ? `표시: ${displayCategories.length}개 / 전체: ${categories.length}개 항목`
+                        : `총 ${categories.length}개 항목`
+                      }
                     </div>
                   </div>
                 );
@@ -610,6 +647,11 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
               const resultData = assessmentResult?.data || assessmentResult;
               const categories = resultData?.matched_categories || [];
               
+              // 선택된 개수만큼만 표시 (0이면 전체)
+              const displayCategories = displayCategoryCount > 0 
+                ? categories.slice(0, displayCategoryCount)
+                : categories;
+              
               if (categories.length > 0) {
                 return (
                   <div className="mt-6 pt-4 border-t border-gray-200">
@@ -617,7 +659,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                     {(() => {
                       // ESG 분류별로 카운트 계산 (지배구조와 경제를 합침)
                       const esgCounts: { [key: string]: number } = {};
-                      categories.forEach((cat: any) => {
+                      displayCategories.forEach((cat: any) => {
                         let esgName = cat.esg_classification || '미분류';
                         
                         // 지배구조와 경제를 지배구조/경제로 통합
@@ -629,7 +671,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                       });
 
                       // 비율 계산
-                      const total = categories.length;
+                      const total = displayCategories.length;
                       const esgDistribution = Object.entries(esgCounts).map(([esgName, count]) => ({
                         name: esgName,
                         count,
