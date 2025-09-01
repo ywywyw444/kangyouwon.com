@@ -587,9 +587,6 @@ export default function MaterialityHomePage() {
             </div>
           </div>
 
-          {/* 설문 관리 섹션 */}
-          <SurveyManagement excelData={surveyUploadData} />
-
           {/* 설문 대상 업로드 */}
           <SurveyUpload
             excelData={surveyUploadData}
@@ -607,13 +604,14 @@ export default function MaterialityHomePage() {
             loadUploadedExcelData={loadSurveyUploadData}
           />
 
+          {/* 설문 관리 섹션 */}
+          <SurveyManagement excelData={surveyUploadData} />
+
           {/* 설문 결과 확인 */}
-          {surveyResult && (
-            <SurveyResult 
-              excelData={surveyUploadData} 
-              surveyResult={surveyResult}
-            />
-          )}
+          <SurveyResult 
+            excelData={surveyUploadData} 
+            surveyResult={surveyResult}
+          />
   
           {/* 최종 이슈풀 확인하기 */}
           <FinalIssuepool />
