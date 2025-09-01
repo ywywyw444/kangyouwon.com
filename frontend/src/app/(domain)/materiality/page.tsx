@@ -737,7 +737,7 @@ export default function MaterialityHomePage() {
                               value={customBaseIssuePoolText}
                               onChange={(e) => setCustomBaseIssuePoolText(e.target.value)}
                               placeholder="새로운 base issue pool을 입력하세요..."
-                              className="w-full mt-2 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                              className="w-full mt-2 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 font-medium placeholder-gray-500"
                               rows={3}
                               autoFocus
                             />
