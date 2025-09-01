@@ -18,7 +18,8 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
         company_id: companyId,
         timestamp: new Date().toISOString(),
         total_categories: categories.length,
-        categories: categories.map((cat: any) => ({
+        categories: categories.map((cat: any, index: number) => ({
+          question_number: index + 1, // Q1, Q2, Q3... 순서대로
           rank: cat.rank,
           category: cat.category || '카테고리명 없음',
           selected_base_issue_pool: cat.selected_base_issue_pool || '',
@@ -86,7 +87,8 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
     if (categories.length > 0) {
       const surveyData = {
         company_id: companyId,
-        categories: categories.map((cat: any) => ({
+        categories: categories.map((cat: any, index: number) => ({
+          question_number: index + 1, // Q1, Q2, Q3... 순서대로
           rank: cat.rank,
           category: cat.category || '카테고리명 없음',
           selected_base_issue_pool: cat.selected_base_issue_pool || '',

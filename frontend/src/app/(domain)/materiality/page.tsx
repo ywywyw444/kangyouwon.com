@@ -736,7 +736,7 @@ export default function MaterialityHomePage() {
                             <textarea
                               value={customBaseIssuePoolText}
                               onChange={(e) => setCustomBaseIssuePoolText(e.target.value)}
-                              placeholder="새로운 base issue pool을 입력하세요..."
+                              placeholder="새로운 base issue pool을 입력하세요"
                               className="w-full mt-2 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 font-medium placeholder-gray-500"
                               rows={3}
                               autoFocus
@@ -952,18 +952,77 @@ export default function MaterialityHomePage() {
                             <label className="block text-sm font-semibold text-gray-900 mb-2">
                               Base Issue Pool
                             </label>
-                            <select
-                              value={newBaseIssuePool}
-                              onChange={(e) => setNewBaseIssuePool(e.target.value)}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
-                            >
-                              <option value="">Base Issue Pool을 선택하세요</option>
-                              {baseIssuePoolOptions.map((option: string, index: number) => (
-                                <option key={index} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
+                            
+                            {/* 기존 옵션 선택 */}
+                            {baseIssuePoolOptions.length > 0 && (
+                              <div className="mb-4">
+                                <select
+                                  value={newBaseIssuePool}
+                                  onChange={(e) => {
+                                    setNewBaseIssuePool(e.target.value);
+                                    setIsCustomBaseIssuePool(false);
+                                    setCustomBaseIssuePoolText('');
+                                  }}
+                                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium"
+                                >
+                                  <option value="">Base Issue Pool을 선택하세요</option>
+                                  {baseIssuePoolOptions.map((option: string, index: number) => (
+                                    <option key={index} value={option}>
+                                      {option}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                            
+                            {/* 구분선 */}
+                            {baseIssuePoolOptions.length > 0 && (
+                              <div className="flex items-center my-4">
+                                <div className="flex-1 border-t border-gray-300"></div>
+                                <span className="px-3 text-sm text-gray-500 bg-white">또는</span>
+                                <div className="flex-1 border-t border-gray-300"></div>
+                              </div>
+                            )}
+                            
+                            {/* 직접 입력 옵션 */}
+                            <div className="space-y-3">
+                              <label className="flex items-start space-x-3 cursor-pointer hover:bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                <input
+                                  type="radio"
+                                  name="newBaseIssuePool"
+                                  checked={isCustomBaseIssuePool}
+                                  onChange={() => {
+                                    setIsCustomBaseIssuePool(true);
+                                    setNewBaseIssuePool('');
+                                  }}
+                                  className="text-blue-600 focus:ring-blue-500 mt-1"
+                                />
+                                <div className="flex-1">
+                                  <span className="text-gray-700 font-medium">새로운 base issue pool 직접 작성</span>
+                                  {isCustomBaseIssuePool && (
+                                    <textarea
+                                      value={customBaseIssuePoolText}
+                                      onChange={(e) => setCustomBaseIssuePoolText(e.target.value)}
+                                      placeholder="새로운 base issue pool을 입력하세요"
+                                      className="w-full mt-2 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-gray-900 font-medium placeholder-gray-500"
+                                      rows={3}
+                                      autoFocus
+                                    />
+                                  )}
+                                </div>
+                              </label>
+                            </div>
+                            
+                            {/* 옵션이 없는 경우 안내 */}
+                            {baseIssuePoolOptions.length === 0 && (
+                              <div className="text-center text-gray-500 py-4 mb-4">
+                                <svg className="w-8 h-8 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <p className="text-sm">이 카테고리에 매칭되는 base issue pool이 없습니다.</p>
+                                <p className="text-xs text-gray-400 mt-1">아래에서 직접 입력해주세요.</p>
+                              </div>
+                            )}
                           </div>
 
                           {/* 순위 설정 */}
@@ -983,9 +1042,14 @@ export default function MaterialityHomePage() {
                           {/* 추가 버튼 */}
                           <button
                             onClick={() => {
+                              // 최종 선택값 결정 (기존 옵션 또는 커스텀 입력)
+                              const finalBaseIssuePool = isCustomBaseIssuePool 
+                                ? customBaseIssuePoolText.trim() 
+                                : newBaseIssuePool;
+                              
                               addNewCategory(
                                 selectedNewCategory,
-                                newBaseIssuePool,
+                                finalBaseIssuePool,
                                 newCategoryRank,
                                 assessmentResult,
                                 setAssessmentResult,
@@ -998,9 +1062,9 @@ export default function MaterialityHomePage() {
                                 allCategories
                               );
                             }}
-                            disabled={!selectedNewCategory || !newBaseIssuePool}
+                            disabled={!selectedNewCategory || !(newBaseIssuePool || (isCustomBaseIssuePool && customBaseIssuePoolText.trim()))}
                             className={`w-full py-3 px-4 rounded-lg font-medium transition-colors duration-200 ${
-                              selectedNewCategory && newBaseIssuePool
+                              selectedNewCategory && (newBaseIssuePool || (isCustomBaseIssuePool && customBaseIssuePoolText.trim()))
                                 ? 'bg-blue-600 hover:bg-blue-700 text-white'
                                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             }`}
@@ -1030,9 +1094,14 @@ export default function MaterialityHomePage() {
                     </button>
                     <button
                       onClick={() => {
+                        // 최종 선택값 결정 (기존 옵션 또는 커스텀 입력)
+                        const finalBaseIssuePool = isCustomBaseIssuePool 
+                          ? customBaseIssuePoolText.trim() 
+                          : newBaseIssuePool;
+                        
                         addNewCategory(
                           selectedNewCategory,
-                          newBaseIssuePool,
+                          finalBaseIssuePool,
                           parseInt(newCategoryRank) || 1,
                           assessmentResult,
                           setAssessmentResult,
@@ -1045,9 +1114,9 @@ export default function MaterialityHomePage() {
                           allCategories
                         );
                       }}
-                      disabled={!selectedNewCategory || !newBaseIssuePool}
+                      disabled={!selectedNewCategory || !(newBaseIssuePool || (isCustomBaseIssuePool && customBaseIssuePoolText.trim()))}
                       className={`px-6 py-3 font-medium rounded-lg transition-colors duration-200 ${
-                        selectedNewCategory && newBaseIssuePool
+                        selectedNewCategory && (newBaseIssuePool || (isCustomBaseIssuePool && customBaseIssuePoolText.trim()))
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       }`}
