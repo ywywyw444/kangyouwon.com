@@ -17,6 +17,7 @@ from app.domain.survey.schema import (
 from app.common.database.survey_db import get_sync_session
 
 logger = logging.getLogger(__name__)
+logger.info(f"[LOAD] SurveyRepository file = {__file__}")
 
 class SurveyRepository:
     """설문 데이터 리포지토리"""
@@ -82,6 +83,8 @@ class SurveyRepository:
     def create_survey(self, request: SurveyCreateRequest) -> SurveyEntity:
         """설문 생성"""
         try:
+            logger.info(f"[CALL] SurveyRepository.create_survey() file = {__file__}")
+            
             with self._get_session() as session:
                 # Frontend에서 보내는 corporation_id를 그대로 사용
                 corporation_id = request.corporation_id
@@ -93,14 +96,14 @@ class SurveyRepository:
                 # 고유한 설문 ID 생성
                 survey_id = f"{corporation_id}_{int(datetime.now().timestamp())}"
                 
-                # JSON 데이터를 PostgreSQL에 저장하기 위해 준비
-                categories_json = self._prepare_json_data(request.categories)
-                excel_data_json = self._prepare_json_data(request.excel_data)
+                # JSON 데이터를 PostgreSQL에 저장하기 위해 준비 (TEXT 컬럼용)
+                categories_json = json.dumps(request.categories, ensure_ascii=False)
+                excel_data_json = json.dumps(request.excel_data, ensure_ascii=False) if request.excel_data else None
                 
-                # 직접 SQL을 사용하여 INSERT (::jsonb 캐스팅)
+                # SQLAlchemy text() 콜론 스타일로 통일 (::jsonb 제거, TEXT 컬럼 사용)
                 sql = """
                 INSERT INTO surveys (survey_id, corporation_id, "timestamp", total_categories, categories, excel_data)
-                VALUES (:survey_id, :corporation_id, :timestamp, :total_categories, :categories::jsonb, :excel_data::jsonb)
+                VALUES (:survey_id, :corporation_id, :timestamp, :total_categories, :categories, :excel_data)
                 """
                 
                 params = {
@@ -109,8 +112,11 @@ class SurveyRepository:
                     "timestamp": datetime.now(),
                     "total_categories": len(request.categories),
                     "categories": categories_json,  # JSON 문자열
-                    "excel_data": excel_data_json   # JSON 문자열
+                    "excel_data": excel_data_json   # JSON 문자열 또는 None
                 }
+                
+                logger.info(f"[SQL] {sql}")
+                logger.info(f"[PARAMS keys] {list(params.keys())}")
                 
                 session.execute(text(sql), params)
                 session.commit()
@@ -201,6 +207,8 @@ class SurveyRepository:
     def submit_survey_response(self, request: SurveyResponseRequest) -> SurveyResponseEntity:
         """설문 응답 제출"""
         try:
+            logger.info(f"[CALL] SurveyRepository.submit_survey_response() file = {__file__}")
+            
             with self._get_session() as session:
                 # Frontend에서 보내는 corporation_id를 그대로 사용
                 corporation_id = request.corporation_id
@@ -224,16 +232,16 @@ class SurveyRepository:
                 if existing_response:
                     raise ValueError("이미 이 설문에 응답하셨습니다.")
                 
-                # JSON 데이터를 PostgreSQL에 저장하기 위해 준비
-                responses_json = self._prepare_json_data(request.responses)
+                # JSON 데이터를 PostgreSQL에 저장하기 위해 준비 (TEXT 컬럼용)
+                responses_json = json.dumps(request.responses, ensure_ascii=False)
                 
                 # 고유한 참여자 ID 생성
                 participant_id = f"{request.participant.email}_{int(datetime.now().timestamp())}"
                 
-                # 직접 SQL을 사용하여 INSERT (::jsonb 캐스팅)
+                # SQLAlchemy text() 콜론 스타일로 통일 (::jsonb 제거, TEXT 컬럼 사용)
                 sql = """
                 INSERT INTO survey_responses (participant_id, survey_id, corporation_id, participant_name, participant_company, participant_position, participant_email, responses, "timestamp")
-                VALUES (:participant_id, :survey_id, :corporation_id, :participant_name, :participant_company, :participant_position, :participant_email, :responses::jsonb, :timestamp)
+                VALUES (:participant_id, :survey_id, :corporation_id, :participant_name, :participant_company, :participant_position, :participant_email, :responses, :timestamp)
                 """
                 
                 params = {
@@ -247,6 +255,9 @@ class SurveyRepository:
                     "responses": responses_json,  # JSON 문자열
                     "timestamp": datetime.now()
                 }
+                
+                logger.info(f"[SQL] {sql}")
+                logger.info(f"[PARAMS keys] {list(params.keys())}")
                 
                 session.execute(text(sql), params)
                 session.commit()
