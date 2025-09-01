@@ -44,18 +44,14 @@ class SurveyService:
             # repository를 통해 설문 생성 (동기 호출을 별도 스레드로 실행)
             survey_entity = await anyio.to_thread.run_sync(self.repository.create_survey, request)
             
-            # 응답 데이터를 Frontend에 전달하기 위해 준비
-            categories_data = self._prepare_response_data(survey_entity.categories)
-            excel_data_data = self._prepare_response_data(survey_entity.excel_data)
-            
-            # 응답 스키마로 변환
+            # 응답 스키마로 변환 (Repository에서 이미 필요한 속성들을 미리 로드함)
             return SurveyDataResponse(
                 survey_id=survey_entity.survey_id,
                 corporation_id=survey_entity.corporation_id,
                 timestamp=survey_entity.timestamp,
                 total_categories=survey_entity.total_categories,
-                categories=categories_data,  # 파이썬 객체로 변환
-                excel_data=excel_data_data   # 파이썬 객체로 변환
+                categories=survey_entity.categories,  # 이미 로드된 속성 직접 사용
+                excel_data=survey_entity.excel_data   # 이미 로드된 속성 직접 사용
             )
                 
         except Exception as e:

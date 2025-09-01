@@ -120,7 +120,7 @@ class SurveyRepository:
                 logger.info(f"[PARAMS keys] {list(params.keys())}")
                 
                 session.execute(sql, params)
-                session.commit()
+                session.flush()  # INSERT가 바로 반영되도록만 보장
                 
                 # 생성된 엔티티 조회하여 반환
                 survey_entity = session.query(SurveyEntity).filter(
@@ -260,7 +260,7 @@ class SurveyRepository:
                 logger.info(f"[PARAMS keys] {list(params.keys())}")
                 
                 session.execute(sql, params)
-                session.commit()
+                session.flush()  # INSERT가 바로 반영되도록만 보장
                 
                 # 생성된 엔티티 조회하여 반환
                 response_entity = session.query(SurveyResponseEntity).filter(

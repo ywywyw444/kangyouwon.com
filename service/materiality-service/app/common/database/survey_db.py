@@ -107,7 +107,8 @@ sync_engine = create_sync_engine(
 SyncSessionLocal = create_sync_sessionmaker(
     bind=sync_engine,
     autocommit=False,
-    autoflush=False
+    autoflush=False,
+    expire_on_commit=False  # ✅ 추가: 커밋해도 엔티티 속성 만료되지 않게
 )
 
 # 동기 세션 컨텍스트 매니저 (기존 코드와의 호환성)
