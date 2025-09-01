@@ -11,8 +11,18 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     if (!surveyResult?.responses) return null;
 
     const allResponses = surveyResult.responses;
+    
+    // 실제 응답자 수 계산 (참여자별로 그룹화)
+    const uniqueRespondents = new Set();
+    allResponses.forEach((response: any) => {
+      // participant 정보가 있으면 email을, 없으면 respondentId를 사용
+      const respondentId = response.participant?.email || response.respondentId || 'unknown';
+      uniqueRespondents.add(respondentId);
+    });
+    
     const stats = {
-      total: allResponses.length,
+      total: uniqueRespondents.size, // 실제 응답자 수
+      totalResponses: allResponses.length, // 총 응답 항목 수
       environmental: allResponses.filter((item: any) => item.section === 'Environmental').length,
       social: allResponses.filter((item: any) => item.section === 'Social').length,
       governance: allResponses.filter((item: any) => item.section === 'Governance').length,
@@ -105,7 +115,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                </div>
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">설문 항목:</span>
-                 <span className="text-gray-900">{stats.total}개</span>
+                 <span className="text-gray-900">{stats.totalResponses}개</span>
                </div>
 
              </div>
