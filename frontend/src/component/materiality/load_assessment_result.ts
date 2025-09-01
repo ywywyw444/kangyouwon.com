@@ -1,5 +1,5 @@
 // 저장된 중대성 평가 결과 불러오기 함수
-export const loadAssessmentResult = (setAssessmentResult: any, setCompanyId: any, setCompanySearchTerm: any, setSearchPeriod: any) => {
+export const loadAssessmentResult = (setAssessmentResult: any, setCompanyId: any, setCompanySearchTerm: any, setSearchPeriod: any, setDisplayCategoryCount?: any) => {
     try {
       const savedData = localStorage.getItem('materialityAssessmentResult');
       if (savedData) {
@@ -23,6 +23,12 @@ export const loadAssessmentResult = (setAssessmentResult: any, setCompanyId: any
           if (parsedData.company_id) {
             setCompanyId(parsedData.company_id);
             setCompanySearchTerm(parsedData.company_id);
+          }
+          
+          // 표시할 카테고리 개수도 복원
+          if (setDisplayCategoryCount && parsedData.display_category_count !== undefined) {
+            setDisplayCategoryCount(parsedData.display_category_count);
+            console.log('📊 복원된 표시 카테고리 개수:', parsedData.display_category_count);
           }
           
           alert(`✅ 저장된 중대성 평가 결과를 불러왔습니다!\n\n📊 총 ${restoredData.data?.matched_categories?.length || 0}개 카테고리\n📋 Base Issue Pool 설정: ${restoredData.data?.matched_categories?.filter((cat: any) => cat.selected_base_issue_pool).length || 0}개`);

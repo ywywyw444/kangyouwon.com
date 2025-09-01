@@ -120,7 +120,8 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
           company_id: companyId,
           timestamp: new Date().toISOString(),
           total_categories: categories.length,
-          categories_with_base_issue_pool: categories.filter((cat: any) => cat.selected_base_issue_pool).length
+          categories_with_base_issue_pool: categories.filter((cat: any) => cat.selected_base_issue_pool).length,
+          display_category_count: displayCategoryCount // 표시할 카테고리 개수도 함께 저장
         };
         
         // localStorage 용량 확인 및 정리
@@ -742,7 +743,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                 
                 {/* 불러오기 버튼 */}
                 <button
-                  onClick={() => loadAssessmentResult(setAssessmentResult, () => {}, () => {}, () => {})}
+                  onClick={() => loadAssessmentResult(setAssessmentResult, () => {}, () => {}, () => {}, setDisplayCategoryCount)}
                   className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
                   title="저장된 중대성 평가 결과를 불러옵니다"
                 >
