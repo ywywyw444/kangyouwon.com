@@ -89,7 +89,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
         };
 
         // Gateway를 통해 materiality-service로 전송
-        const response = await fetch('/api/gateway/materiality-service/surveys', {
+        const response = await fetch('/api/v1/materiality-service/surveys', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

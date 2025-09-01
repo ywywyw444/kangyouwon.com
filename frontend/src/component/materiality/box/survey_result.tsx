@@ -15,7 +15,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       if (surveyResult?.survey_id) {
         setLoading(true);
         try {
-          const response = await fetch(`/api/gateway/materiality-service/surveys/${surveyResult.survey_id}/responses`);
+          const response = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses`);
           if (response.ok) {
             const data = await response.json();
             setBackendResponses(data.responses || []);

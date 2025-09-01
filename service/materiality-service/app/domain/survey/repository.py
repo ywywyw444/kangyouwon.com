@@ -62,20 +62,23 @@ class SurveyRepository:
     def create_survey(self, request: SurveyCreateRequest) -> SurveyEntity:
         """설문 생성"""
         try:
+            # Frontend에서 보내는 company_id를 corporation_id로 사용
+            corporation_id = request.company_id
+            
             # 기업 존재 여부 먼저 확인
-            if not self._check_corporation_exists(request.corporation_id):
-                raise ValueError(f"기업 ID {request.corporation_id}가 존재하지 않습니다.")
+            if not self._check_corporation_exists(corporation_id):
+                raise ValueError(f"기업 ID {corporation_id}가 존재하지 않습니다.")
             
             # 고유한 설문 ID 생성
-            survey_id = f"{request.corporation_id}_{int(datetime.now().timestamp())}"
+            survey_id = f"{corporation_id}_{int(datetime.now().timestamp())}"
             
             # 설문 엔티티 생성
             survey_entity = SurveyEntity(
                 survey_id=survey_id,
-                corporation_id=request.corporation_id,
+                corporation_id=corporation_id,
                 timestamp=datetime.now(),
                 total_categories=len(request.categories),
-                categories=[cat.dict() for cat in request.categories],
+                categories=request.categories,  # 이미 Dict 형태로 전달됨
                 excel_data=request.excel_data
             )
             
@@ -157,9 +160,12 @@ class SurveyRepository:
     def submit_survey_response(self, request: SurveyResponseRequest) -> SurveyResponseEntity:
         """설문 응답 제출"""
         try:
+            # Frontend에서 보내는 company_id를 corporation_id로 사용
+            corporation_id = request.company_id
+            
             # 기업 존재 여부 먼저 확인
-            if not self._check_corporation_exists(request.corporation_id):
-                raise ValueError(f"기업 ID {request.corporation_id}가 존재하지 않습니다.")
+            if not self._check_corporation_exists(corporation_id):
+                raise ValueError(f"기업 ID {corporation_id}가 존재하지 않습니다.")
             
             # 설문 존재 여부 먼저 확인
             if not self._check_survey_exists(request.survey_id):
@@ -180,12 +186,12 @@ class SurveyRepository:
             response_entity = SurveyResponseEntity(
                 participant_id=f"{request.participant.email}_{int(datetime.now().timestamp())}",
                 survey_id=request.survey_id,
-                corporation_id=request.corporation_id,
+                corporation_id=corporation_id,
                 participant_name=request.participant.name,
                 participant_company=request.participant.company,
                 participant_position=request.participant.position,
                 participant_email=request.participant.email,
-                responses=[resp.dict() for resp in request.responses],
+                responses=request.responses,  # 이미 Dict 형태로 전달됨
                 timestamp=datetime.now()
             )
             

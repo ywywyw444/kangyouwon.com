@@ -62,7 +62,7 @@ export default function SurveyPage() {
         
         if (id) {
           // 백엔드에서 설문 데이터 로드
-          const response = await fetch(`/api/gateway/materiality-service/surveys/${id}`);
+          const response = await fetch(`/api/v1/materiality-service/surveys/${id}`);
           
           if (!response.ok) {
             if (response.status === 404) {
@@ -297,7 +297,7 @@ export default function SurveyPage() {
             company_id: surveyData?.company_id
           };
 
-          const response = await fetch(`/api/gateway/materiality-service/surveys/${surveyId}/responses`, {
+          const response = await fetch(`/api/v1/materiality-service/surveys/${surveyId}/responses`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
