@@ -101,6 +101,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
           selected_base_issue_pool: cat.selected_base_issue_pool || '',
           final_score: cat.final_score || 0,
           total_issuepools: cat.total_issuepools || 0,
+          is_user_added: cat.is_user_added || false, // 사용자 추가 여부 저장
           base_issuepools: Array.isArray(cat.base_issuepools)
             ? cat.base_issuepools.map((item: any) => ({
                 base_issue_pool: item?.base_issue_pool || item?.issue || '',
@@ -587,46 +588,54 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                         <span className="ml-2 px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">
                           {cat.esg_classification || "미분류"}
                         </span>
-                        {/* 삭제 버튼 */}
-                        <button
-                          onClick={() => {
-                            if (confirm(`정말로 "${cat.category}" 카테고리를 삭제하시겠습니까?`)) {
-                              // 해당 카테고리 삭제
-                              const resultData = assessmentResult?.data || assessmentResult;
-                              const updatedCategories = [...(resultData?.matched_categories || [])];
-                              updatedCategories.splice(index, 1);
-                              
-                              // 순위 재정렬
-                              updatedCategories.forEach((category, idx) => {
-                                category.rank = idx + 1;
-                              });
-                              
-                              // 상태 업데이트
-                              if (assessmentResult?.data) {
-                                setAssessmentResult({
-                                  ...assessmentResult,
-                                  data: {
-                                    ...assessmentResult.data,
+                        {/* 사용자 추가 카테고리 표시 */}
+                        {cat.is_user_added && (
+                          <span className="ml-2 px-2 py-1 text-xs font-medium text-blue-600 bg-blue-100 rounded-full">
+                            사용자 추가
+                          </span>
+                        )}
+                        {/* 삭제 버튼 - 사용자가 추가한 카테고리만 삭제 가능 */}
+                        {cat.is_user_added && (
+                          <button
+                            onClick={() => {
+                              if (confirm(`정말로 "${cat.category}" 카테고리를 삭제하시겠습니까?`)) {
+                                // 해당 카테고리 삭제
+                                const resultData = assessmentResult?.data || assessmentResult;
+                                const updatedCategories = [...(resultData?.matched_categories || [])];
+                                updatedCategories.splice(index, 1);
+                                
+                                // 순위 재정렬
+                                updatedCategories.forEach((category, idx) => {
+                                  category.rank = idx + 1;
+                                });
+                                
+                                // 상태 업데이트
+                                if (assessmentResult?.data) {
+                                  setAssessmentResult({
+                                    ...assessmentResult,
+                                    data: {
+                                      ...assessmentResult.data,
+                                      matched_categories: updatedCategories
+                                    }
+                                  });
+                                } else {
+                                  setAssessmentResult({
+                                    ...assessmentResult,
                                     matched_categories: updatedCategories
-                                  }
-                                });
-                              } else {
-                                setAssessmentResult({
-                                  ...assessmentResult,
-                                  matched_categories: updatedCategories
-                                });
+                                  });
+                                }
+                                
+                                alert(`✅ "${cat.category}" 카테고리가 삭제되었습니다.`);
                               }
-                              
-                              alert(`✅ "${cat.category}" 카테고리가 삭제되었습니다.`);
-                            }
-                          }}
-                          className="ml-3 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all duration-200"
-                          title="이 카테고리 삭제"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                            }}
+                            className="ml-3 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-all duration-200"
+                            title="이 카테고리 삭제 (사용자 추가 카테고리)"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     ))}
                     <div className="text-center text-xs text-gray-500 mt-3">

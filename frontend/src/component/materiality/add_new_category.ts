@@ -87,7 +87,8 @@ export const addNewCategory = (
       esg_classification_id: null,
       base_issuepools: selectedCategoryInfo?.base_issue_pools || [],
       total_issuepools: selectedCategoryInfo?.base_issue_pools?.length || 0,
-      selected_base_issue_pool: newBaseIssuePool
+      selected_base_issue_pool: newBaseIssuePool,
+      is_user_added: true // 사용자가 추가한 카테고리로 표시
     };
 
     // 새로운 카테고리를 지정된 순위에 삽입
