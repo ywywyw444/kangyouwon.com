@@ -54,7 +54,26 @@ export const handleViewReport = async (searchResult: any, setIsIssuepoolLoading:
       );
       
       if (response.data.success) {
-        setIssuepoolData(response.data.data);
+        const issuepoolData = response.data.data;
+        setIssuepoolData(issuepoolData);
+        
+        // localStorage에 지난 중대성 평가 목록 저장
+        try {
+          const dataToSave = {
+            company_id: companyId,
+            search_period: {
+              start_date: startDate,
+              end_date: endDate
+            },
+            timestamp: new Date().toISOString(),
+            issuepool_data: issuepoolData
+          };
+          localStorage.setItem('materialitySearchResult', JSON.stringify(dataToSave));
+          console.log('💾 지난 중대성 평가 목록 localStorage 저장 완료');
+        } catch (storageError) {
+          console.error('❌ 지난 중대성 평가 목록 localStorage 저장 실패:', storageError);
+        }
+        
         console.log('지난 중대성 평가 목록 조회 성공:', response.data);
       } else {
         alert('지난 중대성 평가 목록 조회에 실패했습니다: ' + response.data.message);

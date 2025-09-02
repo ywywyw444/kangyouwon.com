@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import axios from 'axios';
 import { handleViewReport } from '../handle_view_report';
-import { loadAssessmentResult } from '../load_assessment_result';
+import { loadAssessmentResult, loadSearchResult } from '../load_assessment_result';
 import { fetchAllCategories } from '../fetch_all_categories';
 import { addNewCategory } from '../add_new_category';
 
@@ -154,6 +154,64 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
     }
   };
 
+  useEffect(() => {
+    const loadAssessmentResultFromStorage = () => {
+      const savedResult = localStorage.getItem('materialityAssessmentResult');
+      if (savedResult) {
+        try {
+          const parsedResult = JSON.parse(savedResult);
+          // assessment_result 필드가 있으면 해당 데이터를 사용
+          if (parsedResult.assessment_result) {
+            setAssessmentResult(parsedResult.assessment_result);
+            // display_category_count도 복원
+            if (parsedResult.display_category_count !== undefined) {
+              setDisplayCategoryCount(parsedResult.display_category_count);
+              console.log('📊 복원된 표시 카테고리 개수:', parsedResult.display_category_count);
+            }
+            console.log('💾 저장된 중대성 평가 결과 불러오기 완료:', parsedResult.assessment_result);
+          } else {
+            setAssessmentResult(parsedResult);
+            // display_category_count도 복원
+            if (parsedResult.display_category_count !== undefined) {
+              setDisplayCategoryCount(parsedResult.display_category_count);
+              console.log('📊 복원된 표시 카테고리 개수:', parsedResult.display_category_count);
+            }
+            console.log('💾 저장된 중대성 평가 결과 불러오기 완료:', parsedResult);
+          }
+        } catch (e) {
+          console.error('❌ 저장된 중대성 평가 결과 파싱 실패:', e);
+          localStorage.removeItem('materialityAssessmentResult'); // 파싱 실패 시 삭제
+        }
+      }
+    };
+
+    loadAssessmentResultFromStorage();
+  }, [setAssessmentResult]);
+
+  useEffect(() => {
+    const loadSearchResultFromStorage = () => {
+      const savedSearchResult = localStorage.getItem('materialitySearchResult');
+      if (savedSearchResult) {
+        try {
+          const parsedSearchResult = JSON.parse(savedSearchResult);
+          // issuepool_data 필드가 있으면 해당 데이터를 사용
+          if (parsedSearchResult.issuepool_data) {
+            setIssuepoolData(parsedSearchResult.issuepool_data);
+            console.log('💾 저장된 지난 중대성 평가 목록 불러오기 완료:', parsedSearchResult.issuepool_data);
+          } else {
+            setIssuepoolData(parsedSearchResult);
+            console.log('💾 저장된 지난 중대성 평가 목록 불러오기 완료:', parsedSearchResult);
+          }
+        } catch (e) {
+          console.error('❌ 저장된 지난 중대성 평가 목록 파싱 실패:', e);
+          localStorage.removeItem('materialitySearchResult'); // 파싱 실패 시 삭제
+        }
+      }
+    };
+
+    loadSearchResultFromStorage();
+  }, [setIssuepoolData]);
+
   return (
     <div id="middle-issuepool" className="bg-white rounded-xl shadow-lg p-6 mb-12">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">
@@ -260,12 +318,53 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                   setAssessmentResult(responseData);
                   console.log('🔍 assessmentResult 상태 설정:', responseData);
                   
+                  // localStorage에 자동 저장
+                  try {
+                    const dataToSave = {
+                      assessment_result: {
+                        company_id: searchResult.data.company_id,
+                        search_period: searchResult.data.search_period,
+                        matched_categories: matchedCategories
+                      },
+                      company_id: searchResult.data.company_id,
+                      timestamp: new Date().toISOString(),
+                      total_categories: matchedCategories.length,
+                      categories_with_base_issue_pool: 0,
+                      display_category_count: displayCategoryCount
+                    };
+                    localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+                    console.log('💾 중대성 평가 결과 자동 저장 완료');
+                  } catch (storageError) {
+                    console.error('❌ 자동 저장 실패:', storageError);
+                  }
+                  
                   // 간단한 완료 메시지만 표시
                   alert('✅ 중간 중대성 평가 완료');
                 } else {
                   console.log('⚠️ matched_categories가 비어있음');
                   // 6. 빈 결과도 상태에 저장하여 UI에서 처리할 수 있도록 함
                   setAssessmentResult(responseData);
+                  
+                  // 빈 결과도 localStorage에 자동 저장
+                  try {
+                    const dataToSave = {
+                      assessment_result: {
+                        company_id: searchResult.data.company_id,
+                        search_period: searchResult.data.search_period,
+                        matched_categories: []
+                      },
+                      company_id: searchResult.data.company_id,
+                      timestamp: new Date().toISOString(),
+                      total_categories: 0,
+                      categories_with_base_issue_pool: 0,
+                      display_category_count: displayCategoryCount
+                    };
+                    localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+                    console.log('💾 빈 중대성 평가 결과 자동 저장 완료');
+                  } catch (storageError) {
+                    console.error('❌ 빈 결과 자동 저장 실패:', storageError);
+                  }
+                  
                   alert('✅ 중간 중대성 평가 완료\n\n매칭된 카테고리가 없습니다.');
                 }
               } else {
@@ -318,6 +417,23 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
               <span>새로운 중대성 평가 시작</span>
             </>
           )}
+        </button>
+        
+        {/* 내용 지우기 버튼 */}
+        <button
+          onClick={() => {
+            if (confirm('화면에서 모든 내용을 지우시겠습니까?\n\n저장된 데이터는 메모리에 남아있어서 불러오기 버튼으로 다시 표시할 수 있습니다.')) {
+              // 화면에서만 내용 지우기 (localStorage는 유지)
+              setIssuepoolData(null);
+              setAssessmentResult(null);
+              console.log('🧹 화면 내용 지우기 완료 (localStorage 유지)');
+              alert('✅ 화면 내용이 지워졌습니다.\n\n불러오기 버튼을 눌러서 저장된 데이터를 다시 표시할 수 있습니다.');
+            }
+          }}
+          className="px-6 py-3 rounded-lg font-medium transition-all duration-200 bg-gray-500 hover:bg-gray-600 text-white shadow-lg hover:shadow-xl"
+          title="화면에서 내용을 지웁니다 (저장된 데이터는 유지)"
+        >
+          🧹 내용 지우기
         </button>
       </div>
 
@@ -741,7 +857,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                   저장
                 </button>
                 
-                {/* 불러오기 버튼 */}
+                {/* 중대성 평가 결과 불러오기 버튼 */}
                 <button
                   onClick={() => loadAssessmentResult(setAssessmentResult, () => {}, () => {}, () => {}, setDisplayCategoryCount)}
                   className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
@@ -750,7 +866,19 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                  불러오기
+                  중대성 평가 결과 불러오기
+                </button>
+                
+                {/* 지난 중대성 평가 목록 불러오기 버튼 */}
+                <button
+                  onClick={() => loadSearchResult(setIssuepoolData)}
+                  className="inline-flex items-center px-4 py-2 border border-indigo-300 text-sm font-medium rounded-md text-indigo-700 bg-white hover:bg-indigo-50 transition-colors duration-200"
+                  title="저장된 지난 중대성 평가 목록을 불러옵니다"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  지난 중대성 평가 목록 불러오기
                 </button>
                 
                 {/* 추가하기 버튼 */}

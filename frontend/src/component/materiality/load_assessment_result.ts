@@ -43,3 +43,27 @@ export const loadAssessmentResult = (setAssessmentResult: any, setCompanyId: any
       alert('❌ 저장된 중대성 평가 결과를 불러오는데 실패했습니다.');
     }
   };
+
+// 저장된 지난 중대성 평가 목록 불러오기 함수
+export const loadSearchResult = (setIssuepoolData: any) => {
+  try {
+    const savedData = localStorage.getItem('materialitySearchResult');
+    if (savedData) {
+      const parsedData = JSON.parse(savedData);
+      console.log('📂 저장된 지난 중대성 평가 목록 불러오기:', parsedData);
+      
+      if (parsedData.issuepool_data) {
+        setIssuepoolData(parsedData.issuepool_data);
+        console.log('📋 복원된 지난 중대성 평가 목록:', parsedData.issuepool_data);
+        alert(`✅ 저장된 지난 중대성 평가 목록을 불러왔습니다!\n\n📊 ${parsedData.company_id} (${parsedData.search_period.start_date} ~ ${parsedData.search_period.end_date})`);
+      } else {
+        alert('⚠️ 저장된 지난 중대성 평가 목록이 없습니다.');
+      }
+    } else {
+      alert('⚠️ 저장된 지난 중대성 평가 목록이 없습니다.');
+    }
+  } catch (error) {
+    console.error('❌ 저장된 지난 중대성 평가 목록 불러오기 실패:', error);
+    alert('❌ 저장된 지난 중대성 평가 목록을 불러오는데 실패했습니다.');
+  }
+};
