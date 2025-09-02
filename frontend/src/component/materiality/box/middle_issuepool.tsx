@@ -516,34 +516,27 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                  {/* 내용 지우기 버튼 */}
          <button
            onClick={() => {
-             const clearContent = (keepData: boolean) => {
+             const clearContent = () => {
+               // 화면상의 내용만 초기화 (localStorage는 유지)
                setIssuepoolData(null);
                setAssessmentResult(null);
                
-               if (!keepData) {
-                 if (typeof window !== 'undefined') {
-                   localStorage.removeItem('hasUserActivity');
-                 }
-                 setIsDataHidden(true);
-                 console.log('🔄 완전 초기화 완료: 다음 로그인 시 빈 화면으로 시작됩니다.');
-                 alert('✅ 완전 초기화가 완료되었습니다.\n\n다음 로그인 시에는 빈 화면으로 시작됩니다.');
-               } else {
-                 console.log('🧹 화면 내용 지우기 완료 (localStorage 유지)');
-                 alert('✅ 화면 내용이 지워졌습니다.\n\n불러오기 버튼을 눌러서 저장된 데이터를 다시 표시할 수 있습니다.');
-               }
+               console.log('🧹 화면 내용 지우기 완료 (localStorage 유지)');
+               alert('✅ 화면 내용이 지워졌습니다.\n\n불러오기 버튼을 눌러서 저장된 데이터를 다시 표시할 수 있습니다.');
              };
 
-             const choice = confirm(
-               '내용 지우기 방식을 선택해주세요.\n\n' +
-               '[확인] 버튼: 화면만 지우기 (저장된 데이터는 유지)\n' +
-               '[취소] 버튼: 완전 초기화 (다음 로그인 시에도 빈 화면)\n\n' +
-               '어떤 방식으로 진행하시겠습니까?'
+             const confirmed = confirm(
+               '중대성 평가 중간 결과와 관련된 이후의 모든 활동이 초기화 됩니다.\n\n' +
+               '화면상의 모든 내용이 지워지며, 저장된 데이터는 유지됩니다.\n\n' +
+               '계속 진행하시겠습니까?'
              );
              
-             clearContent(choice);
+             if (confirmed) {
+               clearContent();
+             }
            }}
            className="px-6 py-3 rounded-lg font-medium transition-all duration-200 bg-gray-500 hover:bg-gray-600 text-white shadow-lg hover:shadow-xl"
-           title="화면 내용을 지우거나 완전히 초기화합니다"
+           title="화면 내용을 지웁니다 (저장된 데이터는 유지)"
          >
            🧹 내용 지우기
          </button>
