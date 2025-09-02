@@ -319,6 +319,13 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
     }
 
       try {
+        // 디버깅: 카테고리 정보 확인
+        console.log('🔍 설문 생성 시 카테고리 정보:', {
+          categoriesLength: categories.length,
+          displayCategoryCount: displayCategoryCount,
+          categories: categories
+        });
+        
         // 선택된 개수만큼만 사용 (0이면 전체)
         const selectedCategories: Category[] = (displayCategoryCount > 0 
           ? categories.slice(0, displayCategoryCount)
@@ -336,6 +343,12 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         reference_score: cat.reference_score || 0,
         negative_score: cat.negative_score || 0,
       }));
+      
+      // 디버깅: 선택된 카테고리 정보 확인
+      console.log('🔍 선택된 카테고리 정보:', {
+        selectedCategoriesLength: selectedCategories.length,
+        selectedCategories: selectedCategories
+      });
 
       // 설문 내용 해시값 생성 (현재는 카테고리만 반영)
       const contentHash = generateSurveyContentHash(selectedCategories, []);
