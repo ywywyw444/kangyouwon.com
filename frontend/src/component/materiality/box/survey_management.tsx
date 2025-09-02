@@ -259,21 +259,20 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                 </div>
 
                 {/* 설문 URL 표시 */}
-                {surveyUrl ? (
-                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                    <label className="block text-sm font-medium text-blue-800 mb-1">📋 설문 링크</label>
+                <div className={`rounded-lg p-3 border ${surveyUrl ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200'}`}>
+                  <label className={`block text-sm font-medium mb-1 ${surveyUrl ? 'text-blue-800' : 'text-yellow-800'}`}>
+                    {surveyUrl ? '✅ 설문 링크 생성됨' : '⚠️ 설문 링크 없음'}
+                  </label>
+                  {surveyUrl ? (
                     <div className="text-xs text-blue-600 break-all">
                       {surveyUrl}
                     </div>
-                  </div>
-                ) : (
-                  <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                    <label className="block text-sm font-medium text-yellow-800 mb-1">⚠️ 설문 링크 없음</label>
+                  ) : (
                     <div className="text-xs text-yellow-600">
                       먼저 "설문 생성하기"에서 설문을 생성해주세요.
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
                 {/* 업로드된 이메일 정보 표시 */}
                 <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
@@ -350,7 +349,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                   <div className="font-medium text-gray-700 mb-2">📋 발송 준비 체크리스트:</div>
                   <div className={`flex items-center ${surveyUrl ? 'text-green-600' : 'text-red-600'}`}>
                     <span className={`w-2 h-2 rounded-full mr-2 ${surveyUrl ? 'bg-green-500' : 'bg-red-500'}`}></span>
-                    설문 링크: {surveyUrl ? '✅ 준비 완료' : '❌ 미생성'}
+                    설문 링크: {surveyUrl ? '✅ 생성됨' : '❌ 미생성'}
                   </div>
                   <div className={`flex items-center ${companyName.trim() ? 'text-green-600' : 'text-red-600'}`}>
                     <span className={`w-2 h-2 rounded-full mr-2 ${companyName.trim() ? 'bg-green-500' : 'bg-red-500'}`}></span>
