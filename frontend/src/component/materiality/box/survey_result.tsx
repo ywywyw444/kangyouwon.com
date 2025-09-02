@@ -420,6 +420,18 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
         responded: newResponses.length,
         responseRate: responseRate
       });
+      
+      console.log('📊 응답 현황 업데이트:', {
+        totalEmails,
+        newResponsesLength: newResponses.length,
+        responseRate,
+        responseStatus: {
+          total: totalEmails,
+          sent: totalEmails,
+          responded: newResponses.length,
+          responseRate: responseRate
+        }
+      });
 
       alert(`✅ 설문 응답 데이터 로드 완료!\n\n• 총 응답: ${newResponses.length}개\n• 응답률: ${responseRate}%`);
     } catch (error) {
@@ -430,48 +442,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     }
   };
 
-  // 응답 현황 확인 함수 (기존 함수 유지)
-  const checkSurveyResponses = async () => {
-    if (!surveyResult?.survey_id) {
-      alert('❌ 설문 ID가 없습니다.');
-      return;
-    }
-    
-    try {
-      const surveyId = normalizeSurveyKey(surveyResult.survey_id);
 
-      const response = await fetch(
-        `/api/v1/materiality-service/surveys/${encodeURIComponent(surveyId)}/responses`
-      );
-      if (!response.ok) throw new Error(`응답 현황 조회 실패: ${response.status}`);
-
-      const data = await response.json();
-      const responseCount = Array.isArray(data.responses) ? data.responses.length : 0;
-      
-      // 유효 이메일 수 계산
-      const validEmails = (excelData || [])
-        .map((r) => r.email?.trim())
-        .filter((e): e is string => !!e && e.includes('@'));
-      
-      const totalEmails = validEmails.length;
-      const responseRate = totalEmails > 0 ? Math.round((responseCount / totalEmails) * 100) : 0;
-      
-      setResponseStatus({
-        total: totalEmails,
-        sent: totalEmails, // 발송된 것으로 가정 (실제로는 별도 추적 필요)
-        responded: responseCount,
-        responseRate: responseRate
-      });
-
-      alert(
-        `📊 설문 응답 현황\n\n• 총 발송: ${totalEmails}명\n• 응답 완료: ${responseCount}명\n• 응답률: ${responseRate}%`
-      );
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다';
-      alert(`❌ 응답 현황 조회 실패\n\n오류: ${msg}`);
-      console.error(e);
-    }
-  };
 
   // 데이터가 숨겨진 상태일 때 표시 (설문 결과가 없는 경우에만)
   if (isDataHidden && !surveyResult) {
@@ -636,22 +607,8 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
           {/* 응답 현황 - stats가 있을 때만 표시 */}
           {stats && (
           <div className="bg-green-50 rounded-lg p-6 border border-green-200">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4">
               <h3 className="text-lg font-semibold text-green-800">📊 응답 현황</h3>
-              <button
-                onClick={checkSurveyResponses}
-                disabled={!surveyResult?.survey_id}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center ${
-                  !surveyResult?.survey_id 
-                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-                    : 'bg-green-600 hover:bg-green-700 text-white'
-                }`}
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                현황 새로고침
-              </button>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">

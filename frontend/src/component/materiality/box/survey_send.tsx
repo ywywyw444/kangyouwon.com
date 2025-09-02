@@ -230,25 +230,51 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       ? new Date(deadline).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
       : '미정';
     
+    // 현재 활성 설문 URL 가져오기
+    let currentSurveyUrl = surveyUrl;
+    if (!currentSurveyUrl && typeof window !== 'undefined') {
+      const list = getSurveyList(companyId);
+      const activeSurvey = list.find(s => s.isActive);
+      if (activeSurvey) {
+        currentSurveyUrl = `${window.location.origin}/survey?id=${activeSurvey.id}`;
+      }
+    }
+    
     return [
       '{이름}님께,',
       '',
       '안녕하세요. ESG 중대성 평가 설문에 참여 부탁드립니다.',
       '',
-      `• 설문 링크: ${surveyUrl || '(미선택)'}`,
+      `• 설문 링크: ${currentSurveyUrl || '(미선택)'}`,
       `• 응답 마감: ${deadlineText}`,
       '',
       '※ 같은 이메일 주소로는 1회만 응답 가능합니다.',
       '바쁘시겠지만 소중한 의견 부탁드립니다. 감사합니다.',
     ].join('\n');
-  }, [deadline, surveyUrl]);
+  }, [deadline, surveyUrl, companyId]);
 
-  // 사용자 정의 메일 본문 초기화
+  // 사용자 정의 메일 본문 초기화 및 설문 링크 자동 업데이트
   useEffect(() => {
     if (!customEmailBody && generateDefaultEmailBody) {
       setCustomEmailBody(generateDefaultEmailBody);
     }
   }, [generateDefaultEmailBody, customEmailBody]);
+
+  // 설문 URL이 변경될 때 메일 본문의 설문 링크 자동 업데이트
+  useEffect(() => {
+    if (customEmailBody && surveyUrl) {
+      // 기존 설문 링크 패턴을 찾아서 새로운 URL로 교체
+      const linkPattern = /• 설문 링크: .*/;
+      const newLinkLine = `• 설문 링크: ${surveyUrl}`;
+      
+      if (linkPattern.test(customEmailBody)) {
+        const updatedBody = customEmailBody.replace(linkPattern, newLinkLine);
+        if (updatedBody !== customEmailBody) {
+          setCustomEmailBody(updatedBody);
+        }
+      }
+    }
+  }, [surveyUrl]);
 
   // 메일 본문 미리보기 (첫 번째 수신자 기준)
   const emailBodyPreview = useMemo(() => {
@@ -572,7 +598,18 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                   <label className="block text-sm font-bold text-amber-900 mb-1">✉️ 메일 본문 편집</label>
                   <div className="text-sm font-medium text-amber-800 mb-2">
                     메일 본문을 수정할 수 있습니다. {`{이름}`}은 각 수신자 이름으로 자동 치환됩니다.
+                    <br />
+                    <span className="text-amber-700 font-semibold">※ 설문 링크는 자동으로 활성 설문 URL로 설정됩니다.</span>
                   </div>
+                  
+                  {/* 설문 링크 정보 표시 */}
+                  <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                    <div className="text-xs text-blue-800 font-medium mb-1">🔗 자동 포함될 설문 링크:</div>
+                    <div className="text-xs font-mono text-blue-700 break-all bg-white p-2 rounded border">
+                      {surveyUrl || '(설문을 선택해주세요)'}
+                    </div>
+                  </div>
+                  
                   <textarea 
                     value={customEmailBody}
                     onChange={(e) => setCustomEmailBody(e.target.value)}
@@ -609,19 +646,28 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                   <h5 className="text-sm font-medium text-gray-700 mb-2">📋 발송된 설문별 현황</h5>
                   <div className="space-y-2">
                     {sentSurveys.map((survey, index) => (
-                      <div key={survey.surveyId} className="bg-gray-50 rounded p-2 text-xs">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="font-medium text-gray-700">
-                              설문 {index + 1}: {survey.surveyId.substring(0, 8)}...
-                            </span>
-                            <span className="text-gray-500 ml-2">
-                              ({new Date(survey.sentAt).toLocaleDateString('ko-KR')})
+                      <div key={survey.surveyId} className="bg-gray-50 rounded p-3 text-xs">
+                        <div className="flex flex-col space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium text-gray-700">
+                                설문 {index + 1}
+                              </span>
+                            </div>
+                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full flex-shrink-0">
+                              {survey.totalSent}개 발송
                             </span>
                           </div>
-                          <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                            {survey.totalSent}개 발송
-                          </span>
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-mono text-gray-600 break-all">
+                                {survey.surveyId}
+                              </div>
+                            </div>
+                            <span className="text-gray-500 ml-2 flex-shrink-0">
+                              {new Date(survey.sentAt).toLocaleDateString('ko-KR')}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}
