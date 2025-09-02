@@ -340,12 +340,14 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         const activeSurvey = list.find(s => s.isActive) || list[0];
         if (activeSurvey) {
           setGeneratedSurveyId(activeSurvey.id);
-          setSurveyResult({
+          const newSurveyResult = {
             survey_id: activeSurvey.id,
             content_hash: activeSurvey.contentHash,
             created_at: activeSurvey.timestamp,
             is_active: true,
-          });
+          };
+          setSurveyResult(newSurveyResult);
+          localStorage.setItem('surveyResult', JSON.stringify(newSurveyResult));
         }
         
         alert('❌ 설문은 회사별 최대 3개까지만 생성할 수 있습니다.\n\n이전에 생성한 설문을 삭제한 후 다시 시도해주세요.');
@@ -359,12 +361,14 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         if (same) {
           // 재사용: 활성으로 승격하고 UI 반영
           setGeneratedSurveyId(same.id);
-          setSurveyResult({
+          const newSurveyResult = {
             survey_id: same.id,
             content_hash: same.contentHash,
             created_at: same.timestamp,
             is_active: true,
-          });
+          };
+          setSurveyResult(newSurveyResult);
+          localStorage.setItem('surveyResult', JSON.stringify(newSurveyResult));
           setActiveSurvey(companyId, same.id);
 
           const surveyLink = `${window.location.origin}/survey?id=${same.id}`;
@@ -437,12 +441,16 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
 
       // 화면 상태 업데이트
       setGeneratedSurveyId(surveyId);
-      setSurveyResult({
+      const newSurveyResult = {
         survey_id: surveyId,
         content_hash: surveyResponse.content_hash,
         created_at: new Date().toISOString(),
         is_active: true,
-      });
+      };
+      setSurveyResult(newSurveyResult);
+      
+      // localStorage에 저장하여 page.tsx에서 사용할 수 있도록 함
+      localStorage.setItem('surveyResult', JSON.stringify(newSurveyResult));
 
       // (호환) 단건 키 저장
       localStorage.setItem(

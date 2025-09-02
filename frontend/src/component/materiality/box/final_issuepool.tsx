@@ -152,9 +152,9 @@ const FinalIssuepool: React.FC = () => {
   const [showDebug, setShowDebug] = useState(false);
   const [isDataHidden, setIsDataHidden] = useState(true);
 
-  // γ(미디어 가중) 0.4로 고정
+  // γ(미디어 가중) 0.4로 고정, α(Outside-in 비중) 0.5로 고정
   useEffect(() => {
-    setParams({ gammaMedia: 0.4 });
+    setParams({ gammaMedia: 0.4, alphaOutsideIn: 0.5 });
   }, [setParams]);
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
@@ -268,9 +268,7 @@ const FinalIssuepool: React.FC = () => {
   };
 
   const handleParamChange = (param: string, value: number) => {
-    if (param === "alphaOutsideIn") {
-      setParams({ alphaOutsideIn: value });
-    } else if (param === "topN") {
+    if (param === "topN") {
       setParams({ topN: Math.max(1, Math.min(50, value)) });
     }
   };
@@ -317,24 +315,7 @@ const FinalIssuepool: React.FC = () => {
       {/* Parameters Control */}
       <div className="bg-blue-50 rounded-lg p-4 mb-6">
         <h3 className="text-lg font-semibold text-blue-800 mb-4">⚙️ 계산 파라미터</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Outside-in 비중 (α): {alphaOutsideIn.toFixed(2)}
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={alphaOutsideIn}
-              onChange={(e) => handleParamChange("alphaOutsideIn", parseFloat(e.target.value))}
-              className="w-full"
-            />
-          </div>
-
-          {/* γ(미디어 가중치) 슬라이더는 제거. 고정 0.4 */}
-
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               상위 N개: {topN}
@@ -348,6 +329,10 @@ const FinalIssuepool: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
+        </div>
+        <div className="mt-3 text-sm text-gray-600">
+          <p>• Outside-in 비중 (α): 0.5 (고정)</p>
+          <p>• 미디어 가중치 (γ): 0.4 (고정)</p>
         </div>
       </div>
 

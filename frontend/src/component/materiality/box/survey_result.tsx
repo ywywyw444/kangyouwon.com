@@ -49,12 +49,17 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
           setLoading(true);
         }
 
+        console.log('🔍 백엔드 응답 데이터 로드 시작:', surveyResult.survey_id);
+
         // 먼저 설문 정보를 가져와서 content_hash 확인
         const surveyResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}`);
         if (!isSubscribed) return; // 컴포넌트가 언마운트되었다면 중단
 
+        console.log('🔍 설문 정보 응답:', surveyResponse.status);
+
         if (surveyResponse.ok) {
           const surveyData = await surveyResponse.json();
+          console.log('🔍 설문 데이터:', surveyData);
           const contentHash = surveyData.content_hash;
           
           let newResponses = [];
@@ -63,18 +68,22 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
             const responsesResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses?content_hash=${contentHash}`);
             if (!isSubscribed) return;
 
+            console.log('🔍 응답 데이터 응답 (content_hash):', responsesResponse.status);
             if (responsesResponse.ok) {
               const data = await responsesResponse.json();
               newResponses = data.responses || [];
+              console.log('🔍 응답 데이터 (content_hash):', newResponses);
             }
           } else {
             // content_hash가 없으면 기존 방식으로 단일 설문 응답만 가져오기
             const response = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses`);
             if (!isSubscribed) return;
 
+            console.log('🔍 응답 데이터 응답 (단일):', response.status);
             if (response.ok) {
               const data = await response.json();
               newResponses = data.responses || [];
+              console.log('🔍 응답 데이터 (단일):', newResponses);
             }
           }
 
@@ -84,9 +93,11 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
             console.log(`📊 설문 응답 업데이트: ${newResponses.length}개 (${newResponses.length - previousResponseCount}개 증가)`);
             previousResponseCount = newResponses.length;
           }
+        } else {
+          console.error('❌ 설문 정보 조회 실패:', surveyResponse.status, surveyResponse.statusText);
         }
       } catch (error) {
-        console.error('백엔드 응답 데이터 로드 실패:', error);
+        console.error('❌ 백엔드 응답 데이터 로드 실패:', error);
       } finally {
         setLoading(false);
       }
@@ -103,7 +114,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       isSubscribed = false;
       clearInterval(intervalId);
     };
-  }, [surveyResult?.survey_id, backendResponses.length]);
+  }, [surveyResult?.survey_id]);
 
   // 설문 결과 통계 계산 (선택된 설문의 응답만 사용)
   const calculateSurveyStats = () => {
@@ -113,13 +124,30 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     // 선택된 설문 ID 확인
     const selectedSurveyId = localStorage.getItem('selectedSurveyId');
     
+    console.log('🔍 통계 계산 시작:', {
+      selectedSurveyId,
+      backendResponsesLength: backendResponses.length,
+      surveyResultResponses: surveyResult?.responses?.length || 0,
+      surveyResult: surveyResult
+    });
+    
     // 선택된 설문의 응답만 필터링
     const filteredResponses = backendResponses.filter(response => 
       response.survey_id === selectedSurveyId
     );
     
     const responses = filteredResponses.length > 0 ? filteredResponses : (surveyResult?.responses || []);
-    if (!responses || responses.length === 0) return null;
+    
+    console.log('🔍 응답 데이터:', {
+      filteredResponsesLength: filteredResponses.length,
+      responsesLength: responses.length,
+      responses: responses
+    });
+    
+    if (!responses || responses.length === 0) {
+      console.log('⚠️ 응답 데이터가 없습니다.');
+      return null;
+    }
 
     // 디버깅을 위한 로그
     console.log('🔍 설문 결과 통계 계산 시작:', {
@@ -227,6 +255,16 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
   };
 
   const stats = calculateSurveyStats();
+
+  // 디버깅을 위한 로그 추가
+  React.useEffect(() => {
+    console.log('🔍 SurveyResult 디버깅 정보:', {
+      surveyResult: surveyResult,
+      backendResponses: backendResponses,
+      stats: stats,
+      excelData: excelData
+    });
+  }, [surveyResult, backendResponses, stats, excelData]);
 
   // 사용자 활동을 표시하는 함수
   const markUserActivity = () => {

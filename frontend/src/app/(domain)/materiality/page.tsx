@@ -189,20 +189,30 @@ export default function MaterialityHomePage() {
     loadSurveyUploadData();
   }, []); // loadSurveyUploadData는 Zustand store에서 가져오므로 의존성 배열에서 제외
 
-  // 페이지 로드 시 설문 결과 데이터 로드
+  // 설문 결과 데이터 로드 및 업데이트
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    const loadSurveyResult = () => {
+      if (typeof window === 'undefined') return;
 
-    try {
-      const savedSurveyResult = localStorage.getItem('surveyResult');
-      if (savedSurveyResult) {
-        const parsedResult = JSON.parse(savedSurveyResult);
-        setSurveyResult(parsedResult);
-        console.log('✅ 설문 결과 데이터 로드 완료:', parsedResult);
+      try {
+        const savedSurveyResult = localStorage.getItem('surveyResult');
+        if (savedSurveyResult) {
+          const parsedResult = JSON.parse(savedSurveyResult);
+          setSurveyResult(parsedResult);
+          console.log('✅ 설문 결과 데이터 로드 완료:', parsedResult);
+        }
+      } catch (error) {
+        console.error('❌ 설문 결과 데이터 로드 실패:', error);
       }
-    } catch (error) {
-      console.error('❌ 설문 결과 데이터 로드 실패:', error);
-    }
+    };
+
+    // 초기 로드
+    loadSurveyResult();
+
+    // localStorage 변경 감지를 위한 주기적 체크 (1초마다)
+    const intervalId = setInterval(loadSurveyResult, 1000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   // 기업 목록 가져오기
