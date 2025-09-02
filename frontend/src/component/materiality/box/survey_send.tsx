@@ -68,14 +68,19 @@ const markActiveSurvey = (companyId: string, activeId: string) => {
 };
 
 const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelData, surveyResult }) => {
-  const [sendMethod, setSendMethod] = useState('email');
-  const [sendSchedule, setSendSchedule] = useState('immediate');
   const [deadline, setDeadline] = useState('');
 
   const [surveyUrl, setSurveyUrl] = useState('');
   const [selectedSurveyId, setSelectedSurveyId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sendStatus, setSendStatus] = useState({ total: 0, sent: 0, responded: 0, responseRate: 0 });
+  const [sentSurveys, setSentSurveys] = useState<Array<{
+    surveyId: string;
+    sentAt: string;
+    sentEmails: string[];
+    totalSent: number;
+  }>>([]);
+  const [customEmailBody, setCustomEmailBody] = useState('');
 
   // 유효 이메일 계산
   const validEmails = useMemo(
@@ -90,6 +95,34 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
   useEffect(() => {
     setSendStatus((p) => ({ ...p, total: validEmails.length }));
   }, [validEmails]);
+
+  // 발송된 설문 정보 로드
+  useEffect(() => {
+      if (typeof window === 'undefined') return;
+
+    const loadSentSurveys = () => {
+      try {
+        const sentSurveyInfo = localStorage.getItem('sentSurveyInfo');
+        if (sentSurveyInfo) {
+          const parsed = JSON.parse(sentSurveyInfo);
+          const existingSurvey = sentSurveys.find(s => s.surveyId === parsed.surveyId);
+          
+          if (!existingSurvey) {
+            setSentSurveys(prev => [...prev, {
+              surveyId: parsed.surveyId,
+              sentAt: parsed.sentAt,
+              sentEmails: parsed.sentEmails || [],
+              totalSent: parsed.sentEmails?.length || 0
+            }]);
+          }
+        }
+      } catch (error) {
+        console.error('발송된 설문 정보 로드 실패:', error);
+      }
+    };
+    
+    loadSentSurveys();
+  }, [sentSurveys]);
 
   // 초기 복원: 회사별 selectedSurveyId → 없으면 리스트/단건 → 마지막으로 전역키 fallback
   useEffect(() => {
@@ -148,6 +181,12 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     return () => clearInterval(id);
   }, [companyId, selectedSurveyId, surveyUrl]);
 
+  // 발송 상태 계산 (sentSurveys 기반)
+  useEffect(() => {
+    const totalSent = sentSurveys.reduce((sum, survey) => sum + survey.totalSent, 0);
+    setSendStatus((p) => ({ ...p, sent: totalSent }));
+  }, [sentSurveys]);
+
   // 응답률 계산
   useEffect(() => {
     const responseRate =
@@ -184,18 +223,14 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     return `[${companyName}] 중대성 평가 설문`;
   }, [companyName]);
 
-  // 메일 본문 템플릿(개인화된 형태)
-  const emailBodyPreview = useMemo(() => {
+  // 기본 메일 본문 템플릿 생성
+  const generateDefaultEmailBody = useMemo(() => {
     const deadlineText = deadline
       ? new Date(deadline).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
       : '미정';
     
-    // 첫 번째 유효한 이메일의 이름을 사용하여 미리보기 생성
-    const firstRecipient = validEmails.length > 0 ? excelData.find(row => row.email === validEmails[0]) : null;
-    const previewName = firstRecipient?.name || '담당자';
-    
     return [
-      `${previewName}님께,`,
+      '{이름}님께,',
       '',
       '안녕하세요. ESG 중대성 평가 설문에 참여 부탁드립니다.',
       '',
@@ -205,7 +240,24 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       '※ 같은 이메일 주소로는 1회만 응답 가능합니다.',
       '바쁘시겠지만 소중한 의견 부탁드립니다. 감사합니다.',
     ].join('\n');
-  }, [deadline, surveyUrl, validEmails, excelData]);
+  }, [deadline, surveyUrl]);
+
+  // 사용자 정의 메일 본문 초기화
+  useEffect(() => {
+    if (!customEmailBody && generateDefaultEmailBody) {
+      setCustomEmailBody(generateDefaultEmailBody);
+    }
+  }, [generateDefaultEmailBody, customEmailBody]);
+
+  // 메일 본문 미리보기 (첫 번째 수신자 기준)
+  const emailBodyPreview = useMemo(() => {
+    if (!customEmailBody || validEmails.length === 0) return '';
+    
+    const firstRecipient = excelData.find(row => row.email === validEmails[0]);
+    const previewName = firstRecipient?.name || '담당자';
+    
+    return customEmailBody.replace('{이름}', previewName);
+  }, [customEmailBody, validEmails, excelData]);
 
   const isSendReady = !!surveyUrl && validEmails.length > 0;
 
@@ -217,11 +269,11 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     }
     setIsLoading(true);
     try {
-      // 개인화된 메일 본문 생성
+      // 개인화된 메일 본문 생성 (사용자 정의 본문 사용)
       const personalizedEmails = validEmails.map(email => {
         const recipient = excelData.find(row => row.email === email);
         const recipientName = recipient?.name || '담당자';
-        const personalizedBody = emailBodyPreview.replace('{이름}', recipientName);
+        const personalizedBody = customEmailBody.replace('{이름}', recipientName);
         
         return {
           email: email,
@@ -253,8 +305,6 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       const result = await resp.json();
       if (!result.success) throw new Error(result.message || '이메일 발송에 실패했습니다.');
 
-      setSendStatus((p) => ({ ...p, sent: validEmails.length }));
-      
       // 현재 활성 설문 ID 가져오기 (여러 소스에서 확인)
       let currentSurveyId = selectedSurveyId;
       
@@ -289,6 +339,31 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       };
       localStorage.setItem('sentSurveyInfo', JSON.stringify(sentSurveyInfo));
       console.log('💾 발송된 설문 정보 저장 (현재 활성 설문):', sentSurveyInfo);
+      
+      // 발송된 설문 정보를 상태에 추가 (누적 관리)
+      setSentSurveys(prev => {
+        const existingIndex = prev.findIndex(s => s.surveyId === currentSurveyId);
+        if (existingIndex >= 0) {
+          // 기존 설문이 있으면 이메일 목록 업데이트
+          const updated = [...prev];
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            sentEmails: [...new Set([...updated[existingIndex].sentEmails, ...validEmails])], // 중복 제거
+            totalSent: [...new Set([...updated[existingIndex].sentEmails, ...validEmails])].length
+          };
+          return updated;
+        } else {
+          // 새로운 설문 추가
+          return [...prev, {
+            surveyId: currentSurveyId,
+            sentAt: sentSurveyInfo.sentAt,
+            sentEmails: validEmails,
+            totalSent: validEmails.length
+          }];
+        }
+      });
+      
+      // 발송 상태는 useEffect에서 sentSurveys 기반으로 자동 업데이트됨
       
       // 설문 발송 완료 이벤트 발생
       const surveySentEvent = new CustomEvent('surveySent', {
@@ -426,33 +501,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
               <div className="space-y-3">
 
 
-                <div className="grid sm:grid-cols-2 gap-3">
-                <div>
-                    <label className="block text-sm font-semibold text-gray-800 mb-1">발송 방식</label>
-                  <select 
-                    value={sendMethod}
-                    onChange={(e) => setSendMethod(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                  >
-                    <option value="email">이메일 발송</option>
-                    <option value="sms">SMS 발송</option>
-                    <option value="link">링크 공유</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 mb-1">발송 일정</label>
-                  <select 
-                    value={sendSchedule}
-                    onChange={(e) => setSendSchedule(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                  >
-                    <option value="immediate">즉시 발송</option>
-                    <option value="scheduled">예약 발송</option>
-                    <option value="staged">단계별 발송</option>
-                  </select>
-                  </div>
-                </div>
+
                 
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-1">응답 마감일</label>
@@ -517,27 +566,67 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                   </div>
                 </div>
 
-                {/* 메일 본문 미리보기 */}
+                {/* 메일 본문 편집 및 미리보기 */}
                 <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
-                  <label className="block text-sm font-bold text-amber-900 mb-1">✉️ 메일 본문 미리보기</label>
+                  <label className="block text-sm font-bold text-amber-900 mb-1">✉️ 메일 본문 편집</label>
                   <div className="text-sm font-medium text-amber-800 mb-2">
-                    {validEmails.length > 0 
-                      ? `첫 번째 수신자(${excelData.find(row => row.email === validEmails[0])?.name || '담당자'}) 기준 미리보기입니다. 실제 발송 시에는 각 수신자별로 개인화됩니다.`
-                      : '수신자 목록이 없어 미리보기를 표시할 수 없습니다.'
-                    }
+                    메일 본문을 수정할 수 있습니다. {`{이름}`}은 각 수신자 이름으로 자동 치환됩니다.
                   </div>
-                  <textarea readOnly value={emailBodyPreview} className="w-full h-40 text-sm font-medium text-gray-900 bg-white border-2 border-amber-300 rounded p-3 leading-relaxed" />
+                  <textarea 
+                    value={customEmailBody}
+                    onChange={(e) => setCustomEmailBody(e.target.value)}
+                    className="w-full h-40 text-sm font-medium text-gray-900 bg-white border-2 border-amber-300 rounded p-3 leading-relaxed resize-y"
+                    placeholder="메일 본문을 입력하세요..."
+                  />
+                  
+                  {/* 미리보기 섹션 */}
+                  {validEmails.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-amber-300">
+                      <div className="text-sm font-medium text-amber-800 mb-2">
+                        📋 미리보기 (첫 번째 수신자: {excelData.find(row => row.email === validEmails[0])?.name || '담당자'})
+                      </div>
+                      <div className="bg-white border border-amber-300 rounded p-3 text-sm text-gray-700 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                        {emailBodyPreview}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
             
-            {/* 현황 카드 */}
+                        {/* 현황 카드 */}
             <div className="bg-white rounded-lg p-4 border border-green-200">
               <h4 className="font-medium text-gray-800 mb-2">📊 발송 현황</h4>
               <div className="text-sm text-gray-600 space-y-1">
                 <p>• 대상 이메일: {sendStatus.total}개</p>
                 <p>• 발송 완료: {sendStatus.sent}개</p>
               </div>
+              
+              {/* 발송된 설문별 누적 현황 */}
+              {sentSurveys.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">📋 발송된 설문별 현황</h5>
+                  <div className="space-y-2">
+                    {sentSurveys.map((survey, index) => (
+                      <div key={survey.surveyId} className="bg-gray-50 rounded p-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-medium text-gray-700">
+                              설문 {index + 1}: {survey.surveyId.substring(0, 8)}...
+                            </span>
+                            <span className="text-gray-500 ml-2">
+                              ({new Date(survey.sentAt).toLocaleDateString('ko-KR')})
+                            </span>
+                          </div>
+                          <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                            {survey.totalSent}개 발송
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+                </div>
+              )}
 
               <div className="mt-3 pt-3 border-t border-gray-200">
                 <div className="text-xs text-gray-500 space-y-1">
@@ -549,7 +638,6 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                     <span className={`w-2 h-2 rounded-full mr-2 ${sendStatus.total > 0 ? 'bg-green-500' : 'bg-red-500'}`} />
                     이메일 목록: {sendStatus.total > 0 ? `${sendStatus.total}개 준비 완료` : '미업로드'}
                   </div>
-
                 </div>
               </div>
             </div>

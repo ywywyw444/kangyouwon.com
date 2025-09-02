@@ -100,89 +100,89 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     // return () => clearInterval(intervalId);
   }, []);
 
-  // 백엔드에서 설문 응답 데이터 로드 (동일한 내용의 설문들 포함)
-  React.useEffect(() => {
-    let isSubscribed = true; // 비동기 작업 취소를 위한 플래그
-    let previousResponseCount = 0; // 이전 응답 수를 저장
+  // 백엔드에서 설문 응답 데이터 로드 (동일한 내용의 설문들 포함) - 전체 주석처리
+  // React.useEffect(() => {
+  //   let isSubscribed = true; // 비동기 작업 취소를 위한 플래그
+  //   let previousResponseCount = 0; // 이전 응답 수를 저장
 
-    const loadBackendResponses = async () => {
-      if (!surveyResult?.survey_id) {
-        console.log('⚠️ 설문 ID가 없어 응답 데이터를 불러올 수 없습니다.');
-        return;
-      }
+  //   const loadBackendResponses = async () => {
+  //     if (!surveyResult?.survey_id) {
+  //       console.log('⚠️ 설문 ID가 없어 응답 데이터를 불러올 수 없습니다.');
+  //       return;
+  //     }
 
-      try {
-        // 첫 로드 시에만 로딩 표시
-        if (backendResponses.length === 0) {
-          setLoading(true);
-        }
+  //     try {
+  //       // 첫 로드 시에만 로딩 표시
+  //       if (backendResponses.length === 0) {
+  //         setLoading(true);
+  //       }
 
-        console.log('🔍 백엔드 응답 데이터 로드 시작:', surveyResult.survey_id);
+  //       console.log('🔍 백엔드 응답 데이터 로드 시작:', surveyResult.survey_id);
 
-        // 먼저 설문 정보를 가져와서 content_hash 확인
-        const surveyResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}`);
-        if (!isSubscribed) return; // 컴포넌트가 언마운트되었다면 중단
+  //       // 먼저 설문 정보를 가져와서 content_hash 확인
+  //       const surveyResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}`);
+  //       if (!isSubscribed) return; // 컴포넌트가 언마운트되었다면 중단
 
-        console.log('🔍 설문 정보 응답:', surveyResponse.status);
+  //       console.log('🔍 설문 정보 응답:', surveyResponse.status);
 
-        if (surveyResponse.ok) {
-          const surveyData = await surveyResponse.json();
-          console.log('🔍 설문 데이터:', surveyData);
-          const contentHash = surveyData.content_hash;
+  //       if (surveyResponse.ok) {
+  //         const surveyData = await surveyResponse.json();
+  //         console.log('🔍 설문 데이터:', surveyData);
+  //         const contentHash = surveyData.content_hash;
           
-          let newResponses = [];
-          if (contentHash) {
-            // 동일한 내용 해시를 가진 설문들의 모든 응답을 가져오기
-            const responsesResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses?content_hash=${contentHash}`);
-            if (!isSubscribed) return;
+  //         let newResponses = [];
+  //         if (contentHash) {
+  //           // 동일한 내용 해시를 가진 설문들의 모든 응답을 가져오기
+  //           const responsesResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses?content_hash=${contentHash}`);
+  //           if (!isSubscribed) return;
 
-            console.log('🔍 응답 데이터 응답 (content_hash):', responsesResponse.status);
-            if (responsesResponse.ok) {
-              const data = await responsesResponse.json();
-              newResponses = data.responses || [];
-              console.log('🔍 응답 데이터 (content_hash):', newResponses);
-            }
-          } else {
-            // content_hash가 없으면 기존 방식으로 단일 설문 응답만 가져오기
-            const response = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses`);
-            if (!isSubscribed) return;
+  //           console.log('🔍 응답 데이터 응답 (content_hash):', responsesResponse.status);
+  //           if (responsesResponse.ok) {
+  //             const data = await responsesResponse.json();
+  //             newResponses = data.responses || [];
+  //             console.log('🔍 응답 데이터 (content_hash):', newResponses);
+  //           }
+  //         } else {
+  //           // content_hash가 없으면 기존 방식으로 단일 설문 응답만 가져오기
+  //           const response = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses`);
+  //           if (!isSubscribed) return;
 
-            console.log('🔍 응답 데이터 응답 (단일):', response.status);
-            if (response.ok) {
-              const data = await response.json();
-              newResponses = data.responses || [];
-              console.log('🔍 응답 데이터 (단일):', newResponses);
-            }
-          }
+  //           console.log('🔍 응답 데이터 응답 (단일):', response.status);
+  //           if (response.ok) {
+  //             const data = await response.json();
+  //             newResponses = data.responses || [];
+  //             console.log('🔍 응답 데이터 (단일):', newResponses);
+  //           }
+  //         }
 
-          // 새로운 응답이 있을 때만 상태 업데이트 및 로그 출력
-          if (newResponses.length !== previousResponseCount) {
-            setBackendResponses(newResponses);
-            console.log(`📊 설문 응답 업데이트: ${newResponses.length}개 (${newResponses.length - previousResponseCount}개 증가)`);
-            previousResponseCount = newResponses.length;
-          }
-        } else {
-          console.error('❌ 설문 정보 조회 실패:', surveyResponse.status, surveyResponse.statusText);
-        }
-      } catch (error) {
-        console.error('❌ 백엔드 응답 데이터 로드 실패:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  //         // 새로운 응답이 있을 때만 상태 업데이트 및 로그 출력
+  //         if (newResponses.length !== previousResponseCount) {
+  //           setBackendResponses(newResponses);
+  //           console.log(`📊 설문 응답 업데이트: ${newResponses.length}개 (${newResponses.length - previousResponseCount}개 증가)`);
+  //           previousResponseCount = newResponses.length;
+  //         }
+  //       } else {
+  //         console.error('❌ 설문 정보 조회 실패:', surveyResponse.status, surveyResponse.statusText);
+  //       }
+  //     } catch (error) {
+  //       console.error('❌ 백엔드 응답 데이터 로드 실패:', error);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
 
-    // 초기 로드 - 주석처리 (수동으로 버튼을 눌러서 로드)
-    // loadBackendResponses();
+  //   // 초기 로드 - 주석처리 (수동으로 버튼을 눌러서 로드)
+  //   // loadBackendResponses();
 
-    // 주기적으로 새로운 응답 확인 (30초마다) - 주석처리
-    // const intervalId = setInterval(loadBackendResponses, 30000);
+  //   // 주기적으로 새로운 응답 확인 (30초마다) - 주석처리
+  //   // const intervalId = setInterval(loadBackendResponses, 30000);
 
-    // 컴포넌트 언마운트 시 정리
-    return () => {
-      isSubscribed = false;
-      // clearInterval(intervalId);
-    };
-  }, [surveyResult?.survey_id]);
+  //   // 컴포넌트 언마운트 시 정리
+  //   return () => {
+  //     isSubscribed = false;
+  //     // clearInterval(intervalId);
+  //   };
+  // }, [surveyResult?.survey_id]);
 
   // 설문 결과 통계 계산 (발송된 설문의 응답만 사용)
   const calculateSurveyStats = () => {
@@ -199,13 +199,20 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       sentSurveyInfo,
       backendResponsesLength: backendResponses.length,
       surveyResultResponses: surveyResult?.responses?.length || 0,
-      surveyResult: surveyResult
+      surveyResult: surveyResult,
+      allBackendResponses: backendResponses
     });
     
     // 발송된 설문의 응답만 필터링 (발송된 설문이 없으면 전체 응답 사용)
     const filteredResponses = sentSurveyId 
       ? backendResponses.filter(response => response.survey_id === sentSurveyId)
       : backendResponses;
+    
+    console.log('🔍 필터링된 응답:', {
+      sentSurveyId,
+      filteredResponsesLength: filteredResponses.length,
+      filteredResponses: filteredResponses
+    });
     
     const responses = filteredResponses.length > 0 ? filteredResponses : (surveyResult?.responses || []);
     
@@ -351,17 +358,24 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
 
   // 설문 응답 데이터 수동 로드 함수
   const loadSurveyResponses = async () => {
-    if (!surveyResult?.survey_id) {
+    // 발송된 설문 ID를 우선적으로 사용
+    const targetSurveyId = sentSurveyInfo?.surveyId || surveyResult?.survey_id;
+    
+    if (!targetSurveyId) {
       alert('❌ 설문 ID가 없습니다.');
       return;
     }
     
     try {
       setLoading(true);
-      console.log('🔍 설문 응답 데이터 수동 로드 시작:', surveyResult.survey_id);
+      console.log('🔍 설문 응답 데이터 수동 로드 시작:', {
+        targetSurveyId,
+        sentSurveyId: sentSurveyInfo?.surveyId,
+        surveyResultId: surveyResult?.survey_id
+      });
 
       // 먼저 설문 정보를 가져와서 content_hash 확인
-      const surveyResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}`);
+      const surveyResponse = await fetch(`/api/v1/materiality-service/surveys/${targetSurveyId}`);
       if (!surveyResponse.ok) {
         throw new Error(`설문 정보 조회 실패: ${surveyResponse.status}`);
       }
@@ -373,7 +387,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       let newResponses = [];
       if (contentHash) {
         // 동일한 내용 해시를 가진 설문들의 모든 응답을 가져오기
-        const responsesResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses?content_hash=${contentHash}`);
+        const responsesResponse = await fetch(`/api/v1/materiality-service/surveys/${targetSurveyId}/responses?content_hash=${contentHash}`);
         if (responsesResponse.ok) {
           const data = await responsesResponse.json();
           newResponses = data.responses || [];
@@ -381,7 +395,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
         }
       } else {
         // content_hash가 없으면 기존 방식으로 단일 설문 응답만 가져오기
-        const response = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses`);
+        const response = await fetch(`/api/v1/materiality-service/surveys/${targetSurveyId}/responses`);
         if (response.ok) {
           const data = await response.json();
           newResponses = data.responses || [];
