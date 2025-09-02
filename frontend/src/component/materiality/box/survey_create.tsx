@@ -700,36 +700,63 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
                             <button
                               onClick={async () => {
                                 if (!confirm('이 설문을 삭제하시겠습니까?\n연결된 응답 데이터도 함께 삭제됩니다.')) return;
-                                try {
-                                  const resp = await fetch(`/api/v1/materiality-service/surveys/${survey.id}`, {
-                                    method: 'DELETE',
-                                  });
-                                  if (resp.ok) {
-                                    // 리스트에서 제거
-                                    let listNow = getSurveyList(companyId).filter((s) => s.id !== survey.id);
-                                    // 삭제한 항목이 활성 설문이었으면, 남아있는 첫 항목을 활성으로
-                                    if (!listNow.some((s) => s.isActive) && listNow[0]) {
-                                      listNow[0].isActive = true;
-                                    }
-                                    saveSurveyList(companyId, listNow);
+                                
+                                // 시뮬레이션된 설문인지 확인 (survey_001, survey_002, survey_003)
+                                const isSimulatedSurvey = survey.id.startsWith('survey_00');
+                                
+                                if (isSimulatedSurvey) {
+                                  // 시뮬레이션된 설문은 로컬에서만 삭제
+                                  let listNow = getSurveyList(companyId).filter((s) => s.id !== survey.id);
+                                  // 삭제한 항목이 활성 설문이었으면, 남아있는 첫 항목을 활성으로
+                                  if (!listNow.some((s) => s.isActive) && listNow[0]) {
+                                    listNow[0].isActive = true;
+                                  }
+                                  saveSurveyList(companyId, listNow);
 
-                                    // (호환) 단건 키가 해당 설문을 가리키면 제거
-                                    const single = localStorage.getItem(`surveyData_${companyId}`);
-                                    if (single) {
-                                      const data = JSON.parse(single);
-                                      if (data?.surveyId === survey.id) {
-                                        localStorage.removeItem(`surveyData_${companyId}`);
+                                  // (호환) 단건 키가 해당 설문을 가리키면 제거
+                                  const single = localStorage.getItem(`surveyData_${companyId}`);
+                                  if (single) {
+                                    const data = JSON.parse(single);
+                                    if (data?.surveyId === survey.id) {
+                                      localStorage.removeItem(`surveyData_${companyId}`);
+                                    }
+                                  }
+
+                                  alert('✅ 시뮬레이션 설문이 삭제되었습니다.');
+                                  window.location.reload();
+                                } else {
+                                  // 실제 설문은 백엔드에서 삭제
+                                  try {
+                                    const resp = await fetch(`/api/v1/materiality-service/surveys/${survey.id}`, {
+                                      method: 'DELETE',
+                                    });
+                                    if (resp.ok) {
+                                      // 리스트에서 제거
+                                      let listNow = getSurveyList(companyId).filter((s) => s.id !== survey.id);
+                                      // 삭제한 항목이 활성 설문이었으면, 남아있는 첫 항목을 활성으로
+                                      if (!listNow.some((s) => s.isActive) && listNow[0]) {
+                                        listNow[0].isActive = true;
                                       }
-                                    }
+                                      saveSurveyList(companyId, listNow);
 
-                                    alert('✅ 설문이 삭제되었습니다.');
-                                    window.location.reload();
-                                  } else {
+                                      // (호환) 단건 키가 해당 설문을 가리키면 제거
+                                      const single = localStorage.getItem(`surveyData_${companyId}`);
+                                      if (single) {
+                                        const data = JSON.parse(single);
+                                        if (data?.surveyId === survey.id) {
+                                          localStorage.removeItem(`surveyData_${companyId}`);
+                                        }
+                                      }
+
+                                      alert('✅ 설문이 삭제되었습니다.');
+                                      window.location.reload();
+                                    } else {
+                                      alert('❌ 설문 삭제 중 오류가 발생했습니다.');
+                                    }
+                                  } catch (e) {
+                                    console.error(e);
                                     alert('❌ 설문 삭제 중 오류가 발생했습니다.');
                                   }
-                                } catch (e) {
-                                  console.error(e);
-                                  alert('❌ 설문 삭제 중 오류가 발생했습니다.');
                                 }
                               }}
                               className="text-xs text-red-600 hover:text-red-800"
