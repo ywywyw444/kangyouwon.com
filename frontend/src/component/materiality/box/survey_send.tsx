@@ -57,7 +57,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
   const [sendMethod, setSendMethod] = useState('email');
   const [sendSchedule, setSendSchedule] = useState('immediate');
   const [deadline, setDeadline] = useState('');
-  const [companyName, setCompanyName] = useState('');
+
   const [surveyUrl, setSurveyUrl] = useState('');
   const [selectedSurveyId, setSelectedSurveyId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -140,13 +140,13 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     setSendStatus((p) => ({ ...p, responseRate }));
   }, [sendStatus.responded, sendStatus.total]);
 
-  // 메일 본문 템플릿(선택된 버전 링크 포함)
+  // 메일 본문 템플릿(개인화된 형태)
   const emailBodyPreview = useMemo(() => {
     const deadlineText = deadline
       ? new Date(deadline).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
       : '미정';
     return [
-      `${companyName || '귀사'} 담당자님께,`,
+      '{이름}님께,',
       '',
       '안녕하세요. ESG 중대성 평가 설문에 참여 부탁드립니다.',
       '',
@@ -156,25 +156,37 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       '※ 같은 이메일 주소로는 1회만 응답 가능합니다.',
       '바쁘시겠지만 소중한 의견 부탁드립니다. 감사합니다.',
     ].join('\n');
-  }, [companyName, deadline, surveyUrl]);
+  }, [deadline, surveyUrl]);
 
-  const isSendReady = !!surveyUrl && companyName.trim().length > 0 && validEmails.length > 0;
+  const isSendReady = !!surveyUrl && validEmails.length > 0;
 
   // 이메일 발송
   const handleSendEmails = async () => {
     if (!isSendReady) {
-      alert('❌ 발송 조건이 충족되지 않았습니다.\n\n설문 링크/회사명/대상 이메일을 확인하세요.');
+      alert('❌ 발송 조건이 충족되지 않았습니다.\n\n설문 링크/대상 이메일을 확인하세요.');
       return;
     }
     setIsLoading(true);
     try {
+      // 개인화된 메일 본문 생성
+      const personalizedEmails = validEmails.map(email => {
+        const recipient = excelData.find(row => row.email === email);
+        const recipientName = recipient?.name || '담당자';
+        const personalizedBody = emailBodyPreview.replace('{이름}', recipientName);
+        
+        return {
+          email: email,
+          name: recipientName,
+          body: personalizedBody
+        };
+      });
+
       const payload = {
         to_emails: validEmails,
         survey_url: surveyUrl,      // ✅ 선택된 버전 링크
-        company_name: companyName,
         survey_title: '중대성 평가 설문',
         deadline: deadline || null,
-        body_text: emailBodyPreview,
+        personalized_emails: personalizedEmails,  // 개인화된 이메일 데이터
         company_id: companyId,      // (선택) 서버 로깅/템플릿 분기용
       };
 
@@ -344,16 +356,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
             <div className="bg-white rounded-lg p-4 border border-green-200">
               <h4 className="font-medium text-gray-800 mb-2">📧 발송 설정</h4>
               <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">회사명</label>
-                  <input
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="회사명을 입력하세요"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                  />
-                </div>
+
 
                 <div className="grid sm:grid-cols-2 gap-3">
                   <div>
@@ -470,10 +473,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                     <span className={`w-2 h-2 rounded-full mr-2 ${sendStatus.total > 0 ? 'bg-green-500' : 'bg-red-500'}`} />
                     이메일 목록: {sendStatus.total > 0 ? `${sendStatus.total}개 준비 완료` : '미업로드'}
                   </div>
-                  <div className="flex items-center">
-                    <span className={`w-2 h-2 rounded-full mr-2 ${companyName.trim() ? 'bg-green-500' : 'bg-red-500'}`} />
-                    회사명: {companyName.trim() ? '입력 완료' : '미입력'}
-                  </div>
+
                 </div>
               </div>
             </div>
@@ -490,8 +490,8 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                   isLoading
                     ? '발송 중입니다...'
                     : isSendReady
-                    ? '선택된 버전 링크로 이메일을 발송합니다'
-                    : '설문 링크/회사명/이메일 목록을 준비하세요'
+                    ? '선택된 버전 링크로 개인화된 이메일을 발송합니다'
+                    : '설문 링크/이메일 목록을 준비하세요'
                 }
               >
                 {isLoading ? (
@@ -529,7 +529,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
             {/* 준비 체크 표시 */}
             {!isSendReady && (
               <div className="mt-1 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
-                📋 발송 준비 체크: {surveyUrl ? '링크✅ ' : '링크❌ '} / {companyName.trim() ? '회사명✅ ' : '회사명❌ '} /{' '}
+                📋 발송 준비 체크: {surveyUrl ? '링크✅ ' : '링크❌ '} /{' '}
                 {validEmails.length > 0 ? `이메일✅(${validEmails.length})` : '이메일❌'}
               </div>
             )}
