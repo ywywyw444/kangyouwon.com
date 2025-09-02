@@ -513,7 +513,7 @@ export default function SurveyPage() {
                   </h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">이름 *</label>
+                      <label className="block text-sm font-bold text-gray-900 mb-2">이름 *</label>
                       <input
                         type="text"
                         value={participantInfo.name}
@@ -523,7 +523,7 @@ export default function SurveyPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">회사 *</label>
+                      <label className="block text-sm font-bold text-gray-900 mb-2">회사 *</label>
                       <input
                         type="text"
                         value={participantInfo.company}
@@ -533,7 +533,7 @@ export default function SurveyPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">직책 *</label>
+                      <label className="block text-sm font-bold text-gray-900 mb-2">직책 *</label>
                       <input
                         type="text"
                         value={participantInfo.position}
@@ -543,7 +543,7 @@ export default function SurveyPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">이메일 *</label>
+                      <label className="block text-sm font-bold text-gray-900 mb-2">이메일 *</label>
                       <input
                         type="email"
                         value={participantInfo.email}
@@ -552,7 +552,7 @@ export default function SurveyPage() {
                         placeholder="이메일을 입력하세요"
                         required
                       />
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-600 mt-1 font-medium">
                         💡 같은 이메일 주소로는 한 번만 응답할 수 있습니다.
                       </p>
                     </div>

@@ -18,6 +18,28 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     // 브라우저 환경이 아니면 실행하지 않음
     if (typeof window === 'undefined') return;
 
+    // 설문 결과가 있으면 자동으로 표시
+    if (surveyResult && surveyResult.survey_id) {
+      setIsDataHidden(false);
+      console.log('📊 설문 결과 있음: 자동으로 데이터 표시');
+      return;
+    }
+
+    // localStorage에서 설문 결과 확인
+    const surveyResultData = localStorage.getItem('surveyResult');
+    if (surveyResultData) {
+      try {
+        const parsed = JSON.parse(surveyResultData);
+        if (parsed.survey_id || parsed.responses) {
+          setIsDataHidden(false);
+          console.log('📊 localStorage 설문 결과 감지: 자동으로 데이터 표시');
+          return;
+        }
+      } catch (error) {
+        console.error('설문 결과 파싱 실패:', error);
+      }
+    }
+
     // 처음 접속 시에는 데이터를 화면에 표시하지 않음
     const hasUserActivity = localStorage.getItem('hasUserActivity');
     if (!hasUserActivity) {
@@ -31,9 +53,9 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       setIsDataHidden(false);
       console.log('💾 데이터 표시 (사용자 활동 있음)');
     }
-  }, []);
+  }, [surveyResult]);
 
-  // 발송된 설문 정보 로드
+  // 발송된 설문 정보 로드 및 설문 결과 자동 표시
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
     
@@ -49,11 +71,31 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
         }
       }
     };
+
+    // 설문 결과 자동 표시 확인
+    const checkSurveyResult = () => {
+      const surveyResultData = localStorage.getItem('surveyResult');
+      if (surveyResultData) {
+        try {
+          const parsed = JSON.parse(surveyResultData);
+          if (parsed.survey_id || parsed.responses) {
+            setIsDataHidden(false);
+            console.log('📊 설문 결과 감지: 자동으로 데이터 표시');
+          }
+        } catch (error) {
+          console.error('설문 결과 파싱 실패:', error);
+        }
+      }
+    };
     
     loadSentSurveyInfo();
+    checkSurveyResult();
     
-    // 주기적으로 발송된 설문 정보 확인 (5초마다)
-    const intervalId = setInterval(loadSentSurveyInfo, 5000);
+    // 주기적으로 발송된 설문 정보 및 설문 결과 확인 (5초마다)
+    const intervalId = setInterval(() => {
+      loadSentSurveyInfo();
+      checkSurveyResult();
+    }, 5000);
     
     return () => clearInterval(intervalId);
   }, []);
@@ -301,6 +343,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     if (typeof window !== 'undefined') {
       localStorage.setItem('hasUserActivity', 'true');
       setIsDataHidden(false);
+      console.log('✅ 사용자 활동 표시: 설문 결과 불러오기 완료');
     }
   };
 
@@ -347,8 +390,8 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     }
   };
 
-  // 데이터가 숨겨진 상태일 때 표시
-  if (isDataHidden) {
+  // 데이터가 숨겨진 상태일 때 표시 (설문 결과가 없는 경우에만)
+  if (isDataHidden && !surveyResult) {
     return (
       <div id="survey-results" className="bg-white rounded-xl shadow-lg p-6 mb-12">
         <h2 className="text-2xl font-semibold text-gray-800 mb-6">
@@ -400,7 +443,17 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
         <div className="bg-gray-50 rounded-lg p-12 text-center border-2 border-dashed border-gray-300">
           <div className="text-4xl text-gray-300 mb-4">📈</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">설문 결과 확인</h3>
-          <p className="text-gray-500">설문 응답 결과를 확인하고 분석할 수 있는 공간입니다.</p>
+          <p className="text-gray-500 mb-6">설문 응답 결과를 확인하고 분석할 수 있는 공간입니다.</p>
+          
+          <button
+            onClick={markUserActivity}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            설문 결과 불러오기
+          </button>
         </div>
       </div>
     );

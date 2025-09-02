@@ -136,6 +136,7 @@ const markActiveSurvey = (companyId: string, activeId: string) => {
   if (!list.length) return;
   const next = list.map(s => ({ ...s, isActive: s.id === activeId }));
   saveSurveyList(companyId, next);
+  console.log('🔄 활성 설문 변경:', { companyId, activeId, updatedList: next });
 };
 
 // 3개 설문이 생성된 상태를 시뮬레이션하는 함수
@@ -699,7 +700,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
                               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
                                 v{survey.contentHash?.substring(0, 4) || '0000'}
                               </span>
-                              {(survey.isActive || survey.id === generatedSurveyId) && (
+                              {survey.isActive && (
                                 <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">활성</span>
                               )}
                             </div>
@@ -836,7 +837,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
               <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
                 <div className="text-sm text-yellow-900">
                   <p className="font-bold mb-2">📋 설문 참여 안내</p>
-                  <ul className="text-sm space-y-1 text-yellow-800">
+                  <ul className="text-sm space-y-1 text-yellow-900 font-semibold">
                     <li>• 같은 이메일 주소로는 한 번만 응답 가능합니다</li>
                     <li>• 다른 사람이 참여하려면 다른 이메일 주소를 사용해야 합니다</li>
                     <li>• 설문 링크를 공유하여 여러 응답을 받을 수 있습니다</li>
