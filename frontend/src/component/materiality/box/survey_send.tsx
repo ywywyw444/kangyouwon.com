@@ -513,16 +513,29 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
         finalCurrentSurveyId: currentSurveyId
       });
       
-      // 발송된 설문 정보를 localStorage에 저장 (survey_result.tsx에서 사용)
+      // 발송된 설문 정보를 localStorage에 저장 (survey_result.tsx, final_issuepool.tsx에서 사용)
       const sentSurveyInfo = {
         surveyId: currentSurveyId,
         surveyUrl: currentSurveyUrl,
         sentAt: new Date().toISOString(),
         companyId: companyId,
-        sentEmails: validEmails
+        sentEmails: validEmails,
+        totalSent: validEmails.length,
+        totalTargets: validEmails.length // 총 발송 대상자 수
       };
       localStorage.setItem('sentSurveyInfo', JSON.stringify(sentSurveyInfo));
       console.log('💾 발송된 설문 정보 저장 (현재 활성 설문):', sentSurveyInfo);
+      
+      // final_issuepool.tsx용 발송 현황 정보 저장
+      const surveyStatsInfo = {
+        totalTargets: validEmails.length,
+        totalSent: validEmails.length,
+        sentEmails: validEmails,
+        lastSentAt: new Date().toISOString(),
+        companyId: companyId
+      };
+      localStorage.setItem('surveyStatsInfo', JSON.stringify(surveyStatsInfo));
+      console.log('💾 설문 통계 정보 저장 (final_issuepool.tsx용):', surveyStatsInfo);
       
       // 발송된 설문 정보를 상태에 추가 (누적 관리)
       setSentSurveys(prev => {

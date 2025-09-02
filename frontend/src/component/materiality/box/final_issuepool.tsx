@@ -18,7 +18,8 @@ import {
 const SurveyWeightControls: React.FC<{
   baseWeights: BaseWeights;
   onChange: (next: BaseWeights) => void;
-}> = ({ baseWeights, onChange }) => {
+  onResetAll?: () => void;
+}> = ({ baseWeights, onChange, onResetAll }) => {
   const [local, setLocal] = useState<BaseWeights>(baseWeights);
 
   useEffect(() => setLocal(baseWeights), [baseWeights]);
@@ -57,7 +58,7 @@ const SurveyWeightControls: React.FC<{
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-amber-900">🧩 설문 가중치 설정</h3>
         <button
-          onClick={reset}
+          onClick={onResetAll || reset}
           className="text-sm px-3 py-1 rounded bg-white border hover:bg-amber-100"
         >
           기본값으로
@@ -178,6 +179,19 @@ const FinalIssuepool: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [isDataHidden, setIsDataHidden] = useState(true);
+  const [surveyStats, setSurveyStats] = useState<{
+    totalTargets: number;
+    totalSent: number;
+    totalResponded: number;
+    responseRate: number;
+    lastSentAt: string | null;
+  }>({
+    totalTargets: 0,
+    totalSent: 0,
+    totalResponded: 0,
+    responseRate: 0,
+    lastSentAt: null
+  });
 
   // γ(미디어 가중) 0.4로 고정, α(Outside-in 비중) 0.5로 고정
   useEffect(() => {
@@ -192,6 +206,79 @@ const FinalIssuepool: React.FC = () => {
     } else {
       setIsDataHidden(true);
     }
+  }, []);
+
+  // 설문 발송 현황 정보 로드
+  useEffect(() => {
+    const loadSurveyStats = () => {
+      if (typeof window === 'undefined') return;
+      
+      try {
+        // survey_send.tsx에서 저장한 발송 정보 로드
+        const surveyStatsInfo = localStorage.getItem('surveyStatsInfo');
+        const backendResponses = localStorage.getItem('backendSurveyResponses');
+        
+        let totalTargets = 0;
+        let totalSent = 0;
+        let totalResponded = 0;
+        let lastSentAt = null;
+        
+        // 발송 정보 확인
+        if (surveyStatsInfo) {
+          const statsData = JSON.parse(surveyStatsInfo);
+          totalTargets = statsData.totalTargets || 0;
+          totalSent = statsData.totalSent || 0;
+          lastSentAt = statsData.lastSentAt || null;
+          console.log('📊 발송 정보 로드:', statsData);
+        }
+        
+        // 응답 정보 확인 (survey_result.tsx에서 로드한 데이터)
+        if (backendResponses) {
+          const responses = JSON.parse(backendResponses);
+          totalResponded = responses.length || 0;
+          console.log('📊 응답 정보 로드:', { totalResponded, responses });
+        }
+        
+        // 응답률 계산
+        const responseRate = totalTargets > 0 ? Math.round((totalResponded / totalTargets) * 100) : 0;
+        
+        setSurveyStats({
+          totalTargets,
+          totalSent,
+          totalResponded,
+          responseRate,
+          lastSentAt
+        });
+        
+        console.log('📊 설문 통계 업데이트:', {
+          totalTargets,
+          totalSent,
+          totalResponded,
+          responseRate,
+          lastSentAt
+        });
+        
+      } catch (error) {
+        console.error('설문 통계 로드 실패:', error);
+      }
+    };
+    
+    // 초기 로드
+    loadSurveyStats();
+    
+    // storage 이벤트 리스너로 실시간 업데이트
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'surveyStatsInfo' || e.key === 'backendSurveyResponses') {
+        console.log('🔄 설문 통계 정보 변경 감지:', e.key);
+        loadSurveyStats();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   // Load media data from localStorage (사용자 활동이 있는 경우에만)
@@ -286,6 +373,59 @@ const FinalIssuepool: React.FC = () => {
     loadSurveyData();
   }, [setSurveyResponses]);
 
+  // survey_result.tsx에서 로드한 설문 데이터를 실시간으로 동기화
+  useEffect(() => {
+    const syncSurveyData = () => {
+      try {
+        // survey_result.tsx에서 로드한 백엔드 응답 데이터 확인
+        const backendResponses = localStorage.getItem('backendSurveyResponses');
+        if (backendResponses) {
+          const responses = JSON.parse(backendResponses);
+          console.log('🔄 survey_result.tsx에서 로드한 설문 데이터 동기화:', responses.length, '개');
+          
+          if (responses && responses.length > 0) {
+            // Transform to SurveyResponse format
+            const surveyResponses: SurveyResponse[] = responses.map((response: any) => ({
+              respondentId:
+                response.participant?.email || response.participant_id || `respondent_${Date.now()}_${Math.random()}`,
+              group: mapPositionToGroup(response.participant?.position || "기타"),
+              understanding: 3, // Default understanding level
+              answers: (response.responses || []).reduce((acc: any, resp: any) => {
+                acc[resp.category] = {
+                  outsideIn: resp.outsideScore ?? 3,
+                  insideOut: resp.insideScore ?? 3,
+                };
+                return acc;
+              }, {}),
+            }));
+
+            console.log('🔄 동기화된 설문 응답:', surveyResponses);
+            setSurveyResponses(surveyResponses);
+          }
+        }
+      } catch (error) {
+        console.error("Error syncing survey data:", error);
+      }
+    };
+
+    // storage 이벤트 리스너로 survey_result.tsx에서 데이터 로드 시 동기화
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'backendSurveyResponses') {
+        console.log('🔄 survey_result.tsx에서 설문 데이터 로드 감지, 동기화 시작');
+        syncSurveyData();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // 초기 동기화
+    syncSurveyData();
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [setSurveyResponses]);
+
   // 주기적으로 설문 데이터 확인 (5초마다) - 실시간 db연결 해제
   // useEffect(() => {
   //   const intervalId = setInterval(() => {
@@ -350,6 +490,14 @@ const FinalIssuepool: React.FC = () => {
       console.log('📊 미디어 데이터:', mediaRanked);
       console.log('📊 설문 응답 데이터:', surveyResponses);
       
+      // localStorage에서도 설문 데이터 확인
+      const backendResponses = localStorage.getItem('backendSurveyResponses');
+      if (backendResponses) {
+        const responses = JSON.parse(backendResponses);
+        console.log('📊 localStorage 설문 데이터:', responses.length, '개');
+        console.log('📊 localStorage 설문 데이터 상세:', responses);
+      }
+      
       if (!mediaRanked || mediaRanked.length === 0) {
         console.warn('⚠️ 미디어 데이터가 없습니다. 미디어 검색을 먼저 실행해주세요.');
         alert('미디어 데이터가 없습니다. 미디어 검색을 먼저 실행해주세요.');
@@ -358,12 +506,79 @@ const FinalIssuepool: React.FC = () => {
       
       if (!surveyResponses || surveyResponses.length === 0) {
         console.warn('⚠️ 설문 응답 데이터가 없습니다. 설문을 먼저 완료해주세요.');
-        alert('설문 응답 데이터가 없습니다. 설문을 먼저 완료해주세요.');
+        console.log('💡 "설문 결과 확인" 페이지에서 "응답 데이터 로드" 버튼을 먼저 눌러주세요.');
+        alert('설문 응답 데이터가 없습니다.\n\n"설문 결과 확인" 페이지에서 "응답 데이터 로드" 버튼을 먼저 눌러주세요.');
         return;
       }
       
+      // 설문 가중치 상세 정보 출력
+      console.log('📊 설문 가중치 상세 분석:');
+      console.log('  - 세그먼트 비중 (내부/외부):', baseWeights.segmentTotals);
+      console.log('  - 내부 세부 그룹 분배:', baseWeights.base);
+      console.log('  - 정규화된 가중치:', normalizeBaseWeights(baseWeights));
+      
+      // 설문 응답 상세 정보 출력
+      console.log('📊 설문 응답 상세 분석:');
+      surveyResponses.forEach((response, index) => {
+        console.log(`  - 응답자 ${index + 1}:`, {
+          respondentId: response.respondentId,
+          group: response.group,
+          understanding: response.understanding,
+          answersCount: Object.keys(response.answers).length,
+          answers: response.answers
+        });
+      });
+      
       // 계산 실행
       computeAll();
+      
+      // 설문 통계 정보 재로드 (계산 후 최신 응답 데이터 반영)
+      setTimeout(() => {
+        const loadSurveyStats = () => {
+          try {
+            const surveyStatsInfo = localStorage.getItem('surveyStatsInfo');
+            const backendResponses = localStorage.getItem('backendSurveyResponses');
+            
+            let totalTargets = 0;
+            let totalSent = 0;
+            let totalResponded = 0;
+            let lastSentAt = null;
+            
+            if (surveyStatsInfo) {
+              const statsData = JSON.parse(surveyStatsInfo);
+              totalTargets = statsData.totalTargets || 0;
+              totalSent = statsData.totalSent || 0;
+              lastSentAt = statsData.lastSentAt || null;
+            }
+            
+            if (backendResponses) {
+              const responses = JSON.parse(backendResponses);
+              totalResponded = responses.length || 0;
+            }
+            
+            const responseRate = totalTargets > 0 ? Math.round((totalResponded / totalTargets) * 100) : 0;
+            
+            setSurveyStats({
+              totalTargets,
+              totalSent,
+              totalResponded,
+              responseRate,
+              lastSentAt
+            });
+            
+            console.log('📊 계산 후 설문 통계 업데이트:', {
+              totalTargets,
+              totalSent,
+              totalResponded,
+              responseRate
+            });
+          } catch (error) {
+            console.error('계산 후 설문 통계 업데이트 실패:', error);
+          }
+        };
+        
+        loadSurveyStats();
+      }, 50);
       
       // 계산 후 상태 확인
       setTimeout(() => {
@@ -372,6 +587,14 @@ const FinalIssuepool: React.FC = () => {
         console.log('📊 최종 결과:', finalTop);
         console.log('📊 그룹 가중치:', groupWeights);
         console.log('📊 설문 점수:', surveyScores);
+        
+        // 결과 검증
+        if (finalTop && finalTop.length > 0) {
+          console.log('🎉 최종 이슈풀 계산 성공!');
+          console.log('📈 상위 3개 카테고리:', finalTop.slice(0, 3));
+        } else {
+          console.warn('⚠️ 최종 결과가 비어있습니다.');
+        }
       }, 100);
       
     } catch (error) {
@@ -390,11 +613,53 @@ const FinalIssuepool: React.FC = () => {
       
       // topN이 변경되면 기존 결과가 있다면 새로 계산
       if (finalTop && finalTop.length > 0) {
-        console.log('🔄 topN 변경으로 인한 결과 재계산');
+        console.log('🔄 topN 변경으로 인한 자동 재계산');
         setTimeout(() => {
-          computeAll();
+          // 미디어 데이터와 설문 데이터가 모두 있는 경우에만 재계산
+          const { mediaRanked, surveyResponses } = useAssessmentStore.getState();
+          if (mediaRanked && mediaRanked.length > 0 && surveyResponses && surveyResponses.length > 0) {
+            console.log('🔄 topN 변경 자동 재계산 실행');
+            computeAll();
+          } else {
+            console.log('⚠️ topN 변경 자동 재계산 건너뜀 - 데이터 부족');
+          }
         }, 100);
       }
+    }
+  };
+
+  // 모든 파라미터를 기본값으로 리셋하는 함수
+  const resetAllToDefaults = () => {
+    console.log('🔄 모든 파라미터를 기본값으로 리셋');
+    
+    // 모든 파라미터를 한 번에 기본값으로 설정
+    const defaultWeights = normalizeBaseWeights(defaultBaseWeights);
+    setParams({ 
+      topN: 10,                    // 상위 N개: 10
+      baseWeights: defaultWeights, // 설문 가중치 기본값
+      alphaOutsideIn: 0.5,         // α(Outside-in 비중): 0.5
+      gammaMedia: 0.4              // γ(미디어 가중): 0.4
+    });
+    
+    console.log('✅ 모든 파라미터 리셋 완료:', {
+      topN: 10,
+      baseWeights: defaultWeights,
+      alphaOutsideIn: 0.5,
+      gammaMedia: 0.4
+    });
+    
+    // 기존 결과가 있다면 새로 계산
+    if (finalTop && finalTop.length > 0) {
+      console.log('🔄 리셋 후 자동 재계산');
+      setTimeout(() => {
+        const { mediaRanked, surveyResponses } = useAssessmentStore.getState();
+        if (mediaRanked && mediaRanked.length > 0 && surveyResponses && surveyResponses.length > 0) {
+          console.log('🔄 리셋 후 자동 재계산 실행');
+          computeAll();
+        } else {
+          console.log('⚠️ 리셋 후 자동 재계산 건너뜀 - 데이터 부족');
+        }
+      }, 100);
     }
   };
 
@@ -437,6 +702,46 @@ const FinalIssuepool: React.FC = () => {
     <div id="final-issuepool" className="bg-white rounded-xl shadow-lg p-6 mb-12">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">📋 최종 이슈풀 확인하기</h2>
 
+      {/* 설문 발송 현황 */}
+      <div className="bg-green-50 rounded-lg p-4 mb-6 border border-green-200">
+        <h3 className="text-lg font-semibold text-green-800 mb-4">📊 설문 발송 현황</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="text-center bg-white p-3 rounded-lg border border-green-200">
+            <div className="text-xl font-bold text-green-600">{surveyStats.totalTargets}</div>
+            <div className="text-sm text-green-600">총 발송 대상</div>
+          </div>
+          <div className="text-center bg-white p-3 rounded-lg border border-green-200">
+            <div className="text-xl font-bold text-green-600">{surveyStats.totalSent}</div>
+            <div className="text-sm text-green-600">발송 완료</div>
+          </div>
+          <div className="text-center bg-white p-3 rounded-lg border border-green-200">
+            <div className="text-xl font-bold text-green-600">{surveyStats.totalResponded}</div>
+            <div className="text-sm text-green-600">응답 완료</div>
+          </div>
+          <div className="text-center bg-white p-3 rounded-lg border border-green-200">
+            <div className="text-xl font-bold text-green-600">{surveyStats.responseRate}%</div>
+            <div className="text-sm text-green-600">응답률</div>
+          </div>
+        </div>
+        {surveyStats.lastSentAt && (
+          <div className="mt-3 text-xs text-green-700 text-center">
+            마지막 발송: {new Date(surveyStats.lastSentAt).toLocaleString('ko-KR')}
+          </div>
+        )}
+        <div className="mt-3 bg-green-100 p-3 rounded-lg">
+          <div className="flex justify-between text-sm text-green-800 mb-2">
+            <span>응답률</span>
+            <span>{surveyStats.responseRate}%</span>
+          </div>
+          <div className="w-full bg-green-200 rounded-full h-2">
+            <div 
+              className="bg-green-600 h-2 rounded-full transition-all duration-300" 
+              style={{ width: `${surveyStats.responseRate}%` }} 
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Parameters Control */}
       <div className="bg-blue-50 rounded-lg p-4 mb-6">
         <h3 className="text-lg font-semibold text-blue-800 mb-4">⚙️ 계산 파라미터</h3>
@@ -465,15 +770,22 @@ const FinalIssuepool: React.FC = () => {
           console.log('🔄 설문 가중치 변경됨:', next);
           setParams({ baseWeights: next });
           
-          // 가중치가 변경되면 기존 결과를 초기화하여 새로 계산하도록 함
+          // 가중치가 변경되면 기존 결과가 있다면 새로 계산
           if (finalTop && finalTop.length > 0) {
-            console.log('🔄 가중치 변경으로 인한 결과 초기화');
-            // computeAll()을 호출하여 새로운 가중치로 다시 계산
+            console.log('🔄 가중치 변경으로 인한 자동 재계산');
             setTimeout(() => {
-              computeAll();
-            }, 100); // 약간의 지연을 두어 상태 업데이트가 완료된 후 계산
+              // 미디어 데이터와 설문 데이터가 모두 있는 경우에만 재계산
+              const { mediaRanked, surveyResponses } = useAssessmentStore.getState();
+              if (mediaRanked && mediaRanked.length > 0 && surveyResponses && surveyResponses.length > 0) {
+                console.log('🔄 자동 재계산 실행');
+                computeAll();
+              } else {
+                console.log('⚠️ 자동 재계산 건너뜀 - 데이터 부족');
+              }
+            }, 100);
           }
         }}
+        onResetAll={resetAllToDefaults}
       />
 
       {/* Compute Button */}

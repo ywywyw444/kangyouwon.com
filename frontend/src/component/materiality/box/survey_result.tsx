@@ -406,6 +406,10 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       setBackendResponses(newResponses);
       console.log(`📊 설문 응답 데이터 로드 완료: ${newResponses.length}개`);
 
+      // final_issuepool.tsx에서 사용할 수 있도록 localStorage에 저장
+      localStorage.setItem('backendSurveyResponses', JSON.stringify(newResponses));
+      console.log('💾 final_issuepool.tsx용 설문 데이터 저장 완료');
+
       // 응답 현황 업데이트
       const validEmails = (excelData || [])
         .map((r) => r.email?.trim())
@@ -433,7 +437,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
         }
       });
 
-      alert(`✅ 설문 응답 데이터 로드 완료!\n\n• 총 응답: ${newResponses.length}개\n• 응답률: ${responseRate}%`);
+      alert(`✅ 설문 응답 데이터 로드 완료!\n\n• 총 응답: ${newResponses.length}개\n• 응답률: ${responseRate}%\n\n💡 이제 "최종 이슈풀 계산하기"에서 설문 데이터를 사용할 수 있습니다.`);
     } catch (error) {
       console.error('❌ 설문 응답 데이터 로드 실패:', error);
       alert(`❌ 설문 응답 데이터 로드 실패\n\n오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);

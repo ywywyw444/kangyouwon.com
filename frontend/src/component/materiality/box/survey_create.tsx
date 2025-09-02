@@ -506,7 +506,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
       upsertSurveyEntry(companyId, {
         id: surveyId,
         contentHash,
-        timestamp: new Date().toISOString(),
+          timestamp: new Date().toISOString(),
         categoryCount: selectedCategories.length,
         isActive: true,
       });
