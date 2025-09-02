@@ -258,9 +258,16 @@ const FinalIssuepool: React.FC = () => {
   const handleCompute = async () => {
     setIsLoading(true);
     try {
+      console.log('🎯 최종 이슈풀 계산 시작...');
+      console.log('📊 현재 가중치 설정:', baseWeights);
+      console.log('📊 현재 파라미터:', { alphaOutsideIn, topN });
+      
+      // 계산 실행
       computeAll();
+      
+      console.log('✅ 최종 이슈풀 계산 완료');
     } catch (error) {
-      console.error("Error computing assessment:", error);
+      console.error("❌ 계산 중 오류 발생:", error);
       alert("계산 중 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
@@ -269,7 +276,17 @@ const FinalIssuepool: React.FC = () => {
 
   const handleParamChange = (param: string, value: number) => {
     if (param === "topN") {
-      setParams({ topN: Math.max(1, Math.min(50, value)) });
+      const newTopN = Math.max(1, Math.min(50, value));
+      console.log('🔄 topN 파라미터 변경됨:', newTopN);
+      setParams({ topN: newTopN });
+      
+      // topN이 변경되면 기존 결과가 있다면 새로 계산
+      if (finalTop && finalTop.length > 0) {
+        console.log('🔄 topN 변경으로 인한 결과 재계산');
+        setTimeout(() => {
+          computeAll();
+        }, 100);
+      }
     }
   };
 
@@ -330,16 +347,25 @@ const FinalIssuepool: React.FC = () => {
             />
           </div>
         </div>
-        <div className="mt-3 text-sm text-gray-600">
-          <p>• Outside-in 비중 (α): 0.5 (고정)</p>
-          <p>• 미디어 가중치 (γ): 0.4 (고정)</p>
-        </div>
+
       </div>
 
       {/* 설문 가중치 컨트롤 */}
       <SurveyWeightControls
         baseWeights={baseWeights}
-        onChange={(next) => setParams({ baseWeights: next })}
+        onChange={(next) => {
+          console.log('🔄 설문 가중치 변경됨:', next);
+          setParams({ baseWeights: next });
+          
+          // 가중치가 변경되면 기존 결과를 초기화하여 새로 계산하도록 함
+          if (finalTop && finalTop.length > 0) {
+            console.log('🔄 가중치 변경으로 인한 결과 초기화');
+            // computeAll()을 호출하여 새로운 가중치로 다시 계산
+            setTimeout(() => {
+              computeAll();
+            }, 100); // 약간의 지연을 두어 상태 업데이트가 완료된 후 계산
+          }
+        }}
       />
 
       {/* Compute Button */}

@@ -33,6 +33,100 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
   deleteRow,
   loadUploadedExcelData
 }) => {
+  // 설문 발송 완료된 명단 상태
+  const [sentRecipients, setSentRecipients] = React.useState<any[]>([]);
+
+  // 발송 완료된 명단을 localStorage에서 불러오기
+  const loadSentRecipients = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = localStorage.getItem('sentRecipients');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setSentRecipients(parsed);
+        console.log('📧 발송 완료된 명단 불러오기:', parsed.length, '명');
+      }
+    } catch (error) {
+      console.error('발송 완료된 명단 불러오기 실패:', error);
+    }
+  };
+
+  // 발송 완료된 명단을 localStorage에 저장
+  const saveSentRecipients = (recipients: any[]) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem('sentRecipients', JSON.stringify(recipients));
+      console.log('💾 발송 완료된 명단 저장:', recipients.length, '명');
+    } catch (error) {
+      console.error('발송 완료된 명단 저장 실패:', error);
+    }
+  };
+
+  // 설문 발송 완료 이벤트 리스너
+  React.useEffect(() => {
+    const handleSurveySent = (event: CustomEvent) => {
+      const { sentEmails, excelData } = event.detail;
+      console.log('📧 설문 발송 완료 이벤트 수신:', sentEmails);
+      
+      // 발송된 이메일 주소에 해당하는 명단 찾기
+      const sentRecipientsData = excelData.filter((row: any) => 
+        sentEmails.includes(row.email)
+      );
+      
+      // 기존 발송 완료 명단에 추가 (중복 제거)
+      setSentRecipients((prev: any[]) => {
+        const existing = prev.map((r: any) => r.email);
+        const newRecipients = sentRecipientsData.filter((r: any) => !existing.includes(r.email));
+        const updated = [...prev, ...newRecipients];
+        saveSentRecipients(updated);
+        return updated;
+      });
+      
+      // 발송된 명단을 설문 대상자 목록에서 제거
+      const remainingData = excelData.filter((row: any) => 
+        !sentEmails.includes(row.email)
+      );
+      setExcelData(remainingData);
+      
+      console.log('✅ 발송 완료된 명단 처리:', sentRecipientsData.length, '명');
+    };
+
+    // 커스텀 이벤트 리스너 등록
+    window.addEventListener('surveySent', handleSurveySent as EventListener);
+    
+    // 컴포넌트 마운트 시 발송 완료된 명단 불러오기
+    loadSentRecipients();
+
+    return () => {
+      window.removeEventListener('surveySent', handleSurveySent as EventListener);
+    };
+  }, []);
+
+  // 발송 완료된 명단을 다시 설문 대상자 목록에 추가
+  const addBackToRecipients = (recipient: any) => {
+    // 설문 대상자 목록에 추가
+    const updated = [...excelData, recipient];
+    setExcelData(updated);
+    
+    // localStorage도 업데이트
+    const dataToSave = {
+      excelData: updated,
+      isValid: isExcelValid,
+      fileName: excelFilename,
+      base64Data: excelBase64
+    };
+    localStorage.setItem('excelUploadData', JSON.stringify(dataToSave));
+    
+    // 발송 완료 명단에서 제거
+    setSentRecipients((prev: any[]) => {
+      const updated = prev.filter((r: any) => r.email !== recipient.email);
+      saveSentRecipients(updated);
+      return updated;
+    });
+    
+    console.log('✅ 발송 완료 명단을 설문 대상자 목록에 추가:', recipient.name);
+  };
+
   // 사용자 활동 추적 함수
   const markUserActivity = () => {
     localStorage.setItem('hasUserActivity', 'true');
@@ -517,6 +611,85 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
             </div>
           )}
         </div>
+
+        {/* 메일 발송 완료된 명단 */}
+        {sentRecipients.length > 0 && (
+          <div className="mt-8 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-green-800">📧 메일 발송 완료</h3>
+                  <p className="text-green-600 text-sm">설문 발송이 완료된 대상자 목록입니다</p>
+                </div>
+              </div>
+              <span className="px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+                총 {sentRecipients.length}명 발송 완료
+              </span>
+            </div>
+            
+            <div className="bg-white rounded-lg border border-green-200 overflow-hidden">
+              <div className="px-6 py-4 bg-green-50 border-b border-green-200">
+                <h4 className="font-medium text-green-800">✅ 발송 완료된 대상자 목록</h4>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        순번
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        기업명
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        이름
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        이해관계자 구분
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        이메일
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        작업
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {sentRecipients.map((row, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{index + 1}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{row.company}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.name}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.stakeholderType}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.email}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <button 
+                            onClick={() => {
+                              if (confirm(`${row.name}님을 다시 설문 대상자 목록에 추가하시겠습니까?`)) {
+                                addBackToRecipients(row);
+                                alert('✅ 설문 대상자 목록에 추가되었습니다.');
+                              }
+                            }}
+                            className="text-green-600 hover:text-green-900 font-medium"
+                          >
+                            다시 추가
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* 명단 관리 액션 버튼 */}
         {excelFilename && (

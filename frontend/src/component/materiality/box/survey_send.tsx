@@ -139,6 +139,35 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     setSendStatus((p) => ({ ...p, responseRate }));
   }, [sendStatus.responded, sendStatus.total]);
 
+  // 기업명 추출 (미디어 검색에서 선택된 기업명 사용)
+  const companyName = useMemo(() => {
+    if (typeof window === 'undefined') return '기업';
+    
+    try {
+      // 미디어 검색에서 저장된 기업명 가져오기
+      const savedSearch = localStorage.getItem('savedMediaSearch');
+      if (savedSearch) {
+        const savedData = JSON.parse(savedSearch);
+        return savedData.company_id || '기업';
+      }
+      
+      // 대안: 현재 선택된 기업 ID가 있다면 사용
+      if (companyId && companyId !== '') {
+        return companyId;
+      }
+      
+      return '기업';
+    } catch (error) {
+      console.error('기업명을 가져오는 중 오류 발생:', error);
+      return '기업';
+    }
+  }, [companyId]);
+
+  // 메일 제목 생성
+  const emailSubject = useMemo(() => {
+    return `[${companyName}] 중대성 평가 설문`;
+  }, [companyName]);
+
   // 메일 본문 템플릿(개인화된 형태)
   const emailBodyPreview = useMemo(() => {
     const deadlineText = deadline
@@ -188,7 +217,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       const payload = {
         to_emails: validEmails,
         survey_url: surveyUrl,      // ✅ 선택된 버전 링크
-        survey_title: '중대성 평가 설문',
+        survey_title: emailSubject, // ✅ 동적 기업명이 포함된 제목
         deadline: deadline || null,
         personalized_emails: personalizedEmails,  // 개인화된 이메일 데이터
         company_id: companyId,      // (선택) 서버 로깅/템플릿 분기용
@@ -209,6 +238,18 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       if (!result.success) throw new Error(result.message || '이메일 발송에 실패했습니다.');
 
       setSendStatus((p) => ({ ...p, sent: validEmails.length }));
+      
+      // 설문 발송 완료 이벤트 발생
+      const surveySentEvent = new CustomEvent('surveySent', {
+        detail: {
+          sentEmails: validEmails,
+          excelData: excelData,
+          surveyUrl: surveyUrl,
+          companyId: companyId
+        }
+      });
+      window.dispatchEvent(surveySentEvent);
+      
       alert(
         `✅ 이메일 발송 완료!\n\n📧 ${validEmails.length}명에게 설문 링크가 발송되었습니다.\n\n📋 설문 URL:\n${surveyUrl}\n\n${result.message || ''}`
       );
@@ -409,16 +450,30 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                   )}
                 </div>
 
+                {/* 메일 제목 미리보기 */}
+                <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                  <label className="block text-sm font-bold text-blue-900 mb-1">📧 메일 제목</label>
+                  <div className="text-sm font-medium text-blue-800 mb-2">
+                    {companyName !== '기업'
+                      ? `미디어 검색에서 선택된 기업명(${companyName})이 자동으로 포함됩니다.`
+                      : '미디어 검색에서 기업을 선택하면 제목에 기업명이 포함됩니다.'
+                    }
+                  </div>
+                  <div className="bg-white border-2 border-blue-300 rounded p-3">
+                    <div className="text-sm font-bold text-gray-900">{emailSubject}</div>
+                  </div>
+                </div>
+
                 {/* 메일 본문 미리보기 */}
                 <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
-                  <label className="block text-sm font-semibold text-amber-900 mb-1">✉️ 메일 본문 미리보기</label>
-                  <div className="text-xs text-amber-700 mb-2">
+                  <label className="block text-sm font-bold text-amber-900 mb-1">✉️ 메일 본문 미리보기</label>
+                  <div className="text-sm font-medium text-amber-800 mb-2">
                     {validEmails.length > 0 
                       ? `첫 번째 수신자(${excelData.find(row => row.email === validEmails[0])?.name || '담당자'}) 기준 미리보기입니다. 실제 발송 시에는 각 수신자별로 개인화됩니다.`
                       : '수신자 목록이 없어 미리보기를 표시할 수 없습니다.'
                     }
                   </div>
-                  <textarea readOnly value={emailBodyPreview} className="w-full h-40 text-xs font-mono bg-white border border-amber-200 rounded p-2" />
+                  <textarea readOnly value={emailBodyPreview} className="w-full h-40 text-sm font-medium text-gray-900 bg-white border-2 border-amber-300 rounded p-3 leading-relaxed" />
                 </div>
               </div>
             </div>

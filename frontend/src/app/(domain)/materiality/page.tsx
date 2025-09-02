@@ -183,10 +183,24 @@ export default function MaterialityHomePage() {
     getUserCompany();
   }, [companyId]);
 
-  // 페이지 로드 시 설문 대상 업로드 데이터만 자동 불러오기
+  // 페이지 로드 시 설문 대상 업로드 데이터와 displayCategoryCount 자동 불러오기
   useEffect(() => {
     if (typeof window === 'undefined') return;
     loadSurveyUploadData();
+    
+    // displayCategoryCount 복원
+    try {
+      const savedResult = localStorage.getItem('materialityAssessmentResult');
+      if (savedResult) {
+        const parsedResult = JSON.parse(savedResult);
+        if (parsedResult.display_category_count !== undefined) {
+          setDisplayCategoryCount(parsedResult.display_category_count);
+          console.log('💾 표시할 카테고리 개수 초기 복원:', parsedResult.display_category_count);
+        }
+      }
+    } catch (error) {
+      console.error('❌ 표시할 카테고리 개수 초기 복원 실패:', error);
+    }
   }, []); // loadSurveyUploadData는 Zustand store에서 가져오므로 의존성 배열에서 제외
 
   // 설문 결과 데이터 로드 및 업데이트
@@ -214,6 +228,30 @@ export default function MaterialityHomePage() {
 
     return () => clearInterval(intervalId);
   }, []);
+
+  // displayCategoryCount 변경 시 localStorage에 저장
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const saveDisplayCategoryCount = () => {
+      try {
+        const savedResult = localStorage.getItem('materialityAssessmentResult');
+        if (savedResult) {
+          const parsedResult = JSON.parse(savedResult);
+          parsedResult.display_category_count = displayCategoryCount;
+          localStorage.setItem('materialityAssessmentResult', JSON.stringify(parsedResult));
+          console.log('💾 표시할 카테고리 개수 저장:', displayCategoryCount);
+        }
+      } catch (error) {
+        console.error('❌ 표시할 카테고리 개수 저장 실패:', error);
+      }
+    };
+
+    // displayCategoryCount가 0이 아닐 때만 저장 (초기값 0은 저장하지 않음)
+    if (displayCategoryCount !== 0) {
+      saveDisplayCategoryCount();
+    }
+  }, [displayCategoryCount]);
 
   // 기업 목록 가져오기
   useEffect(() => {

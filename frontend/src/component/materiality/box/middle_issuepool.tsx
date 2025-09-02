@@ -213,12 +213,14 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
             setAssessmentResult(parsedResult.assessment_result);
             if (parsedResult.display_category_count !== undefined) {
               setDisplayCategoryCount(parsedResult.display_category_count);
+              console.log('💾 표시할 카테고리 개수 복원:', parsedResult.display_category_count);
             }
             console.log('💾 데이터 로드 완료 (사용자 활동 있음)');
           } else {
             setAssessmentResult(parsedResult);
             if (parsedResult.display_category_count !== undefined) {
               setDisplayCategoryCount(parsedResult.display_category_count);
+              console.log('💾 표시할 카테고리 개수 복원:', parsedResult.display_category_count);
             }
           }
         } catch (e) {
