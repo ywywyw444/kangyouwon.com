@@ -188,11 +188,10 @@ async def startup_event():
     # 데이터베이스 연결 테스트
     try:
         from app.common.database.survey_db import test_connection
-        import asyncio
         
-        # 비동기 연결 테스트 실행
+        # 비동기 연결 테스트 실행 (FastAPI startup 이벤트는 이미 비동기 컨텍스트)
         try:
-            result = asyncio.run(test_connection())
+            result = await test_connection()
             if result:
                 logger.info("✅ PostgreSQL 데이터베이스 연결 성공")
             else:
