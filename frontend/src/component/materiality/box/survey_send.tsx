@@ -9,6 +9,16 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
   const [sendSchedule, setSendSchedule] = useState<string>('immediate');
   const [deadline, setDeadline] = useState<string>('');
   const [companyName, setCompanyName] = useState<string>('');
+  interface SurveyVersion {
+    id: string;
+    url: string;
+    contentHash: string;
+    timestamp: string;
+    isActive: boolean;
+  }
+
+  const [availableSurveys, setAvailableSurveys] = useState<SurveyVersion[]>([]);
+  const [selectedSurveyId, setSelectedSurveyId] = useState<string>('');
   const [surveyUrl, setSurveyUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [sendStatus, setSendStatus] = useState<{
@@ -29,36 +39,55 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
     setSendStatus(prev => ({ ...prev, total: validEmails.length }));
   }, [excelData]);
 
-  // 설문 URL 주기적으로 확인 및 업데이트
+  // 사용 가능한 설문 버전들 로드
   useEffect(() => {
-    const checkExistingSurvey = () => {
-      // survey_create.tsx에서 저장한 설문 데이터 확인
-      const surveyData = localStorage.getItem('surveyData_1');
-      if (surveyData) {
-        try {
-          const parsed = JSON.parse(surveyData);
-          if (parsed.surveyId) {
-            const newUrl = `${window.location.origin}/survey?id=${parsed.surveyId}`;
-            if (newUrl !== surveyUrl) {
-              console.log('📝 설문 URL 업데이트:', newUrl);
-              setSurveyUrl(newUrl);
+    const loadAvailableSurveys = () => {
+      const surveys: SurveyVersion[] = [];
+      
+      // localStorage에서 모든 설문 데이터 검색
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith('surveyData_')) {
+          try {
+            const data = JSON.parse(localStorage.getItem(key) || '');
+            if (data.surveyId && data.contentHash) {
+              const url = `${window.location.origin}/survey?id=${data.surveyId}`;
+              surveys.push({
+                id: data.surveyId,
+                url: url,
+                contentHash: data.contentHash,
+                timestamp: data.timestamp,
+                isActive: true // 기본값으로 true 설정
+              });
             }
+          } catch (error) {
+            console.warn('설문 데이터 파싱 실패:', error);
           }
-        } catch (error) {
-          console.warn('설문 데이터 파싱 실패:', error);
         }
+      }
+
+      // 최신 순으로 정렬
+      surveys.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      
+      setAvailableSurveys(surveys);
+
+      // 가장 최신 설문을 선택
+      if (surveys.length > 0 && !selectedSurveyId) {
+        const latestSurvey = surveys[0];
+        setSelectedSurveyId(latestSurvey.id);
+        setSurveyUrl(latestSurvey.url);
       }
     };
 
-    // 초기 확인
-    checkExistingSurvey();
+    // 초기 로드
+    loadAvailableSurveys();
 
-    // 1초마다 확인 (더 빠른 응답성을 위해)
-    const intervalId = setInterval(checkExistingSurvey, 1000);
+    // 3초마다 확인
+    const intervalId = setInterval(loadAvailableSurveys, 3000);
 
     // 컴포넌트 언마운트 시 인터벌 정리
     return () => clearInterval(intervalId);
-  }, [surveyUrl]); // surveyUrl을 의존성 배열에 추가하여 변경 감지
+  }, [selectedSurveyId]); // selectedSurveyId를 의존성 배열에 추가
 
   // 응답률 계산
   useEffect(() => {
@@ -258,14 +287,68 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                   />
                 </div>
 
-                {/* 설문 URL 표시 */}
-                <div className={`rounded-lg p-3 border ${surveyUrl ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200'}`}>
-                  <label className={`block text-sm font-medium mb-1 ${surveyUrl ? 'text-blue-800' : 'text-yellow-800'}`}>
-                    {surveyUrl ? '✅ 설문 링크 생성됨' : '⚠️ 설문 링크 없음'}
+                {/* 설문 버전 선택 및 URL 표시 */}
+                <div className={`rounded-lg p-3 border ${availableSurveys.length > 0 ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200'}`}>
+                  <label className={`block text-sm font-medium mb-2 ${availableSurveys.length > 0 ? 'text-blue-800' : 'text-yellow-800'}`}>
+                    {availableSurveys.length > 0 ? '📋 설문 버전 선택' : '⚠️ 설문 링크 없음'}
                   </label>
-                  {surveyUrl ? (
-                    <div className="text-xs text-blue-600 break-all">
-                      {surveyUrl}
+                  
+                  {availableSurveys.length > 0 ? (
+                    <div className="space-y-3">
+                      {/* 설문 버전 선택 */}
+                      <div className="grid gap-2">
+                        {availableSurveys.map((survey) => (
+                          <div
+                            key={survey.id}
+                            className={`flex items-center justify-between p-2 rounded border transition-colors cursor-pointer ${
+                              selectedSurveyId === survey.id
+                                ? 'bg-blue-100 border-blue-300'
+                                : 'bg-white border-gray-200 hover:bg-blue-50'
+                            }`}
+                            onClick={() => {
+                              setSelectedSurveyId(survey.id);
+                              setSurveyUrl(survey.url);
+                            }}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="radio"
+                                checked={selectedSurveyId === survey.id}
+                                onChange={() => {
+                                  setSelectedSurveyId(survey.id);
+                                  setSurveyUrl(survey.url);
+                                }}
+                                className="text-blue-600 focus:ring-blue-500"
+                              />
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  버전 {survey.contentHash.substring(0, 8)}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {new Date(survey.timestamp).toLocaleString('ko-KR')}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center">
+                              {selectedSurveyId === survey.id && (
+                                <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full">
+                                  선택됨
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* 선택된 설문 URL */}
+                      {selectedSurveyId && (
+                        <div className="mt-2 pt-2 border-t border-blue-200">
+                          <div className="text-xs font-medium text-blue-800 mb-1">선택된 설문 링크:</div>
+                          <div className="text-xs text-blue-600 break-all bg-white p-2 rounded border border-blue-200">
+                            {surveyUrl}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-xs text-yellow-600">

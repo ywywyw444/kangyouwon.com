@@ -15,7 +15,7 @@ import SearchResult from '@/component/materiality/box/media_search_result';
 import FirstAssessment from '@/component/materiality/box/middle_issuepool';
 import SurveyUpload from '@/component/materiality/box/survey_upload';
 import SurveyCreate from '@/component/materiality/box/survey_create';
-import SurveyManagement from '@/component/materiality/box/survey_management';
+import SurveyManagement from '@/component/materiality/box/survey_send';
 import SurveyResult from '@/component/materiality/box/survey_result';
 import { handleViewReport } from '@/component/materiality/handle_view_report';
 import { loadAssessmentResult } from '@/component/materiality/load_assessment_result';
