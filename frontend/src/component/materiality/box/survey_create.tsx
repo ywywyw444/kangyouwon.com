@@ -773,9 +773,9 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
 
               {/* 설문 참여 안내 */}
               <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-                <div className="text-sm text-yellow-800">
-                  <p className="font-semibold mb-2">📋 설문 참여 안내</p>
-                  <ul className="text-xs space-y-1">
+                <div className="text-sm text-yellow-900">
+                  <p className="font-bold mb-2">📋 설문 참여 안내</p>
+                  <ul className="text-sm space-y-1 text-yellow-800">
                     <li>• 같은 이메일 주소로는 한 번만 응답 가능합니다</li>
                     <li>• 다른 사람이 참여하려면 다른 이메일 주소를 사용해야 합니다</li>
                     <li>• 설문 링크를 공유하여 여러 응답을 받을 수 있습니다</li>
