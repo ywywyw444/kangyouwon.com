@@ -11,6 +11,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
   const [loading, setLoading] = React.useState(false);
   const [isDataHidden, setIsDataHidden] = React.useState(true);
   const [responseStatus, setResponseStatus] = React.useState({ total: 0, sent: 0, responded: 0, responseRate: 0 });
+  const [sentSurveyInfo, setSentSurveyInfo] = React.useState<any>(null);
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   React.useEffect(() => {
@@ -30,6 +31,31 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       setIsDataHidden(false);
       console.log('💾 데이터 표시 (사용자 활동 있음)');
     }
+  }, []);
+
+  // 발송된 설문 정보 로드
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const loadSentSurveyInfo = () => {
+      const saved = localStorage.getItem('sentSurveyInfo');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setSentSurveyInfo(parsed);
+          console.log('📧 발송된 설문 정보 로드:', parsed);
+        } catch (error) {
+          console.error('발송된 설문 정보 파싱 실패:', error);
+        }
+      }
+    };
+    
+    loadSentSurveyInfo();
+    
+    // 주기적으로 발송된 설문 정보 확인 (5초마다)
+    const intervalId = setInterval(loadSentSurveyInfo, 5000);
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   // 백엔드에서 설문 응답 데이터 로드 (동일한 내용의 설문들 포함)
@@ -116,25 +142,28 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     };
   }, [surveyResult?.survey_id]);
 
-  // 설문 결과 통계 계산 (선택된 설문의 응답만 사용)
+  // 설문 결과 통계 계산 (발송된 설문의 응답만 사용)
   const calculateSurveyStats = () => {
     // 브라우저 환경이 아니면 빈 통계 반환
     if (typeof window === 'undefined') return null;
 
-    // 선택된 설문 ID 확인
-    const selectedSurveyId = localStorage.getItem('selectedSurveyId');
+    // 발송된 설문 정보 사용 (상태로 관리되는 정보)
+    const sentSurveyId = sentSurveyInfo?.surveyId;
+    const sentSurveyUrl = sentSurveyInfo?.surveyUrl;
     
-    console.log('🔍 통계 계산 시작:', {
-      selectedSurveyId,
+    console.log('🔍 통계 계산 시작 (발송된 설문 기준):', {
+      sentSurveyId,
+      sentSurveyUrl,
+      sentSurveyInfo,
       backendResponsesLength: backendResponses.length,
       surveyResultResponses: surveyResult?.responses?.length || 0,
       surveyResult: surveyResult
     });
     
-    // 선택된 설문의 응답만 필터링
-    const filteredResponses = backendResponses.filter(response => 
-      response.survey_id === selectedSurveyId
-    );
+    // 발송된 설문의 응답만 필터링 (발송된 설문이 없으면 전체 응답 사용)
+    const filteredResponses = sentSurveyId 
+      ? backendResponses.filter(response => response.survey_id === sentSurveyId)
+      : backendResponses;
     
     const responses = filteredResponses.length > 0 ? filteredResponses : (surveyResult?.responses || []);
     
@@ -254,7 +283,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     return stats;
   };
 
-  const stats = calculateSurveyStats();
+  const stats = React.useMemo(() => calculateSurveyStats(), [sentSurveyInfo, backendResponses, surveyResult]);
 
   // 디버깅을 위한 로그 추가
   React.useEffect(() => {
@@ -262,9 +291,10 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       surveyResult: surveyResult,
       backendResponses: backendResponses,
       stats: stats,
-      excelData: excelData
+      excelData: excelData,
+      sentSurveyInfo: sentSurveyInfo
     });
-  }, [surveyResult, backendResponses, stats, excelData]);
+  }, [surveyResult, backendResponses, stats, excelData, sentSurveyInfo]);
 
   // 사용자 활동을 표시하는 함수
   const markUserActivity = () => {
@@ -394,7 +424,14 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                </div>
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">설문 ID:</span>
-                 <span className="text-gray-900">{surveyResult.survey_id}</span>
+                 <span className="text-gray-900">
+                   {sentSurveyInfo?.surveyId || surveyResult.survey_id}
+                   {sentSurveyInfo?.surveyId && sentSurveyInfo.surveyId !== surveyResult.survey_id && (
+                     <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                       발송된 설문
+                     </span>
+                   )}
+                 </span>
                </div>
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">설문 버전:</span>
@@ -406,6 +443,14 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                    ) : '기본 버전'}
                  </span>
                </div>
+               {sentSurveyInfo?.surveyUrl && (
+                 <div className="flex items-center">
+                   <span className="text-gray-700 font-medium w-32">발송된 설문 URL:</span>
+                   <span className="text-gray-900 font-mono text-sm bg-blue-50 px-2 py-1 rounded break-all">
+                     {sentSurveyInfo.surveyUrl}
+                   </span>
+                 </div>
+               )}
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">총 응답자:</span>
                  <span className="text-gray-900">{stats.total}명</span>

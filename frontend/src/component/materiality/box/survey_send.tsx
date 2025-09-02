@@ -239,13 +239,25 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
 
       setSendStatus((p) => ({ ...p, sent: validEmails.length }));
       
+      // 발송된 설문 정보를 localStorage에 저장 (survey_result.tsx에서 사용)
+      const sentSurveyInfo = {
+        surveyId: selectedSurveyId,
+        surveyUrl: surveyUrl,
+        sentAt: new Date().toISOString(),
+        companyId: companyId,
+        sentEmails: validEmails
+      };
+      localStorage.setItem('sentSurveyInfo', JSON.stringify(sentSurveyInfo));
+      console.log('💾 발송된 설문 정보 저장:', sentSurveyInfo);
+      
       // 설문 발송 완료 이벤트 발생
       const surveySentEvent = new CustomEvent('surveySent', {
         detail: {
           sentEmails: validEmails,
           excelData: excelData,
           surveyUrl: surveyUrl,
-          companyId: companyId
+          companyId: companyId,
+          sentSurveyInfo: sentSurveyInfo
         }
       });
       window.dispatchEvent(surveySentEvent);
