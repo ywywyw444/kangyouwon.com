@@ -17,11 +17,17 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
     responded: number;
     responseRate: number;
   }>({
-    total: excelData.length,
+    total: 0,
     sent: 0,
     responded: 0,
     responseRate: 0
   });
+
+  // excelData가 변경될 때마다 total 업데이트
+  useEffect(() => {
+    const validEmails = excelData.filter(row => row.email && row.email.trim() !== '' && row.email.includes('@'));
+    setSendStatus(prev => ({ ...prev, total: validEmails.length }));
+  }, [excelData]);
 
   // 컴포넌트 마운트 시 기존 설문 URL 확인
   useEffect(() => {
@@ -51,34 +57,51 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
 
   // 이메일 발송 함수
   const handleSendEmails = async () => {
+    // 1. 설문 URL 확인
     if (!surveyUrl) {
       alert('❌ 설문이 생성되지 않았습니다.\n\n먼저 "설문 생성하기" 버튼을 눌러 설문을 생성해주세요.');
       return;
     }
 
+    // 2. 회사명 확인
     if (!companyName.trim()) {
       alert('❌ 회사명을 입력해주세요.');
       return;
     }
 
+    // 3. 업로드된 이메일 데이터 확인
     if (excelData.length === 0) {
-      alert('❌ 발송할 이메일 주소가 없습니다.\n\n엑셀 파일을 업로드해주세요.');
+      alert('❌ 발송할 이메일 주소가 없습니다.\n\n"설문 대상 업로드"에서 엑셀 파일을 업로드해주세요.');
       return;
     }
 
-    // 이메일 주소 추출
+    // 4. 이메일 주소 추출 및 검증
     const emailList = excelData
       .map(row => row.email)
-      .filter(email => email && email.trim() !== '');
+      .filter(email => email && email.trim() !== '' && email.includes('@'));
 
     if (emailList.length === 0) {
-      alert('❌ 유효한 이메일 주소가 없습니다.\n\n엑셀 파일에 이메일 주소를 확인해주세요.');
+      alert('❌ 유효한 이메일 주소가 없습니다.\n\n엑셀 파일에 올바른 이메일 주소를 확인해주세요.');
+      return;
+    }
+
+    // 5. 발송 확인
+    const confirmMessage = `📧 이메일 발송을 진행하시겠습니까?\n\n• 회사명: ${companyName}\n• 발송 대상: ${emailList.length}명\n• 설문 URL: ${surveyUrl}\n\n발송 후에는 취소할 수 없습니다.`;
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     setIsLoading(true);
 
     try {
+      console.log('📧 이메일 발송 시작:', {
+        companyName,
+        emailCount: emailList.length,
+        surveyUrl,
+        emailList: emailList.slice(0, 3) // 처음 3개만 로그에 표시
+      });
+
       // Gmail API를 통한 이메일 발송
       const response = await fetch('/api/v1/materiality-service/email/send-survey', {
         method: 'POST',
@@ -94,14 +117,15 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
       });
 
       if (!response.ok) {
-        throw new Error(`이메일 발송 실패: ${response.status} ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`이메일 발송 실패: ${response.status} ${response.statusText}\n${errorData.message || ''}`);
       }
 
       const result = await response.json();
       
       if (result.success) {
         setSendStatus(prev => ({ ...prev, sent: emailList.length }));
-        alert(`✅ 이메일 발송 완료!\n\n📧 ${emailList.length}명에게 설문 링크가 발송되었습니다.\n\n${result.message}`);
+        alert(`✅ 이메일 발송 완료!\n\n📧 ${emailList.length}명에게 설문 링크가 발송되었습니다.\n\n📋 발송된 설문 URL:\n${surveyUrl}\n\n${result.message || ''}`);
       } else {
         throw new Error(result.message || '이메일 발송에 실패했습니다.');
       }
@@ -224,14 +248,45 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                 </div>
 
                 {/* 설문 URL 표시 */}
-                {surveyUrl && (
+                {surveyUrl ? (
                   <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                     <label className="block text-sm font-medium text-blue-800 mb-1">📋 설문 링크</label>
                     <div className="text-xs text-blue-600 break-all">
                       {surveyUrl}
                     </div>
                   </div>
+                ) : (
+                  <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+                    <label className="block text-sm font-medium text-yellow-800 mb-1">⚠️ 설문 링크 없음</label>
+                    <div className="text-xs text-yellow-600">
+                      먼저 "설문 생성하기"에서 설문을 생성해주세요.
+                    </div>
+                  </div>
                 )}
+
+                {/* 업로드된 이메일 정보 표시 */}
+                <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
+                  <label className="block text-sm font-medium text-purple-800 mb-1">📧 발송 대상 이메일</label>
+                  {excelData.length > 0 ? (
+                    <div className="text-xs text-purple-600">
+                      총 {excelData.length}개 기업의 이메일 주소가 업로드되었습니다.
+                      {excelData.slice(0, 3).map((row, index) => (
+                        <div key={index} className="mt-1">
+                          • {row.company || '회사명 없음'}: {row.email || '이메일 없음'}
+                        </div>
+                      ))}
+                      {excelData.length > 3 && (
+                        <div className="mt-1 text-purple-500">
+                          ... 외 {excelData.length - 3}개 더
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-yellow-600">
+                      "설문 대상 업로드"에서 엑셀 파일을 업로드해주세요.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             
@@ -257,14 +312,32 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                   ></div>
                 </div>
               </div>
+
+              {/* 발송 준비 상태 표시 */}
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <div className="text-xs text-gray-500 space-y-1">
+                  <div className="flex items-center">
+                    <span className={`w-2 h-2 rounded-full mr-2 ${surveyUrl ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    설문 링크: {surveyUrl ? '준비 완료' : '미생성'}
+                  </div>
+                  <div className="flex items-center">
+                    <span className={`w-2 h-2 rounded-full mr-2 ${sendStatus.total > 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    이메일 목록: {sendStatus.total > 0 ? `${sendStatus.total}개 준비 완료` : '미업로드'}
+                  </div>
+                  <div className="flex items-center">
+                    <span className={`w-2 h-2 rounded-full mr-2 ${companyName.trim() ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    회사명: {companyName.trim() ? '입력 완료' : '미입력'}
+                  </div>
+                </div>
+              </div>
             </div>
             
             <div className="flex space-x-3">
               <button
                 onClick={handleSendEmails}
-                disabled={isLoading || !surveyUrl || !companyName.trim()}
+                disabled={isLoading || !surveyUrl || !companyName.trim() || sendStatus.total === 0}
                 className={`flex-1 font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center ${
-                  isLoading || !surveyUrl || !companyName.trim()
+                  isLoading || !surveyUrl || !companyName.trim() || sendStatus.total === 0
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     : 'bg-green-600 hover:bg-green-700 text-white'
                 }`}
