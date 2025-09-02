@@ -3,7 +3,7 @@ Middleissue Schema - Pydantic BaseModel
 Entity의 Base를 직접 매핑하는 스키마 및 응답용 스키마
 """
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -48,8 +48,7 @@ class MiddleIssueBase(BaseModel):
     category_id: int
     esg_classification_id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CorporationBase(BaseModel):
     """기업 정보 기본 스키마 - corporation 테이블과 1:1 매핑"""
@@ -59,16 +58,14 @@ class CorporationBase(BaseModel):
     market: str
     dart_code: str
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ESGClassificationBase(BaseModel):
     """ESG 분류 기본 스키마 - esg_classification 테이블과 1:1 매핑"""
     id: Optional[int] = None
     esg: str  # 'classification_name' → 'esg'로 변경
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CategoryBase(BaseModel):
     """카테고리 기본 스키마 - materiality_category 테이블과 1:1 매핑"""
@@ -76,8 +73,7 @@ class CategoryBase(BaseModel):
     category_name: str  # 'name' → 'category_name'으로 변경
     esg_classification_id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CrawledArticleBase(BaseModel):
     """크롤링된 기사 기본 스키마 - crawled_articles 테이블과 1:1 매핑"""
@@ -94,8 +90,7 @@ class CrawledArticleBase(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ===== 리포지토리 응답용 스키마 =====
 class IssueItem(BaseModel):
@@ -108,8 +103,7 @@ class CorporationIssueResponse(BaseModel):
     year_issues: List[IssueItem]  # 특정 연도 이슈
     common_issues: List[IssueItem]  # publish_year가 null인 이슈
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CategoryDetailsResponse(BaseModel):
     """카테고리 상세 정보 응답 스키마"""

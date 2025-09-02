@@ -36,7 +36,7 @@ const getSurveyList = (companyId: string): StoredSurvey[] => {
 };
 
 const setSelectedId = (companyId: string, surveyId: string) => {
-  if (typeof window === 'undefined') return;
+      if (typeof window === 'undefined') return;
   // 회사별 키에 저장
   localStorage.setItem(SELECTED_ID_KEY(companyId), surveyId);
   // 하위 호환: 기존 전역 키도 함께 갱신(다른 화면이 아직 전역 키를 읽을 수 있으므로)
@@ -109,7 +109,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
         const data = JSON.parse(singleRaw);
         if (data?.surveyId) {
           applySelected(data.surveyId);
-          return;
+      return;
         }
       } catch {}
     }
@@ -145,8 +145,13 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     const deadlineText = deadline
       ? new Date(deadline).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
       : '미정';
+    
+    // 첫 번째 유효한 이메일의 이름을 사용하여 미리보기 생성
+    const firstRecipient = validEmails.length > 0 ? excelData.find(row => row.email === validEmails[0]) : null;
+    const previewName = firstRecipient?.name || '담당자';
+    
     return [
-      '{이름}님께,',
+      `${previewName}님께,`,
       '',
       '안녕하세요. ESG 중대성 평가 설문에 참여 부탁드립니다.',
       '',
@@ -156,7 +161,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       '※ 같은 이메일 주소로는 1회만 응답 가능합니다.',
       '바쁘시겠지만 소중한 의견 부탁드립니다. 감사합니다.',
     ].join('\n');
-  }, [deadline, surveyUrl]);
+  }, [deadline, surveyUrl, validEmails, excelData]);
 
   const isSendReady = !!surveyUrl && validEmails.length > 0;
 
@@ -336,7 +341,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
   return (
     <div id="survey-send" className="bg-white rounded-xl shadow-lg p-6 mb-12">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">📝 설문 발송</h2>
-
+      
       <div className="grid grid-cols-1 gap-8">
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
           <div className="flex items-center mb-4">
@@ -350,7 +355,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
               <p className="text-green-600 text-sm">설문을 대상 기업들에게 발송하세요</p>
             </div>
           </div>
-
+          
           <div className="space-y-4">
             {/* 설정 카드 */}
             <div className="bg-white rounded-lg p-4 border border-green-200">
@@ -359,33 +364,33 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
 
 
                 <div className="grid sm:grid-cols-2 gap-3">
-                  <div>
+                <div>
                     <label className="block text-sm font-semibold text-gray-800 mb-1">발송 방식</label>
-                    <select
-                      value={sendMethod}
-                      onChange={(e) => setSendMethod(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                    >
-                      <option value="email">이메일 발송</option>
-                      <option value="sms">SMS 발송</option>
-                      <option value="link">링크 공유</option>
-                    </select>
-                  </div>
-
-                                  <div>
+                  <select 
+                    value={sendMethod}
+                    onChange={(e) => setSendMethod(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                  >
+                    <option value="email">이메일 발송</option>
+                    <option value="sms">SMS 발송</option>
+                    <option value="link">링크 공유</option>
+                  </select>
+                </div>
+                
+                <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-1">발송 일정</label>
-                    <select
-                      value={sendSchedule}
-                      onChange={(e) => setSendSchedule(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-                    >
-                      <option value="immediate">즉시 발송</option>
-                      <option value="scheduled">예약 발송</option>
-                      <option value="staged">단계별 발송</option>
-                    </select>
+                  <select 
+                    value={sendSchedule}
+                    onChange={(e) => setSendSchedule(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                  >
+                    <option value="immediate">즉시 발송</option>
+                    <option value="scheduled">예약 발송</option>
+                    <option value="staged">단계별 발송</option>
+                  </select>
                   </div>
                 </div>
-
+                
                 <div>
                   <label className="block text-sm font-semibold text-gray-800 mb-1">응답 마감일</label>
                   <input
@@ -438,11 +443,17 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                 {/* 메일 본문 미리보기 */}
                 <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
                   <label className="block text-sm font-semibold text-amber-900 mb-1">✉️ 메일 본문 미리보기</label>
+                  <div className="text-xs text-amber-700 mb-2">
+                    {validEmails.length > 0 
+                      ? `첫 번째 수신자(${excelData.find(row => row.email === validEmails[0])?.name || '담당자'}) 기준 미리보기입니다. 실제 발송 시에는 각 수신자별로 개인화됩니다.`
+                      : '수신자 목록이 없어 미리보기를 표시할 수 없습니다.'
+                    }
+                  </div>
                   <textarea readOnly value={emailBodyPreview} className="w-full h-40 text-xs font-mono bg-white border border-amber-200 rounded p-2" />
                 </div>
               </div>
             </div>
-
+            
             {/* 현황 카드 */}
             <div className="bg-white rounded-lg p-4 border border-green-200">
               <h4 className="font-medium text-gray-800 mb-2">📊 발송 현황</h4>
@@ -452,7 +463,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                 <p>• 응답 완료: {sendStatus.responded}개</p>
                 <p>• 응답률: {sendStatus.responseRate}%</p>
               </div>
-
+              
               <div className="mt-3">
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
                   <span>응답률</span>
@@ -477,7 +488,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                 </div>
               </div>
             </div>
-
+            
             {/* 액션 버튼 */}
             <div className="flex flex-col sm:flex-row gap-3">
               <button
@@ -510,8 +521,8 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                     설문 발송하기
                   </>
                 )}
-              </button>
-
+                              </button>
+              
               <button
                 onClick={checkSurveyResponses}
                 disabled={!surveyUrl}
@@ -525,7 +536,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                 응답 현황 확인
               </button>
             </div>
-
+            
             {/* 준비 체크 표시 */}
             {!isSendReady && (
               <div className="mt-1 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">

@@ -5,10 +5,13 @@ import os
 import logging
 import sys
 import traceback
+import json
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from datetime import datetime
 
 # 라우터
@@ -58,6 +61,31 @@ app.add_middleware(
     TrustedHostMiddleware,
     allowed_hosts=["*"]  # 프로덕션에서는 특정 호스트로 제한 권장
 )
+
+# 422 검증 오류 핸들러 추가
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Pydantic 검증 오류 상세 로깅"""
+    try:
+        body = await request.body()
+        body_text = body.decode("utf-8") if body else ""
+    except Exception:
+        body_text = "<unreadable>"
+
+    logger.error(
+        "422 ValidationError %s %s\nHeaders: %s\nBody: %s\nErrors: %s",
+        request.method, request.url.path,
+        dict(request.headers),
+        body_text,
+        json.dumps(exc.errors(), ensure_ascii=False)
+    )
+    return JSONResponse(
+        status_code=422, 
+        content={
+            "detail": exc.errors(),
+            "message": "요청 데이터 검증에 실패했습니다. 필드명과 타입을 확인해주세요."
+        }
+    )
 
 # ─────────────────────────────────────────────────────────
 # 라우터 등록 (prefix는 여기에서만 부여)
