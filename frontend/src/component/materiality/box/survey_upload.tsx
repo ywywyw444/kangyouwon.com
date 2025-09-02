@@ -40,6 +40,29 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
     console.log('✅ 사용자 활동 기록됨 (엑셀 업로드)');
   };
 
+  // 데이터가 숨겨진 상태일 때 표시
+  if (isDataHidden) {
+    return (
+      <div id="survey-upload" className="bg-white rounded-xl shadow-lg p-6 mb-12">
+        <div className="bg-gray-50 rounded-lg p-12 text-center border-2 border-dashed border-gray-300">
+          <div className="text-4xl text-gray-300 mb-4">📊</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">설문 대상 업로드</h3>
+          <p className="text-gray-500 mb-6">Excel 파일을 업로드하여 설문 대상을 설정할 수 있습니다.</p>
+          
+          <button
+            onClick={markUserActivity}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            설문 대상 업로드 시작하기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div id="survey-upload" className="bg-white rounded-xl shadow-lg p-6 mb-12">
       <div>

@@ -191,15 +191,14 @@ async def startup_event():
         import asyncio
         
         # 비동기 연결 테스트 실행
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         try:
-            if loop.run_until_complete(test_connection()):
+            result = asyncio.run(test_connection())
+            if result:
                 logger.info("✅ PostgreSQL 데이터베이스 연결 성공")
             else:
                 logger.warning("⚠️ PostgreSQL 데이터베이스 연결 실패")
-        finally:
-            loop.close()
+        except Exception as db_error:
+            logger.warning(f"⚠️ 데이터베이스 연결 테스트 중 오류: {db_error}")
     except Exception as e:
         logger.warning(f"⚠️ 데이터베이스 연결 테스트 실패: {e}")
     

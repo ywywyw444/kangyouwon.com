@@ -22,6 +22,15 @@ const FinalIssuepool: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [isDataHidden, setIsDataHidden] = useState(true);
+
+  // 컴포넌트 마운트 시 사용자 활동 여부 확인
+  useEffect(() => {
+    const hasUserActivity = localStorage.getItem('hasUserActivity');
+    if (hasUserActivity === 'true') {
+      setIsDataHidden(false);
+    }
+  }, []);
 
   // Load media data from localStorage (assuming it's stored there)
   useEffect(() => {
@@ -119,6 +128,36 @@ const FinalIssuepool: React.FC = () => {
       setParams({ topN: Math.max(1, Math.min(50, value)) });
     }
   };
+
+  // 데이터가 숨겨진 상태일 때 표시
+  if (isDataHidden) {
+    return (
+      <div id="final-issuepool" className="bg-white rounded-xl shadow-lg p-6 mb-12">
+        <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+          📋 최종 이슈풀 확인하기
+        </h2>
+        
+        <div className="bg-gray-50 rounded-lg p-12 text-center border-2 border-dashed border-gray-300">
+          <div className="text-4xl text-gray-300 mb-4">🎯</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">최종 이슈풀 계산</h3>
+          <p className="text-gray-500 mb-6">미디어 검색과 설문 결과를 종합한 최종 이슈풀을 계산할 수 있습니다.</p>
+          
+          <button
+            onClick={() => {
+              localStorage.setItem('hasUserActivity', 'true');
+              setIsDataHidden(false);
+            }}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            최종 이슈풀 계산 시작하기
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="final-issuepool" className="bg-white rounded-xl shadow-lg p-6 mb-12">

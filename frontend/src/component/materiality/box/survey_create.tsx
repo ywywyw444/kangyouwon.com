@@ -47,6 +47,15 @@ type SurveyCreateProps = {
 
 const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult, excelData, displayCategoryCount }) => {
   const [generatedSurveyId, setGeneratedSurveyId] = useState<string | null>(null);
+  const [isDataHidden, setIsDataHidden] = useState(true);
+
+  // 컴포넌트 마운트 시 사용자 활동 여부 확인
+  React.useEffect(() => {
+    const hasUserActivity = localStorage.getItem('hasUserActivity');
+    if (hasUserActivity === 'true') {
+      setIsDataHidden(false);
+    }
+  }, []);
 
   // 컴포넌트 마운트 시 기존 설문 ID 확인
   React.useEffect(() => {
@@ -283,6 +292,32 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
   };
 
 
+
+  // 데이터가 숨겨진 상태일 때 표시
+  if (isDataHidden) {
+    return (
+      <div id="survey-create" className="bg-white rounded-xl shadow-lg p-6 mb-6">
+        <div className="bg-gray-50 rounded-lg p-12 text-center border-2 border-dashed border-gray-300">
+          <div className="text-4xl text-gray-300 mb-4">📝</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">설문 생성</h3>
+          <p className="text-gray-500 mb-6">중대성 평가를 완료하면 여기서 설문을 생성할 수 있습니다.</p>
+          
+          <button
+            onClick={() => {
+              localStorage.setItem('hasUserActivity', 'true');
+              setIsDataHidden(false);
+            }}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            설문 생성 시작하기
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div id="survey-create" className="bg-white rounded-xl shadow-lg p-6 mb-6">
