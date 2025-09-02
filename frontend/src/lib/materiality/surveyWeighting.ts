@@ -18,17 +18,28 @@ export interface SurveyResponse {
 }
 
 export interface BaseWeights {
-  segmentTotals: { 내부: number; 외부: number }; // 합 1.0 권장 (기본 0.5/0.5)
-  base: Record<GroupId, number>; // 합 1.0가 아니어도 됨(세그먼트별 합=해당 세그먼트 비중)
+  /**
+   * 세그먼트(내부/외부) 총 비중. 합 1.0 권장.
+   * 예) { 내부: 0.5, 외부: 0.5 }
+   */
+  segmentTotals: { 내부: number; 외부: number };
+  /**
+   * 그룹별 기본 비중(상대값). 세그먼트별 합이 segmentTotals의 해당 값이 되도록
+   * normalizeBaseWeights에서 정규화해 사용.
+   */
+  base: Record<GroupId, number>;
+  /**
+   * 각 그룹이 내부/외부 어느 세그먼트인지 매핑
+   */
   segmentOf: Record<GroupId, Segment>;
 }
 
 export const defaultBaseWeights: BaseWeights = {
   segmentTotals: { 내부: 0.5, 외부: 0.5 },
   base: {
-    // 내부 (합 0.5)
+    // 내부 (합 0.5로 정규화 예정)
     "임원": 0.15, "중간관리자": 0.125, "실무리더": 0.10, "주니어": 0.075,
-    // 외부 (합 0.5)
+    // 외부 (합 0.5로 정규화 예정)
     "고객": 0.10, "정부/자자체/유관기관": 0.08, "지역사회": 0.06, "협력회사": 0.08,
     "전문가/전문기관": 0.05, "투자자/투자기관": 0.06, "주주": 0.03, "언론/미디어": 0.03, "기타": 0.01,
   },
@@ -40,6 +51,41 @@ export const defaultBaseWeights: BaseWeights = {
 };
 
 const EPS = 1e-9;
+
+/**
+ * 프론트에서 세그먼트/그룹 슬라이더를 임의로 바꿔도
+ * - 내부+외부 합 = 1.0
+ * - 각 세그먼트의 그룹 합 = 해당 세그먼트 비중
+ * 을 항상 만족하도록 정규화.
+ */
+export function normalizeBaseWeights(base: BaseWeights): BaseWeights {
+  // 1) 세그먼트 합을 1.0으로
+  const segSum = Math.max(EPS, base.segmentTotals.내부 + base.segmentTotals.외부);
+  const segTotals = {
+    내부: base.segmentTotals.내부 / segSum,
+    외부: base.segmentTotals.외부 / segSum,
+  };
+
+  // 2) 세그먼트별 그룹합 계산
+  const groupSumBySeg: Record<Segment, number> = { 내부: 0, 외부: 0 };
+  (Object.keys(base.base) as GroupId[]).forEach((g) => {
+    groupSumBySeg[base.segmentOf[g]] += base.base[g] ?? 0;
+  });
+
+  // 3) 각 세그먼트 내 상대 분포 유지 + 합은 세그먼트 비중이 되도록 스케일
+  const scaledBase: Record<GroupId, number> = {} as any;
+  (Object.keys(base.base) as GroupId[]).forEach((g) => {
+    const seg = base.segmentOf[g];
+    const segBaseSum = Math.max(EPS, groupSumBySeg[seg]);
+    scaledBase[g] = (base.base[g] / segBaseSum) * segTotals[seg];
+  });
+
+  return {
+    segmentTotals: segTotals,
+    base: scaledBase,
+    segmentOf: base.segmentOf,
+  };
+}
 
 export function computeGroupWeights(
   responses: SurveyResponse[],
@@ -146,10 +192,14 @@ export function minMaxNormalize(
   return out;
 }
 
+/**
+ * mediaNorm/surveyNorm는 각각 0..1 범위의 정규화 값
+ * gammaMedia = 0.4(고정): 미디어 40%, 설문 60% 반영
+ */
 export function blendMediaAndSurvey(
   mediaNorm: Record<string, number>,
   surveyNorm: Record<string, number>,
-  gammaMedia = 0.5 // media 가중
+  gammaMedia = 0.4 // ← 기본값을 0.4로 고정
 ): Record<string, number> {
   const cats = new Set([...Object.keys(mediaNorm), ...Object.keys(surveyNorm)]);
   const res: Record<string, number> = {};

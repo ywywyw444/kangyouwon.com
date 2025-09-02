@@ -1,7 +1,135 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useAssessmentStore } from "@/store/assessmentStore";
-import { SurveyResponse, GroupId } from "@/lib/materiality/surveyWeighting";
+import {
+  SurveyResponse,
+  GroupId,
+  BaseWeights,
+  defaultBaseWeights,
+  normalizeBaseWeights,
+} from "@/lib/materiality/surveyWeighting";
+
+/**
+ * 설문 가중치 UI 컴포넌트
+ * - 세그먼트(내부/외부) 비중 조절
+ * - 내부 세부 그룹(임원/중간관리자/실무리더/주니어) 상대 비중 조절
+ *   (normalizeBaseWeights로 세그먼트 합과 내부 합 자동 정규화)
+ */
+const SurveyWeightControls: React.FC<{
+  baseWeights: BaseWeights;
+  onChange: (next: BaseWeights) => void;
+}> = ({ baseWeights, onChange }) => {
+  const [local, setLocal] = useState<BaseWeights>(baseWeights);
+
+  useEffect(() => setLocal(baseWeights), [baseWeights]);
+
+  const setSeg = (seg: "내부" | "외부", v: number) => {
+    const next = {
+      ...local,
+      segmentTotals: { ...local.segmentTotals, [seg]: Math.max(0, Math.min(1, v)) },
+    };
+    const normalized = normalizeBaseWeights(next);
+    setLocal(normalized);
+    onChange(normalized);
+  };
+
+  const setInternal = (
+    g: "임원" | "중간관리자" | "실무리더" | "주니어",
+    v: number
+  ) => {
+    const next = { ...local, base: { ...local.base, [g]: Math.max(0, v) } };
+    const normalized = normalizeBaseWeights(next);
+    setLocal(normalized);
+    onChange(normalized);
+  };
+
+  const reset = () => {
+    const next = normalizeBaseWeights(defaultBaseWeights);
+    setLocal(next);
+    onChange(next);
+  };
+
+  const internalKeys = ["임원", "중간관리자", "실무리더", "주니어"] as const;
+  const internalSum = internalKeys.reduce((s, g) => s + (local.base[g] ?? 0), 0);
+
+  return (
+    <div className="bg-amber-50 rounded-lg p-4 mb-6 border border-amber-200">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-lg font-semibold text-amber-900">🧩 설문 가중치 설정</h3>
+        <button
+          onClick={reset}
+          className="text-sm px-3 py-1 rounded bg-white border hover:bg-amber-100"
+        >
+          기본값으로
+        </button>
+      </div>
+
+      {/* 세그먼트 비중 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            세그먼트 비중 – 내부: {local.segmentTotals.내부.toFixed(2)}
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={local.segmentTotals.내부}
+            onChange={(e) => setSeg("내부", parseFloat(e.target.value))}
+            className="w-full"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            세그먼트 비중 – 외부: {local.segmentTotals.외부.toFixed(2)}
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={local.segmentTotals.외부}
+            onChange={(e) => setSeg("외부", parseFloat(e.target.value))}
+            className="w-full"
+          />
+        </div>
+      </div>
+
+      {/* 내부 세부 그룹 비중 */}
+      <div className="bg-white rounded-lg p-4 border">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-semibold text-gray-800">내부 세부 그룹 분배</h4>
+          <span className="text-xs text-gray-500">
+            현재 합계(표시용): {internalSum.toFixed(3)} (정규화 처리됨)
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {internalKeys.map((g) => (
+            <div key={g}>
+              <label className="block text-sm text-gray-700 mb-1">
+                {g}: {local.base[g].toFixed(3)}
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={local.base[g]}
+                onChange={(e) => setInternal(g, parseFloat(e.target.value))}
+                className="w-full"
+              />
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-xs text-gray-500">
+          ※ 슬라이더 값의 “상대 분포”만 사용되고, 내부 세그먼트 총합(위에서 설정한 비중)에 맞게
+          자동 정규화됩니다.
+        </p>
+      </div>
+    </div>
+  );
+};
 
 const FinalIssuepool: React.FC = () => {
   const {
@@ -15,23 +143,26 @@ const FinalIssuepool: React.FC = () => {
     mediaNorm,
     finalScores,
     alphaOutsideIn,
-    gammaMedia,
+    /* gammaMedia,  ← UI에서 제거(0.4로 고정) */
     topN,
-    baseWeights
+    baseWeights,
   } = useAssessmentStore();
 
   const [isLoading, setIsLoading] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [isDataHidden, setIsDataHidden] = useState(true);
 
+  // γ(미디어 가중) 0.4로 고정
+  useEffect(() => {
+    setParams({ gammaMedia: 0.4 });
+  }, [setParams]);
+
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   useEffect(() => {
-    // 처음 접속 시에는 항상 빈 화면으로 시작
-    const hasUserActivity = localStorage.getItem('hasUserActivity');
-    if (hasUserActivity === 'true') {
+    const hasUserActivity = localStorage.getItem("hasUserActivity");
+    if (hasUserActivity === "true") {
       setIsDataHidden(false);
     } else {
-      // 명시적으로 빈 화면으로 설정
       setIsDataHidden(true);
     }
   }, []);
@@ -39,29 +170,28 @@ const FinalIssuepool: React.FC = () => {
   // Load media data from localStorage (사용자 활동이 있는 경우에만)
   useEffect(() => {
     const loadMediaData = () => {
-      // 사용자 활동이 없는 경우 데이터를 자동으로 불러오지 않음
-      const hasUserActivity = localStorage.getItem('hasUserActivity');
+      const hasUserActivity = localStorage.getItem("hasUserActivity");
       if (!hasUserActivity) {
-        console.log('🆕 처음 접속: 미디어 데이터를 자동으로 불러오지 않습니다.');
+        console.log("🆕 처음 접속: 미디어 데이터를 자동으로 불러오지 않습니다.");
         return;
       }
 
       try {
-        const savedData = localStorage.getItem('materialityAssessmentResult');
+        const savedData = localStorage.getItem("materialityAssessmentResult");
         if (savedData) {
           const parsedData = JSON.parse(savedData);
           const categories = parsedData.assessment_result?.matched_categories || [];
-          
+
           if (categories.length > 0) {
             const mediaRanked = categories.map((cat: any) => ({
               category: cat.category,
-              final_score: cat.final_score || 0
+              final_score: cat.final_score || 0,
             }));
             setMediaRanked(mediaRanked);
           }
         }
       } catch (error) {
-        console.error('Error loading media data:', error);
+        console.error("Error loading media data:", error);
       }
     };
 
@@ -71,36 +201,36 @@ const FinalIssuepool: React.FC = () => {
   // Load survey responses from localStorage (사용자 활동이 있는 경우에만)
   useEffect(() => {
     const loadSurveyData = () => {
-      // 사용자 활동이 없는 경우 데이터를 자동으로 불러오지 않음
-      const hasUserActivity = localStorage.getItem('hasUserActivity');
+      const hasUserActivity = localStorage.getItem("hasUserActivity");
       if (!hasUserActivity) {
-        console.log('🆕 처음 접속: 설문 데이터를 자동으로 불러오지 않습니다.');
+        console.log("🆕 처음 접속: 설문 데이터를 자동으로 불러오지 않습니다.");
         return;
       }
 
       try {
-        const savedResponses = localStorage.getItem('surveyResponses');
+        const savedResponses = localStorage.getItem("surveyResponses");
         if (savedResponses) {
           const responses = JSON.parse(savedResponses);
-          
+
           // Transform to SurveyResponse format
           const surveyResponses: SurveyResponse[] = responses.map((response: any) => ({
-            respondentId: response.participant?.email || `respondent_${Date.now()}_${Math.random()}`,
-            group: mapPositionToGroup(response.participant?.position || '기타'),
+            respondentId:
+              response.participant?.email || `respondent_${Date.now()}_${Math.random()}`,
+            group: mapPositionToGroup(response.participant?.position || "기타"),
             understanding: 3, // Default understanding level
-            answers: response.responses.reduce((acc: any, resp: any) => {
+            answers: (response.responses || []).reduce((acc: any, resp: any) => {
               acc[resp.category] = {
-                outsideIn: resp.outsideScore || 3,
-                insideOut: resp.insideScore || 3
+                outsideIn: resp.outsideScore ?? 3,
+                insideOut: resp.insideScore ?? 3,
               };
               return acc;
-            }, {})
+            }, {}),
           }));
-          
+
           setSurveyResponses(surveyResponses);
         }
       } catch (error) {
-        console.error('Error loading survey data:', error);
+        console.error("Error loading survey data:", error);
       }
     };
 
@@ -110,19 +240,19 @@ const FinalIssuepool: React.FC = () => {
   // Map position to group
   const mapPositionToGroup = (position: string): GroupId => {
     const pos = position.toLowerCase();
-    if (pos.includes('임원') || pos.includes('ceo') || pos.includes('대표')) return '임원';
-    if (pos.includes('부장') || pos.includes('팀장') || pos.includes('과장')) return '중간관리자';
-    if (pos.includes('대리') || pos.includes('주임') || pos.includes('리더')) return '실무리더';
-    if (pos.includes('사원') || pos.includes('신입') || pos.includes('주니어')) return '주니어';
-    if (pos.includes('고객') || pos.includes('customer')) return '고객';
-    if (pos.includes('정부') || pos.includes('공공')) return '정부/자자체/유관기관';
-    if (pos.includes('지역') || pos.includes('사회')) return '지역사회';
-    if (pos.includes('협력') || pos.includes('파트너')) return '협력회사';
-    if (pos.includes('전문가') || pos.includes('연구')) return '전문가/전문기관';
-    if (pos.includes('투자') || pos.includes('펀드')) return '투자자/투자기관';
-    if (pos.includes('주주') || pos.includes('shareholder')) return '주주';
-    if (pos.includes('언론') || pos.includes('미디어') || pos.includes('기자')) return '언론/미디어';
-    return '기타';
+    if (pos.includes("임원") || pos.includes("ceo") || pos.includes("대표")) return "임원";
+    if (pos.includes("부장") || pos.includes("팀장") || pos.includes("과장")) return "중간관리자";
+    if (pos.includes("대리") || pos.includes("주임") || pos.includes("리더")) return "실무리더";
+    if (pos.includes("사원") || pos.includes("신입") || pos.includes("주니어")) return "주니어";
+    if (pos.includes("고객") || pos.includes("customer")) return "고객";
+    if (pos.includes("정부") || pos.includes("공공")) return "정부/자자체/유관기관";
+    if (pos.includes("지역") || pos.includes("사회")) return "지역사회";
+    if (pos.includes("협력") || pos.includes("파트너")) return "협력회사";
+    if (pos.includes("전문가") || pos.includes("연구")) return "전문가/전문기관";
+    if (pos.includes("투자") || pos.includes("펀드")) return "투자자/투자기관";
+    if (pos.includes("주주") || pos.includes("shareholder")) return "주주";
+    if (pos.includes("언론") || pos.includes("미디어") || pos.includes("기자")) return "언론/미디어";
+    return "기타";
   };
 
   const handleCompute = async () => {
@@ -130,19 +260,17 @@ const FinalIssuepool: React.FC = () => {
     try {
       computeAll();
     } catch (error) {
-      console.error('Error computing assessment:', error);
-      alert('계산 중 오류가 발생했습니다.');
+      console.error("Error computing assessment:", error);
+      alert("계산 중 오류가 발생했습니다.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleParamChange = (param: string, value: number) => {
-    if (param === 'alphaOutsideIn') {
+    if (param === "alphaOutsideIn") {
       setParams({ alphaOutsideIn: value });
-    } else if (param === 'gammaMedia') {
-      setParams({ gammaMedia: value });
-    } else if (param === 'topN') {
+    } else if (param === "topN") {
       setParams({ topN: Math.max(1, Math.min(50, value)) });
     }
   };
@@ -151,24 +279,29 @@ const FinalIssuepool: React.FC = () => {
   if (isDataHidden) {
     return (
       <div id="final-issuepool" className="bg-white rounded-xl shadow-lg p-6 mb-12">
-        <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-          📋 최종 이슈풀 확인하기
-        </h2>
-        
+        <h2 className="text-2xl font-semibold text-gray-800 mb-6">📋 최종 이슈풀 확인하기</h2>
+
         <div className="bg-gray-50 rounded-lg p-12 text-center border-2 border-dashed border-gray-300">
           <div className="text-4xl text-gray-300 mb-4">🎯</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">최종 이슈풀 계산</h3>
-          <p className="text-gray-500 mb-6">미디어 검색과 설문 결과를 종합한 최종 이슈풀을 계산할 수 있습니다.</p>
-          
+          <p className="text-gray-500 mb-6">
+            미디어 검색과 설문 결과를 종합한 최종 이슈풀을 계산할 수 있습니다.
+          </p>
+
           <button
             onClick={() => {
-              localStorage.setItem('hasUserActivity', 'true');
+              localStorage.setItem("hasUserActivity", "true");
               setIsDataHidden(false);
             }}
             className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              />
             </svg>
             최종 이슈풀 계산 시작하기
           </button>
@@ -179,10 +312,8 @@ const FinalIssuepool: React.FC = () => {
 
   return (
     <div id="final-issuepool" className="bg-white rounded-xl shadow-lg p-6 mb-12">
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-        📋 최종 이슈풀 확인하기
-      </h2>
-      
+      <h2 className="text-2xl font-semibold text-gray-800 mb-6">📋 최종 이슈풀 확인하기</h2>
+
       {/* Parameters Control */}
       <div className="bg-blue-50 rounded-lg p-4 mb-6">
         <h3 className="text-lg font-semibold text-blue-800 mb-4">⚙️ 계산 파라미터</h3>
@@ -197,24 +328,13 @@ const FinalIssuepool: React.FC = () => {
               max="1"
               step="0.1"
               value={alphaOutsideIn}
-              onChange={(e) => handleParamChange('alphaOutsideIn', parseFloat(e.target.value))}
+              onChange={(e) => handleParamChange("alphaOutsideIn", parseFloat(e.target.value))}
               className="w-full"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              미디어 가중치 (γ): {gammaMedia.toFixed(2)}
-            </label>
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.1"
-              value={gammaMedia}
-              onChange={(e) => handleParamChange('gammaMedia', parseFloat(e.target.value))}
-              className="w-full"
-            />
-          </div>
+
+          {/* γ(미디어 가중치) 슬라이더는 제거. 고정 0.4 */}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               상위 N개: {topN}
@@ -224,12 +344,18 @@ const FinalIssuepool: React.FC = () => {
               min="1"
               max="50"
               value={topN}
-              onChange={(e) => handleParamChange('topN', parseInt(e.target.value))}
+              onChange={(e) => handleParamChange("topN", parseInt(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
         </div>
       </div>
+
+      {/* 설문 가중치 컨트롤 */}
+      <SurveyWeightControls
+        baseWeights={baseWeights}
+        onChange={(next) => setParams({ baseWeights: next })}
+      />
 
       {/* Compute Button */}
       <div className="text-center mb-6">
@@ -238,11 +364,11 @@ const FinalIssuepool: React.FC = () => {
           disabled={isLoading}
           className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
             isLoading
-              ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl'
+              ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+              : "bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl"
           }`}
         >
-          {isLoading ? '계산 중...' : '🎯 최종 이슈풀 계산하기'}
+          {isLoading ? "계산 중..." : "🎯 최종 이슈풀 계산하기"}
         </button>
       </div>
 
@@ -254,7 +380,10 @@ const FinalIssuepool: React.FC = () => {
             <h3 className="text-lg font-semibold text-green-800 mb-4">🏆 최종 추천 카테고리</h3>
             <div className="space-y-3">
               {finalTop.map((item) => (
-                <div key={item.category} className="flex items-center justify-between bg-white p-4 rounded-lg border border-green-200 shadow-sm">
+                <div
+                  key={item.category}
+                  className="flex items-center justify-between bg-white p-4 rounded-lg border border-green-200 shadow-sm"
+                >
                   <div className="flex items-center">
                     <span className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-bold mr-4">
                       {item.rank}
@@ -276,9 +405,9 @@ const FinalIssuepool: React.FC = () => {
               onClick={() => setShowDebug(!showDebug)}
               className="text-sm text-gray-600 hover:text-gray-800 mb-2"
             >
-              {showDebug ? '🔽 디버그 정보 숨기기' : '🔼 디버그 정보 보기'}
+              {showDebug ? "🔽 디버그 정보 숨기기" : "🔼 디버그 정보 보기"}
             </button>
-            
+
             {showDebug && (
               <div className="space-y-4">
                 {groupWeights && (
@@ -289,7 +418,7 @@ const FinalIssuepool: React.FC = () => {
                     </pre>
                   </div>
                 )}
-                
+
                 {surveyScores && (
                   <div>
                     <h4 className="font-semibold text-gray-700 mb-2">설문 점수 (정규화):</h4>
@@ -298,7 +427,7 @@ const FinalIssuepool: React.FC = () => {
                     </pre>
                   </div>
                 )}
-                
+
                 {mediaNorm && (
                   <div>
                     <h4 className="font-semibold text-gray-700 mb-2">미디어 점수 (정규화):</h4>
@@ -307,7 +436,7 @@ const FinalIssuepool: React.FC = () => {
                     </pre>
                   </div>
                 )}
-                
+
                 {finalScores && (
                   <div>
                     <h4 className="font-semibold text-gray-700 mb-2">최종 점수:</h4>

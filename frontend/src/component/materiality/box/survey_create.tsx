@@ -348,7 +348,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
           });
         }
         
-        alert('❌ 설문은 회사별 최대 3개까지만 생성할 수 있습니다.\n\n이전 설문을 삭제한 후 다시 시도해주세요.');
+        alert('❌ 설문은 회사별 최대 3개까지만 생성할 수 있습니다.\n\n이전에 생성한 설문을 삭제한 후 다시 시도해주세요.');
         return;
       }
 
@@ -641,11 +641,11 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
 
               {/* 이전 설문 목록 (활성 포함, 최대 3개) */}
               <div className="bg-gray-100 rounded-lg p-4 border border-gray-300">
-                <h4 className="font-medium text-gray-800 mb-3">이전 설문 목록</h4>
+                <h4 className="font-medium text-gray-800 mb-3">설문 버전 관리리</h4>
                 <div className="space-y-3">
                   {(() => {
                     if (typeof window === 'undefined') {
-                      return <div className="text-sm text-gray-500 text-center py-3">이전 설문이 없습니다</div>;
+                      return <div className="text-sm text-gray-500 text-center py-3">이전에 생성한 설문이 없습니다</div>;
                     }
 
                     const list = getSurveyList(companyId)
@@ -653,7 +653,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
                       .slice(0, 3);
 
                     if (list.length === 0) {
-                      return <div className="text-sm text-gray-500 text-center py-3">이전 설문이 없습니다</div>;
+                      return <div className="text-sm text-gray-500 text-center py-3">이전에 생성한 설문이 없습니다</div>;
                     }
 
                     return list.map((survey) => {
