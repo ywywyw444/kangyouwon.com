@@ -36,15 +36,44 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     const responses = backendResponses.length > 0 ? backendResponses : (surveyResult?.responses || []);
     if (!responses || responses.length === 0) return null;
 
-    const allResponses = responses;
-    
-    // 실제 응답자 수 계산 (참여자별로 그룹화)
-    const uniqueRespondents = new Set();
-    allResponses.forEach((response: any) => {
-      // participant 정보가 있으면 email을, 없으면 respondentId를 사용
-      const respondentId = response.participant?.email || response.respondentId || 'unknown';
-      uniqueRespondents.add(respondentId);
+    // 디버깅을 위한 로그
+    console.log('🔍 설문 결과 통계 계산 시작:', {
+      backendResponsesLength: backendResponses.length,
+      surveyResultResponsesLength: surveyResult?.responses?.length || 0,
+      responsesLength: responses.length,
+      firstResponse: responses[0]
     });
+
+    // 백엔드 응답 데이터 구조에 맞게 처리
+    let allResponses: any[] = [];
+    const uniqueRespondents = new Set();
+
+    if (backendResponses.length > 0) {
+      // 백엔드 데이터: 각 응답자의 responses 배열을 평탄화
+      responses.forEach((response: any) => {
+        // 응답자 수 계산
+        const respondentId = response.participant?.email || response.participant_id || 'unknown';
+        uniqueRespondents.add(respondentId);
+        
+        // 각 응답자의 responses 배열을 평탄화
+        if (response.responses && Array.isArray(response.responses)) {
+          response.responses.forEach((item: any) => {
+            allResponses.push({
+              ...item,
+              participant: response.participant,
+              participant_id: response.participant_id
+            });
+          });
+        }
+      });
+    } else {
+      // 로컬 데이터: 기존 구조 유지
+      allResponses = responses;
+      responses.forEach((response: any) => {
+        const respondentId = response.participant?.email || response.respondentId || 'unknown';
+        uniqueRespondents.add(respondentId);
+      });
+    }
     
     const stats = {
       total: uniqueRespondents.size, // 실제 응답자 수
@@ -68,12 +97,12 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     let validInsideScores = 0;
 
     allResponses.forEach((item: any) => {
-      if (item.outsideScore !== null) {
+      if (item.outsideScore !== null && item.outsideScore !== undefined) {
         stats.scoreDistribution.outside[item.outsideScore]++;
         totalOutsideScore += item.outsideScore;
         validOutsideScores++;
       }
-      if (item.insideScore !== null) {
+      if (item.insideScore !== null && item.insideScore !== undefined) {
         stats.scoreDistribution.inside[item.insideScore]++;
         totalInsideScore += item.insideScore;
         validInsideScores++;
@@ -95,6 +124,19 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     stats.topCategories = categoryScores
       .sort((a: any, b: any) => b.totalScore - a.totalScore)
       .slice(0, 5);
+
+    // 디버깅을 위한 로그
+    console.log('📊 설문 결과 통계 계산 완료:', {
+      totalRespondents: stats.total,
+      totalResponses: stats.totalResponses,
+      environmental: stats.environmental,
+      social: stats.social,
+      governance: stats.governance,
+      averageOutsideScore: stats.averageOutsideScore,
+      averageInsideScore: stats.averageInsideScore,
+      allResponsesLength: allResponses.length,
+      firstAllResponse: allResponses[0]
+    });
 
     return stats;
   };

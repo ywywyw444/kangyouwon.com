@@ -289,13 +289,28 @@ export default function SurveyPage() {
       // 설문 링크로 접근한 경우 응답자 정보 포함
       if (surveyId && participantInfo.name) {
         try {
+          // 이메일 주소 유효성 검사
+          if (!participantInfo.email || !participantInfo.email.includes('@')) {
+            alert('❌ 유효한 이메일 주소를 입력해주세요.');
+            return;
+          }
+
           // 백엔드로 설문 응답 전송
           const responseRequest = {
             survey_id: surveyId,
-            participant: participantInfo,
+            participant: {
+              ...participantInfo,
+              email: participantInfo.email.toLowerCase().trim() // 이메일 소문자 변환 및 공백 제거
+            },
             responses: allResponses,
             corporation_id: '1' // 실제 corporation 테이블의 id 사용
           };
+
+          console.log('📤 설문 응답 전송:', {
+            survey_id: surveyId,
+            participant_email: responseRequest.participant.email,
+            total_responses: allResponses.length
+          });
 
           const response = await fetch(`/api/v1/materiality-service/surveys/${surveyId}/responses`, {
             method: 'POST',
@@ -308,7 +323,14 @@ export default function SurveyPage() {
           if (!response.ok) {
             if (response.status === 400) {
               const errorData = await response.json();
-              alert(`⚠️ ${errorData.detail}`);
+              console.log('⚠️ 백엔드 에러 응답:', errorData);
+              
+              // 이메일 중복 응답 에러 처리
+              if (errorData.detail && errorData.detail.includes('이미')) {
+                alert(`⚠️ 이미 이 설문에 응답하셨습니다.\n\n이메일: ${participantInfo.email}\n\n같은 이메일 주소로는 한 번만 응답할 수 있습니다.`);
+              } else {
+                alert(`⚠️ ${errorData.detail}`);
+              }
               return;
             }
             throw new Error(`설문 응답 제출 실패: ${response.status}`);
@@ -541,7 +563,11 @@ export default function SurveyPage() {
                         onChange={(e) => setParticipantInfo(prev => ({ ...prev, email: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="이메일을 입력하세요"
+                        required
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        💡 같은 이메일 주소로는 한 번만 응답할 수 있습니다.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -907,9 +933,15 @@ export default function SurveyPage() {
                   <p className="text-gray-600 mb-6">
                     설문이 성공적으로 제출되었습니다.
                     {surveyId && (
-                      <span className="block mt-2 text-sm text-blue-600">
-                        💡 이 설문 링크는 다른 사람들과 공유하여 추가 응답을 받을 수 있습니다.
-                      </span>
+                      <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                        <p className="text-sm text-green-800">
+                          💡 <strong>이 설문 링크는 다른 사람들과 공유하여 추가 응답을 받을 수 있습니다.</strong>
+                        </p>
+                        <p className="text-xs text-green-700 mt-2">
+                          • 같은 이메일 주소로는 한 번만 응답 가능합니다.<br/>
+                          • 다른 사람이 참여하려면 다른 이메일 주소를 사용해야 합니다.
+                        </p>
+                      </div>
                     )}
                   </p>
                  
@@ -960,26 +992,34 @@ export default function SurveyPage() {
                       </p>
                       <button
                         onClick={() => {
-                          // 설문 상태 초기화
-                          setCurrentStep(0); // 응답자 정보 입력 단계로 돌아가기
-                          setParticipantInfo({
-                            name: '',
-                            company: '',
-                            position: '',
-                            email: ''
-                          });
-                          setRespondentType('');
-                          
-                          // 응답 데이터 초기화
-                          setEnvironmentalItems(prev => 
-                            prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
-                          );
-                          setSocialItems(prev => 
-                            prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
-                          );
-                          setGovernanceItems(prev => 
-                            prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
-                          );
+                          if (confirm('설문을 다시 시작하시겠습니까?\n\n이전 응답 데이터는 모두 초기화됩니다.')) {
+                            // 설문 상태 초기화
+                            setCurrentStep(0); // 응답자 정보 입력 단계로 돌아가기
+                            setParticipantInfo({
+                              name: '',
+                              company: '',
+                              position: '',
+                              email: ''
+                            });
+                            setRespondentType('');
+                            
+                            // 응답 데이터 초기화
+                            setEnvironmentalItems(prev => 
+                              prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
+                            );
+                            setSocialItems(prev => 
+                              prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
+                            );
+                            setGovernanceItems(prev => 
+                              prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
+                            );
+                            
+                            // localStorage에서 이전 설문 결과 제거
+                            localStorage.removeItem('surveyResult');
+                            
+                            console.log('🔄 설문 재시작 - 모든 데이터 초기화 완료');
+                            alert('✅ 설문이 다시 시작되었습니다.\n\n새로운 응답자 정보를 입력해주세요.');
+                          }
                         }}
                         className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
                       >
