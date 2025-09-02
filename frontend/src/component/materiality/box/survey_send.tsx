@@ -14,6 +14,7 @@ type StoredSurvey = {
 type SurveyManagementProps = {
   companyId: string;     // ✅ 회사별로 주입
   excelData: ExcelRow[];
+  surveyResult?: any;    // 현재 활성 설문 결과
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ const markActiveSurvey = (companyId: string, activeId: string) => {
   saveSurveyList(companyId, next);
 };
 
-const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelData }) => {
+const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelData, surveyResult }) => {
   const [sendMethod, setSendMethod] = useState('email');
   const [sendSchedule, setSendSchedule] = useState('immediate');
   const [deadline, setDeadline] = useState('');
@@ -92,7 +93,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
 
   // 초기 복원: 회사별 selectedSurveyId → 없으면 리스트/단건 → 마지막으로 전역키 fallback
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+      if (typeof window === 'undefined') return;
 
     const applySelected = (sid: string) => {
       const url = `${window.location.origin}/survey?id=${sid}`;
@@ -254,16 +255,40 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
 
       setSendStatus((p) => ({ ...p, sent: validEmails.length }));
       
+      // 현재 활성 설문 ID 가져오기 (여러 소스에서 확인)
+      let currentSurveyId = selectedSurveyId;
+      
+      // 1. surveyResult prop에서 확인
+      if (surveyResult?.survey_id) {
+        currentSurveyId = surveyResult.survey_id;
+      }
+      // 2. localStorage에서 현재 활성 설문 확인
+      else if (typeof window !== 'undefined') {
+        const list = getSurveyList(companyId);
+        const activeSurvey = list.find(s => s.isActive);
+        if (activeSurvey) {
+          currentSurveyId = activeSurvey.id;
+        }
+      }
+      
+      const currentSurveyUrl = `${window.location.origin}/survey?id=${currentSurveyId}`;
+      
+      console.log('🔍 현재 활성 설문 ID 확인:', {
+        surveyResultId: surveyResult?.survey_id,
+        selectedSurveyId: selectedSurveyId,
+        finalCurrentSurveyId: currentSurveyId
+      });
+      
       // 발송된 설문 정보를 localStorage에 저장 (survey_result.tsx에서 사용)
       const sentSurveyInfo = {
-        surveyId: selectedSurveyId,
-        surveyUrl: surveyUrl,
+        surveyId: currentSurveyId,
+        surveyUrl: currentSurveyUrl,
         sentAt: new Date().toISOString(),
         companyId: companyId,
         sentEmails: validEmails
       };
       localStorage.setItem('sentSurveyInfo', JSON.stringify(sentSurveyInfo));
-      console.log('💾 발송된 설문 정보 저장:', sentSurveyInfo);
+      console.log('💾 발송된 설문 정보 저장 (현재 활성 설문):', sentSurveyInfo);
       
       // 설문 발송 완료 이벤트 발생
       const surveySentEvent = new CustomEvent('surveySent', {
