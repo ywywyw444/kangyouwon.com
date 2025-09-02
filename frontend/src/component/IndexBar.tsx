@@ -79,50 +79,77 @@ export default function IndexBar() {
   };
 
   return (
-    <div className="fixed left-8 top-1/2 transform -translate-y-1/2 z-50">
-      {isMinimized ? (
-        // 최소화된 상태 - 작은 토글 버튼만 표시
-        <button
-          onClick={toggleMinimize}
-          className="bg-white rounded-xl shadow-lg p-3 border border-gray-200 hover:bg-gray-50 transition-colors duration-200"
-          title="인덱스 바 열기"
-        >
-          <span className="text-lg">📋</span>
-        </button>
-      ) : (
-        // 확장된 상태 - 전체 인덱스 바 표시
-        <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200 min-w-[200px]">
-          {/* 헤더와 토글 버튼 */}
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-gray-700">빠른 이동</h3>
+    <>
+      {/* 기존 사이드바 (숨김 처리) */}
+      <div className="hidden">
+        <div className="fixed left-8 top-1/2 transform -translate-y-1/2 z-50">
+          {isMinimized ? (
+            // 최소화된 상태 - 작은 토글 버튼만 표시
             <button
               onClick={toggleMinimize}
-              className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-              title="인덱스 바 최소화"
+              className="bg-white rounded-xl shadow-lg p-3 border border-gray-200 hover:bg-gray-50 transition-colors duration-200"
+              title="인덱스 바 열기"
             >
-              <span className="text-lg">−</span>
+              <span className="text-lg">📋</span>
             </button>
-          </div>
-          
-          {/* 인덱스 아이템들 */}
-          <div className="space-y-2">
+          ) : (
+            // 확장된 상태 - 전체 인덱스 바 표시
+            <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-200 min-w-[200px]">
+              {/* 헤더와 토글 버튼 */}
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-700">빠른 이동</h3>
+                <button
+                  onClick={toggleMinimize}
+                  className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                  title="인덱스 바 최소화"
+                >
+                  <span className="text-lg">−</span>
+                </button>
+              </div>
+              
+              {/* 인덱스 아이템들 */}
+              <div className="space-y-2">
+                {indexItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => scrollToSection(item.id)}
+                    className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors duration-200 ${
+                      activeSection === item.id
+                        ? 'bg-purple-100 text-purple-800'
+                        : 'hover:bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    <span className="mr-2">{item.icon}</span>
+                    <span className="text-sm whitespace-nowrap">{item.title}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 새로운 가로 탭 네비게이션 */}
+      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 py-3">
+          <div className="flex items-center space-x-1 overflow-x-auto scrollbar-hide">
             {indexItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => scrollToSection(item.id)}
-                className={`flex items-center w-full px-4 py-2 text-left rounded-lg transition-colors duration-200 ${
+                className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
                   activeSection === item.id
-                    ? 'bg-purple-100 text-purple-800'
-                    : 'hover:bg-gray-100 text-gray-700'
+                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
                 <span className="mr-2">{item.icon}</span>
-                <span className="text-sm whitespace-nowrap">{item.title}</span>
+                <span>{item.title}</span>
               </button>
             ))}
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

@@ -431,8 +431,6 @@ export default function MaterialityHomePage() {
 
   return (
     <div className="min-h-screen bg-white"> {/* ROOT */}
-      <IndexBar />
-  
       {isMediaSearching && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div className="absolute inset-0 bg-transparent" />
@@ -446,8 +444,9 @@ export default function MaterialityHomePage() {
       )}
   
       <NavigationTabs />
+      <IndexBar />
   
-      <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-6 pt-20"> {/* BG */}
+      <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-6 pt-6"> {/* BG */}
         <div className="max-w-7xl mx-auto"> {/* CONTAINER */}
   
           {/* 헤더 */}

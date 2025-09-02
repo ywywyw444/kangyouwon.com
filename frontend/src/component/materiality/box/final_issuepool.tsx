@@ -179,19 +179,6 @@ const FinalIssuepool: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [isDataHidden, setIsDataHidden] = useState(true);
-  const [surveyStats, setSurveyStats] = useState<{
-    totalTargets: number;
-    totalSent: number;
-    totalResponded: number;
-    responseRate: number;
-    lastSentAt: string | null;
-  }>({
-    totalTargets: 0,
-    totalSent: 0,
-    totalResponded: 0,
-    responseRate: 0,
-    lastSentAt: null
-  });
 
   // γ(미디어 가중) 0.4로 고정, α(Outside-in 비중) 0.5로 고정
   useEffect(() => {
@@ -208,78 +195,7 @@ const FinalIssuepool: React.FC = () => {
     }
   }, []);
 
-  // 설문 발송 현황 정보 로드
-  useEffect(() => {
-    const loadSurveyStats = () => {
-      if (typeof window === 'undefined') return;
-      
-      try {
-        // survey_send.tsx에서 저장한 발송 정보 로드
-        const surveyStatsInfo = localStorage.getItem('surveyStatsInfo');
-        const backendResponses = localStorage.getItem('backendSurveyResponses');
-        
-        let totalTargets = 0;
-        let totalSent = 0;
-        let totalResponded = 0;
-        let lastSentAt = null;
-        
-        // 발송 정보 확인
-        if (surveyStatsInfo) {
-          const statsData = JSON.parse(surveyStatsInfo);
-          totalTargets = statsData.totalTargets || 0;
-          totalSent = statsData.totalSent || 0;
-          lastSentAt = statsData.lastSentAt || null;
-          console.log('📊 발송 정보 로드:', statsData);
-        }
-        
-        // 응답 정보 확인 (survey_result.tsx에서 로드한 데이터)
-        if (backendResponses) {
-          const responses = JSON.parse(backendResponses);
-          totalResponded = responses.length || 0;
-          console.log('📊 응답 정보 로드:', { totalResponded, responses });
-        }
-        
-        // 응답률 계산
-        const responseRate = totalTargets > 0 ? Math.round((totalResponded / totalTargets) * 100) : 0;
-        
-        setSurveyStats({
-          totalTargets,
-          totalSent,
-          totalResponded,
-          responseRate,
-          lastSentAt
-        });
-        
-        console.log('📊 설문 통계 업데이트:', {
-          totalTargets,
-          totalSent,
-          totalResponded,
-          responseRate,
-          lastSentAt
-        });
-        
-      } catch (error) {
-        console.error('설문 통계 로드 실패:', error);
-      }
-    };
-    
-    // 초기 로드
-    loadSurveyStats();
-    
-    // storage 이벤트 리스너로 실시간 업데이트
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'surveyStatsInfo' || e.key === 'backendSurveyResponses') {
-        console.log('🔄 설문 통계 정보 변경 감지:', e.key);
-        loadSurveyStats();
-      }
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+
 
   // Load media data from localStorage (사용자 활동이 있는 경우에만)
   useEffect(() => {
@@ -532,54 +448,6 @@ const FinalIssuepool: React.FC = () => {
       // 계산 실행
       computeAll();
       
-      // 설문 통계 정보 재로드 (계산 후 최신 응답 데이터 반영)
-      setTimeout(() => {
-        const loadSurveyStats = () => {
-          try {
-            const surveyStatsInfo = localStorage.getItem('surveyStatsInfo');
-            const backendResponses = localStorage.getItem('backendSurveyResponses');
-            
-            let totalTargets = 0;
-            let totalSent = 0;
-            let totalResponded = 0;
-            let lastSentAt = null;
-            
-            if (surveyStatsInfo) {
-              const statsData = JSON.parse(surveyStatsInfo);
-              totalTargets = statsData.totalTargets || 0;
-              totalSent = statsData.totalSent || 0;
-              lastSentAt = statsData.lastSentAt || null;
-            }
-            
-            if (backendResponses) {
-              const responses = JSON.parse(backendResponses);
-              totalResponded = responses.length || 0;
-            }
-            
-            const responseRate = totalTargets > 0 ? Math.round((totalResponded / totalTargets) * 100) : 0;
-            
-            setSurveyStats({
-              totalTargets,
-              totalSent,
-              totalResponded,
-              responseRate,
-              lastSentAt
-            });
-            
-            console.log('📊 계산 후 설문 통계 업데이트:', {
-              totalTargets,
-              totalSent,
-              totalResponded,
-              responseRate
-            });
-          } catch (error) {
-            console.error('계산 후 설문 통계 업데이트 실패:', error);
-          }
-        };
-        
-        loadSurveyStats();
-      }, 50);
-      
       // 계산 후 상태 확인
       setTimeout(() => {
         const { finalTop, groupWeights, surveyScores } = useAssessmentStore.getState();
@@ -702,45 +570,6 @@ const FinalIssuepool: React.FC = () => {
     <div id="final-issuepool" className="bg-white rounded-xl shadow-lg p-6 mb-12">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">📋 최종 이슈풀 확인하기</h2>
 
-      {/* 설문 발송 현황 */}
-      <div className="bg-green-50 rounded-lg p-4 mb-6 border border-green-200">
-        <h3 className="text-lg font-semibold text-green-800 mb-4">📊 설문 발송 현황</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="text-center bg-white p-3 rounded-lg border border-green-200">
-            <div className="text-xl font-bold text-green-600">{surveyStats.totalTargets}</div>
-            <div className="text-sm text-green-600">총 발송 대상</div>
-          </div>
-          <div className="text-center bg-white p-3 rounded-lg border border-green-200">
-            <div className="text-xl font-bold text-green-600">{surveyStats.totalSent}</div>
-            <div className="text-sm text-green-600">발송 완료</div>
-          </div>
-          <div className="text-center bg-white p-3 rounded-lg border border-green-200">
-            <div className="text-xl font-bold text-green-600">{surveyStats.totalResponded}</div>
-            <div className="text-sm text-green-600">응답 완료</div>
-          </div>
-          <div className="text-center bg-white p-3 rounded-lg border border-green-200">
-            <div className="text-xl font-bold text-green-600">{surveyStats.responseRate}%</div>
-            <div className="text-sm text-green-600">응답률</div>
-          </div>
-        </div>
-        {surveyStats.lastSentAt && (
-          <div className="mt-3 text-xs text-green-700 text-center">
-            마지막 발송: {new Date(surveyStats.lastSentAt).toLocaleString('ko-KR')}
-          </div>
-        )}
-        <div className="mt-3 bg-green-100 p-3 rounded-lg">
-          <div className="flex justify-between text-sm text-green-800 mb-2">
-            <span>응답률</span>
-            <span>{surveyStats.responseRate}%</span>
-          </div>
-          <div className="w-full bg-green-200 rounded-full h-2">
-            <div 
-              className="bg-green-600 h-2 rounded-full transition-all duration-300" 
-              style={{ width: `${surveyStats.responseRate}%` }} 
-            />
-          </div>
-        </div>
-      </div>
 
       {/* Parameters Control */}
       <div className="bg-blue-50 rounded-lg p-4 mb-6">

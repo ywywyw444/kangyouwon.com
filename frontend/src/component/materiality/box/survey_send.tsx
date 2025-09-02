@@ -197,7 +197,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
 
   // localStorage 변경 감지 (storage 이벤트만 사용, 주기적 확인 제거)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+      if (typeof window === 'undefined') return;
 
     const handleStorageChange = (e: StorageEvent) => {
       // 다른 탭에서의 변경만 감지 (같은 탭에서는 storage 이벤트가 발생하지 않음)
@@ -237,8 +237,8 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
             }
             return prev;
           });
-        }
-      } catch (error) {
+            }
+          } catch (error) {
         console.error('발송된 설문 정보 로드 실패:', error);
       }
     };
@@ -886,11 +886,11 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                               </span>
                             </div>
                           </div>
-                        </div>
+                </div>
                       );
                     })}
                 </div>
-                </div>
+              </div>
               )}
 
               <div className="mt-3 pt-3 border-t border-gray-200">
