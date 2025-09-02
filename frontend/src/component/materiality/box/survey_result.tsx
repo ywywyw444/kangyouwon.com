@@ -608,7 +608,21 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                </div>
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">설문 항목:</span>
-                 <span className="text-gray-900">{stats?.totalResponses || 0}개</span>
+                 <span className="text-gray-900">
+                   {(() => {
+                     // 설문의 실제 질문 개수 계산 (응답자 수와 관계없이 고정)
+                     if (backendResponses.length > 0) {
+                       // 첫 번째 응답자의 responses 배열 길이를 사용
+                       const firstResponse = backendResponses[0];
+                       return firstResponse?.responses?.length || 0;
+                     } else if (surveyResult?.responses && surveyResult.responses.length > 0) {
+                       // surveyResult에서 첫 번째 응답자의 responses 배열 길이를 사용
+                       const firstResponse = surveyResult.responses[0];
+                       return firstResponse?.responses?.length || 0;
+                     }
+                     return 0;
+                   })()}개
+                 </span>
                </div>
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">생성 시간:</span>
