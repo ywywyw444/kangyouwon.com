@@ -185,9 +185,9 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
     }
   };
   return (
-    <div id="survey-management" className="bg-white rounded-xl shadow-lg p-6 mb-12">
+    <div id="survey-send" className="bg-white rounded-xl shadow-lg p-6 mb-12">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-        📝 설문 관리
+        📝 설문 발송
       </h2>
       
       <div className="grid grid-cols-1 gap-8">

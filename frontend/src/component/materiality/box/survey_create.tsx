@@ -38,6 +38,13 @@ const generateSurveyContentHash = (categories: any[], excelData: any[]): string 
   return Math.abs(hash).toString(36);
 };
 
+interface SurveyResult {
+  survey_id: string;
+  content_hash?: string;
+  created_at: string;
+  is_active: boolean;
+}
+
 type SurveyCreateProps = {
   companyId: string;
   assessmentResult: any;
@@ -48,6 +55,7 @@ type SurveyCreateProps = {
 const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult, excelData, displayCategoryCount }) => {
   const [generatedSurveyId, setGeneratedSurveyId] = useState<string | null>(null);
   const [isDataHidden, setIsDataHidden] = useState(true);
+  const [surveyResult, setSurveyResult] = useState<SurveyResult | null>(null);
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   React.useEffect(() => {
@@ -61,9 +69,9 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
     }
   }, []);
 
-  // 컴포넌트 마운트 시 기존 설문 ID 확인 (사용자 활동이 있는 경우에만)
+  // 컴포넌트 마운트 시 기존 설문 정보 확인 (사용자 활동이 있는 경우에만)
   React.useEffect(() => {
-    const checkExistingSurvey = () => {
+    const checkExistingSurvey = async () => {
       // 처음 접속 시에는 데이터를 화면에 표시하지 않음
       const hasUserActivity = localStorage.getItem('hasUserActivity');
       if (!hasUserActivity) {
@@ -83,20 +91,26 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
           if (surveyData.surveyId) {
             setGeneratedSurveyId(surveyData.surveyId);
             console.log('📋 기존 설문 ID 복원:', surveyData.surveyId);
+
+            // 백엔드에서 설문 정보 가져오기
+            try {
+              const response = await fetch(`/api/v1/materiality-service/surveys/${surveyData.surveyId}`);
+              if (response.ok) {
+                const surveyInfo = await response.json();
+                setSurveyResult({
+                  survey_id: surveyData.surveyId,
+                  content_hash: surveyInfo.content_hash,
+                  created_at: surveyInfo.created_at || surveyData.timestamp,
+                  is_active: surveyInfo.is_active !== false
+                });
+                console.log('📊 설문 정보 로드 완료:', surveyInfo);
+              }
+            } catch (error) {
+              console.error('설문 정보 로드 실패:', error);
+            }
           }
         } catch (error) {
           console.error('기존 설문 데이터 파싱 실패:', error);
-        }
-      }
-      
-      // 또는 localStorage에서 해당 회사의 설문 데이터를 찾기
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(`surveyData_${companyId}_`)) {
-          const surveyId = key.replace(`surveyData_`, '');
-          setGeneratedSurveyId(surveyId);
-          console.log('📋 localStorage에서 설문 ID 복원:', surveyId);
-          break;
         }
       }
     };
@@ -252,11 +266,18 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
         console.log('✅ 설문 데이터 백엔드 저장 완료:', {
           surveyId: surveyId,
           categories: surveyResponse.total_categories,
-          companyId: surveyResponse.company_id
+          companyId: surveyResponse.company_id,
+          contentHash: surveyResponse.content_hash
         });
         
-        // Store the generated survey ID
+        // Store the generated survey ID and result
         setGeneratedSurveyId(surveyId);
+        setSurveyResult({
+          survey_id: surveyId,
+          content_hash: surveyResponse.content_hash,
+          created_at: new Date().toISOString(),
+          is_active: true
+        });
         
         // 설문 내용 해시값과 함께 저장
         const surveyData = {
@@ -377,7 +398,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
           </div>
         </div>
 
-        {/* 오른쪽: URL 표시 및 복사 기능 */}
+                      {/* 오른쪽: URL 표시 및 복사 기능 */}
         {generatedSurveyId && (
           <div className="flex-1 bg-gray-50 rounded-lg p-6 border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
@@ -388,43 +409,118 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
             </h3>
             
             <div className="space-y-4">
-              {/* URL 표시 */}
-              <div className="bg-white rounded-lg p-3 border border-gray-300">
-                <div className="text-sm text-gray-600 mb-2">생성된 설문 링크:</div>
+              {/* 현재 활성 설문 URL */}
+              <div className="bg-white rounded-lg p-4 border border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-blue-900">현재 활성 설문</span>
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">활성</span>
+                </div>
                 <div className="font-mono text-sm text-blue-700 break-all bg-blue-50 p-2 rounded border border-blue-200">
                   {`${window.location.origin}/survey?id=${generatedSurveyId}`}
                 </div>
+                <div className="mt-2 text-xs text-blue-600">
+                  설문 버전: <span className="font-mono bg-blue-100 px-2 py-1 rounded">{surveyResult?.content_hash?.substring(0, 8) || '기본'}</span>
+                </div>
+                <button
+                  onClick={() => {
+                    const surveyLink = `${window.location.origin}/survey?id=${generatedSurveyId}`;
+                    navigator.clipboard.writeText(surveyLink).then(() => {
+                      alert('✅ 설문 URL이 클립보드에 복사되었습니다!');
+                    }).catch(() => {
+                      alert('❌ URL 복사에 실패했습니다. 위 링크를 직접 복사해주세요.');
+                    });
+                  }}
+                  className="mt-3 w-full inline-flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  URL 복사하기
+                </button>
               </div>
 
-              {/* 복사 버튼 */}
-              <button
-                onClick={() => {
-                  const surveyLink = `${window.location.origin}/survey?id=${generatedSurveyId}`;
-                  navigator.clipboard.writeText(surveyLink).then(() => {
-                    alert('✅ 설문 URL이 클립보드에 복사되었습니다!');
-                  }).catch(() => {
-                    alert('❌ URL 복사에 실패했습니다. 위 링크를 직접 복사해주세요.');
-                  });
-                }}
-                className="w-full inline-flex items-center justify-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                URL 복사하기
-              </button>
-
-              {/* 설문 정보 */}
-              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                <div className="text-sm text-blue-800">
-                  <div className="flex justify-between mb-1">
-                    <span>설문 ID:</span>
-                    <span className="font-mono font-semibold">{generatedSurveyId}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>생성 시간:</span>
-                    <span className="text-xs">{new Date().toLocaleString('ko-KR')}</span>
-                  </div>
+              {/* 이전 설문 목록 */}
+              <div className="bg-gray-100 rounded-lg p-4 border border-gray-300">
+                <h4 className="font-medium text-gray-800 mb-3">이전 설문 목록</h4>
+                <div className="space-y-3">
+                  {/* 이전 설문들을 localStorage에서 가져와서 표시 */}
+                  {(() => {
+                    const previousSurveys = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                      const key = localStorage.key(i);
+                      if (key?.startsWith('surveyData_') && key !== `surveyData_${companyId}`) {
+                        try {
+                          const data = JSON.parse(localStorage.getItem(key) || '');
+                          if (data.surveyId && data.surveyId !== generatedSurveyId) {
+                            previousSurveys.push({
+                              id: data.surveyId,
+                              contentHash: data.contentHash,
+                              timestamp: data.timestamp
+                            });
+                          }
+                        } catch (e) {
+                          console.warn('이전 설문 데이터 파싱 실패:', e);
+                        }
+                      }
+                    }
+                    return previousSurveys.length > 0 ? (
+                      previousSurveys.map((survey, index) => (
+                        <div key={survey.id} className="bg-white rounded-lg p-3 border border-gray-200">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-700">
+                              버전 {survey.contentHash?.substring(0, 8) || '기본'}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {new Date(survey.timestamp).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className="font-mono text-xs text-gray-600 break-all bg-gray-50 p-2 rounded">
+                            {`${window.location.origin}/survey?id=${survey.id}`}
+                          </div>
+                          <div className="mt-2 flex justify-end space-x-2">
+                            <button
+                              onClick={() => {
+                                const surveyLink = `${window.location.origin}/survey?id=${survey.id}`;
+                                navigator.clipboard.writeText(surveyLink).then(() => {
+                                  alert('✅ 이전 설문 URL이 복사되었습니다!');
+                                });
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800"
+                            >
+                              URL 복사
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (confirm('이 이전 설문을 삭제하시겠습니까?\n연결된 응답 데이터도 함께 삭제됩니다.')) {
+                                  try {
+                                    const response = await fetch(
+                                      `/api/v1/materiality-service/surveys/${survey.id}`,
+                                      { method: 'DELETE' }
+                                    );
+                                    if (response.ok) {
+                                      localStorage.removeItem(`surveyData_${survey.id}`);
+                                      alert('✅ 이전 설문이 삭제되었습니다.');
+                                      window.location.reload();
+                                    }
+                                  } catch (error) {
+                                    console.error('설문 삭제 실패:', error);
+                                    alert('❌ 설문 삭제 중 오류가 발생했습니다.');
+                                  }
+                                }
+                              }}
+                              className="text-xs text-red-600 hover:text-red-800"
+                            >
+                              삭제
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-gray-500 text-center py-3">
+                        이전 설문이 없습니다
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -436,6 +532,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
                     <li>• 같은 이메일 주소로는 한 번만 응답 가능합니다</li>
                     <li>• 다른 사람이 참여하려면 다른 이메일 주소를 사용해야 합니다</li>
                     <li>• 설문 링크를 공유하여 여러 응답을 받을 수 있습니다</li>
+                    <li>• 동일한 내용의 설문은 자동으로 응답이 통합됩니다</li>
                   </ul>
                 </div>
               </div>

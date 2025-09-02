@@ -294,6 +294,20 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                  <span className="text-gray-900">중대성 평가 설문</span>
                </div>
                <div className="flex items-center">
+                 <span className="text-gray-700 font-medium w-32">설문 ID:</span>
+                 <span className="text-gray-900">{surveyResult.survey_id}</span>
+               </div>
+               <div className="flex items-center">
+                 <span className="text-gray-700 font-medium w-32">설문 버전:</span>
+                 <span className="text-gray-900">
+                   {surveyResult.content_hash ? (
+                     <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                       {surveyResult.content_hash.substring(0, 8)}
+                     </span>
+                   ) : '기본 버전'}
+                 </span>
+               </div>
+               <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">총 응답자:</span>
                  <span className="text-gray-900">{stats.total}명</span>
                </div>
@@ -301,7 +315,63 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                  <span className="text-gray-700 font-medium w-32">설문 항목:</span>
                  <span className="text-gray-900">{stats.totalResponses}개</span>
                </div>
+               <div className="flex items-center">
+                 <span className="text-gray-700 font-medium w-32">생성 시간:</span>
+                 <span className="text-gray-900">
+                   {new Date(surveyResult.created_at).toLocaleString('ko-KR')}
+                 </span>
+               </div>
+             </div>
+           </div>
 
+           {/* 설문 버전 관리 */}
+           <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-200">
+             <h3 className="text-lg font-semibold text-yellow-800 mb-4">
+               🔄 설문 버전 관리
+               <span className="ml-2 text-sm font-normal text-yellow-600">
+                 (동일 내용의 설문은 자동으로 집계가 통합됩니다)
+               </span>
+             </h3>
+             <div className="space-y-4">
+               {/* 현재 설문 URL */}
+               <div className="bg-white rounded-lg p-4 border border-yellow-200">
+                 <div className="flex items-center justify-between mb-2">
+                   <span className="font-medium text-yellow-900">현재 설문 링크</span>
+                   <span className="text-sm text-yellow-600">
+                     {surveyResult.is_active ? '활성' : '비활성'}
+                   </span>
+                 </div>
+                 <div className="font-mono text-sm bg-yellow-50 p-2 rounded break-all">
+                   {`${window.location.origin}/survey?id=${surveyResult.survey_id}`}
+                 </div>
+               </div>
+
+               {/* 설문 삭제 버튼 */}
+               <button
+                 onClick={async () => {
+                   if (window.confirm('⚠️ 이 설문과 모든 응답 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+                     try {
+                       const response = await fetch(
+                         `/api/v1/materiality-service/surveys/${surveyResult.survey_id}`,
+                         { method: 'DELETE' }
+                       );
+
+                       if (response.ok) {
+                         alert('✅ 설문이 성공적으로 삭제되었습니다.');
+                         window.location.reload();
+                       } else {
+                         throw new Error('설문 삭제 실패');
+                       }
+                     } catch (error) {
+                       console.error('설문 삭제 중 오류:', error);
+                       alert('❌ 설문 삭제 중 오류가 발생했습니다.');
+                     }
+                   }
+                 }}
+                 className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg transition-colors duration-200"
+               >
+                 🗑️ 이 설문 삭제하기
+               </button>
              </div>
            </div>
 
