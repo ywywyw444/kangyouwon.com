@@ -130,10 +130,105 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     return allEmails;
   }, [excelData]);
 
-  // total 업데이트
+  // 발송 완료된 명단 수 (survey_upload.tsx와 동일한 데이터 소스 사용)
+  const sentRecipientsCount = useMemo(() => {
+    if (typeof window === 'undefined') return 0;
+    
+    try {
+      const sentRecipients = localStorage.getItem('sentRecipients');
+      if (sentRecipients) {
+        const parsed = JSON.parse(sentRecipients);
+        console.log('📧 발송 완료된 명단 수 계산:', parsed.length, '명');
+        return parsed.length;
+      }
+    } catch (error) {
+      console.error('발송 완료된 명단 수 계산 실패:', error);
+    }
+    
+    return 0;
+  }, [excelData]); // excelData가 변경될 때마다 재계산
+
+  // 현재 문항수 계산 (survey_create.tsx와 동일한 로직 사용)
+  const currentQuestionCount = useMemo(() => {
+    if (typeof window === 'undefined') return 0;
+    
+    try {
+      // 1. localStorage에서 materialityAssessmentResult 확인
+      const savedResult = localStorage.getItem('materialityAssessmentResult');
+      if (savedResult) {
+        const parsedResult = JSON.parse(savedResult);
+        const displayCategoryCount = parsedResult.display_category_count;
+        const categories = parsedResult.matched_categories || [];
+        
+        if (displayCategoryCount > 0) {
+          console.log('📊 displayCategoryCount 기반 문항 수:', displayCategoryCount);
+          return displayCategoryCount;
+        } else if (categories.length > 0) {
+          console.log('📊 categories 기반 문항 수:', categories.length);
+          return categories.length;
+        }
+      }
+      
+      // 2. surveyResult prop에서 확인
+      if (surveyResult) {
+        // surveyResult에서 문항 수를 추출할 수 있는 방법이 있다면 사용
+        console.log('📊 surveyResult 기반 문항 수 확인:', surveyResult);
+      }
+      
+      // 3. 설문 리스트에서 활성 설문의 categoryCount 확인
+      const list = getSurveyList(companyId);
+      const active = list.find((s) => s.isActive);
+      if (active && active.categoryCount > 0) {
+        console.log('📊 설문 리스트 기반 문항 수:', active.categoryCount);
+        return active.categoryCount;
+      }
+      
+    } catch (error) {
+      console.error('문항 수 계산 실패:', error);
+    }
+    
+    return 0;
+  }, [companyId, surveyResult]);
+
+  // total 및 sent 업데이트
   useEffect(() => {
-    setSendStatus((p) => ({ ...p, total: validEmails.length }));
-  }, [validEmails]);
+    setSendStatus((p) => ({ ...p, total: validEmails.length, sent: sentRecipientsCount }));
+  }, [validEmails, sentRecipientsCount]);
+
+  // localStorage 변경 감지하여 발송 완료 명단 수 및 문항 수 실시간 업데이트
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStorageChange = () => {
+      try {
+        const sentRecipients = localStorage.getItem('sentRecipients');
+        if (sentRecipients) {
+          const parsed = JSON.parse(sentRecipients);
+          console.log('🔄 localStorage 변경 감지 - 발송 완료 명단 수:', parsed.length, '명');
+        }
+        
+        // materialityAssessmentResult 변경 감지
+        const savedResult = localStorage.getItem('materialityAssessmentResult');
+        if (savedResult) {
+          const parsedResult = JSON.parse(savedResult);
+          console.log('🔄 localStorage 변경 감지 - displayCategoryCount:', parsedResult.display_category_count);
+        }
+      } catch (error) {
+        console.error('localStorage 변경 감지 중 오류:', error);
+      }
+    };
+
+    // storage 이벤트 리스너 등록 (다른 탭에서의 변경 감지)
+    window.addEventListener('storage', handleStorageChange);
+
+    // 주기적으로 localStorage 확인 (같은 탭에서의 변경 감지)
+    const interval = setInterval(handleStorageChange, 1000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
     // 발송된 설문 정보 로드 (컴포넌트 마운트 시 한 번만)
   useEffect(() => {
@@ -559,7 +654,9 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                 <div className="flex items-center space-x-3">
                   <input type="radio" checked={isSelected} onChange={() => {}} className="text-blue-600" />
                   <div>
-                    <div className="text-sm font-medium text-gray-900">{survey.categoryCount}개 문항</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {survey.isActive ? `${currentQuestionCount}개 문항` : `${survey.categoryCount}개 문항`}
+                    </div>
                     <div className="text-xs text-gray-500">
                       {new Date(survey.timestamp).toLocaleDateString('ko-KR', {
                         year: 'numeric',
@@ -747,14 +844,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
               <h4 className="font-medium text-gray-800 mb-2">📊 발송 현황</h4>
               <div className="text-sm text-gray-600 space-y-1">
                 <p>• 대상 이메일: {sendStatus.total}개</p>
-                <p>• 발송 완료: {(() => {
-                  // 현재 선택된 설문의 발송 현황만 표시
-                  if (selectedSurveyId && sentSurveys.length > 0) {
-                    const currentSurveySent = sentSurveys.find(s => s.surveyId === selectedSurveyId);
-                    return currentSurveySent ? currentSurveySent.totalSent : 0;
-                  }
-                  return sendStatus.sent;
-                })()}개</p>
+                <p>• 발송 완료: {sentRecipientsCount}개</p>
               </div>
               
               {/* 발송된 설문별 누적 현황 */}
