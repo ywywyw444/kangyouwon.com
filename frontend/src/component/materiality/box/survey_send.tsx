@@ -366,7 +366,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       `• 설문 링크: ${currentSurveyUrl || '(미선택)'}`,
       `• 응답 마감: ${deadlineText}`,
       '',
-      '※ 같은 이메일 주소로는 1회만 응답 가능합니다.',
+      '※ 메일을 전송받은 이메일로 응답하실 수 있습니다.',
       '바쁘시겠지만 소중한 의견 부탁드립니다. 감사합니다.',
     ].join('\n');
   }, [deadline, surveyUrl, companyId]);

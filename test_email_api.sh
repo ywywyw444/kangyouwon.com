@@ -16,7 +16,7 @@ curl -i -X POST http://localhost:8002/api/v1/materiality-service/email/send-surv
       {
         "email": "test@example.com",
         "name": "김철수",
-        "body": "김철수님께,\n\n안녕하세요. ESG 중대성 평가 설문에 참여 부탁드립니다.\n\n• 설문 링크: https://www.kangyouwon.com/survey?id=test123\n• 응답 마감: 2024-12-31\n\n※ 같은 이메일 주소로는 1회만 응답 가능합니다.\n바쁘시겠지만 소중한 의견 부탁드립니다. 감사합니다."
+        "body": "김철수님께,\n\n안녕하세요. ESG 중대성 평가 설문에 참여 부탁드립니다.\n\n• 설문 링크: https://www.kangyouwon.com/survey?id=test123\n• 응답 마감: 2024-12-31\n\n※ 메일을 전송받은 이메일로 응답하실 수 있습니다.\n바쁘시겠지만 소중한 의견 부탁드립니다. 감사합니다."
       }
     ],
     "company_id": "test_company_001"
@@ -36,7 +36,7 @@ curl -i -X POST http://localhost:8080/api/v1/materiality-service/email/send-surv
       {
         "email": "test@example.com",
         "name": "김철수",
-        "body": "김철수님께,\n\n안녕하세요. ESG 중대성 평가 설문에 참여 부탁드립니다.\n\n• 설문 링크: https://www.kangyouwon.com/survey?id=test123\n• 응답 마감: 2024-12-31\n\n※ 같은 이메일 주소로는 1회만 응답 가능합니다.\n바쁘시겠지만 소중한 의견 부탁드립니다. 감사합니다."
+        "body": "김철수님께,\n\n안녕하세요. ESG 중대성 평가 설문에 참여 부탁드립니다.\n\n• 설문 링크: https://www.kangyouwon.com/survey?id=test123\n• 응답 마감: 2024-12-31\n\n※ 메일을 전송받은 이메일로 응답하실 수 있습니다.\n바쁘시겠지만 소중한 의견 부탁드립니다. 감사합니다."
       }
     ],
     "company_id": "test_company_001"
