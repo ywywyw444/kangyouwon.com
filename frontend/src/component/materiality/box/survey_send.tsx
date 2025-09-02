@@ -195,38 +195,22 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     setSendStatus((p) => ({ ...p, total: validEmails.length, sent: sentRecipientsCount }));
   }, [validEmails, sentRecipientsCount]);
 
-  // localStorage 변경 감지하여 발송 완료 명단 수 및 문항 수 실시간 업데이트
+  // localStorage 변경 감지 (storage 이벤트만 사용, 주기적 확인 제거)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const handleStorageChange = () => {
-      try {
-        const sentRecipients = localStorage.getItem('sentRecipients');
-        if (sentRecipients) {
-          const parsed = JSON.parse(sentRecipients);
-          console.log('🔄 localStorage 변경 감지 - 발송 완료 명단 수:', parsed.length, '명');
-        }
-        
-        // materialityAssessmentResult 변경 감지
-        const savedResult = localStorage.getItem('materialityAssessmentResult');
-        if (savedResult) {
-          const parsedResult = JSON.parse(savedResult);
-          console.log('🔄 localStorage 변경 감지 - displayCategoryCount:', parsedResult.display_category_count);
-        }
-      } catch (error) {
-        console.error('localStorage 변경 감지 중 오류:', error);
+    const handleStorageChange = (e: StorageEvent) => {
+      // 다른 탭에서의 변경만 감지 (같은 탭에서는 storage 이벤트가 발생하지 않음)
+      if (e.key === 'sentRecipients' || e.key === 'materialityAssessmentResult') {
+        console.log('🔄 다른 탭에서 localStorage 변경 감지:', e.key);
       }
     };
 
-    // storage 이벤트 리스너 등록 (다른 탭에서의 변경 감지)
+    // storage 이벤트 리스너 등록 (다른 탭에서의 변경 감지만)
     window.addEventListener('storage', handleStorageChange);
-
-    // 주기적으로 localStorage 확인 (같은 탭에서의 변경 감지)
-    const interval = setInterval(handleStorageChange, 1000);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
     };
   }, []);
 
