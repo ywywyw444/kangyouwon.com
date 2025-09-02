@@ -425,8 +425,9 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
              if (confirm('화면에서 모든 내용을 지우시겠습니까?\n\n저장된 데이터는 메모리에 남아있어서 불러오기 버튼으로 다시 표시할 수 있습니다.')) {
                // 화면에서만 내용 지우기 (localStorage는 유지)
                setIssuepoolData(null);
-               // assessmentResult는 지우지 않음 (중대성 평가 결과 불러오기 버튼이 살아있어야 함)
-               console.log('🧹 화면 내용 지우기 완료 (localStorage 유지, 중대성 평가 결과는 유지)');
+               // assessmentResult도 지워서 중간 결과 섹션을 비움 (하지만 불러오기 버튼은 계속 표시)
+               setAssessmentResult(null);
+               console.log('🧹 화면 내용 지우기 완료 (localStorage 유지, 모든 섹션 비움)');
                alert('✅ 화면 내용이 지워졌습니다.\n\n불러오기 버튼을 눌러서 저장된 데이터를 다시 표시할 수 있습니다.');
              }
            }}
@@ -866,7 +867,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
-                  중대성 평가 결과 불러오기
+                  불러오기
                 </button>
                 
                 
@@ -927,15 +928,31 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
 
             </div>
           </div>
-        ) : (
-        <div className="text-center text-gray-500 text-sm">
-            새로운 중대성 평가를 시작하면 여기에 결과가 표시됩니다.
-        </div>
-        )}
-      </div>
-    </div>
-  </div>
-  );
-};
+                 ) : (
+           <div className="space-y-4">
+             <div className="text-center text-gray-500 text-sm mb-4">
+               새로운 중대성 평가를 시작하면 여기에 결과가 표시됩니다.
+             </div>
+             
+             {/* 중대성 평가 결과 불러오기 버튼 - 결과가 없어도 항상 표시 */}
+             <div className="text-center">
+               <button
+                 onClick={() => loadAssessmentResult(setAssessmentResult, () => {}, () => {}, () => {}, setDisplayCategoryCount)}
+                 className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
+                 title="저장된 중대성 평가 결과를 불러옵니다"
+               >
+                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                 </svg>
+                 불러오기
+               </button>
+             </div>
+           </div>
+         )}
+       </div>
+     </div>
+   </div>
+   );
+ };
 
 export default FirstAssessment;
