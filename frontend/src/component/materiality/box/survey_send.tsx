@@ -40,6 +40,9 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
   // 선택된 설문 URL 확인 및 업데이트
   useEffect(() => {
     const checkSelectedSurvey = () => {
+      // 브라우저 환경이 아니면 실행하지 않음
+      if (typeof window === 'undefined') return;
+
       // 선택된 설문 ID 확인
       const selectedSurveyId = localStorage.getItem('selectedSurveyId');
       if (selectedSurveyId) {
@@ -288,6 +291,9 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                       <button
                         onClick={() => {
                           if (confirm('❗ 이 설문을 삭제하시겠습니까?\n\n삭제된 설문은 복구할 수 없습니다.')) {
+                            // 브라우저 환경 체크
+                            if (typeof window === 'undefined') return;
+                            
                             // localStorage에서 설문 데이터 삭제
                             const selectedSurveyId = localStorage.getItem('selectedSurveyId');
                             if (selectedSurveyId) {

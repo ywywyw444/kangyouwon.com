@@ -12,6 +12,9 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   React.useEffect(() => {
+    // 브라우저 환경이 아니면 실행하지 않음
+    if (typeof window === 'undefined') return;
+
     // 처음 접속 시에는 데이터를 화면에 표시하지 않음
     const hasUserActivity = localStorage.getItem('hasUserActivity');
     if (!hasUserActivity) {
@@ -102,6 +105,9 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
 
   // 설문 결과 통계 계산 (선택된 설문의 응답만 사용)
   const calculateSurveyStats = () => {
+    // 브라우저 환경이 아니면 빈 통계 반환
+    if (typeof window === 'undefined') return null;
+
     // 선택된 설문 ID 확인
     const selectedSurveyId = localStorage.getItem('selectedSurveyId');
     
@@ -222,8 +228,10 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
 
   // 사용자 활동을 표시하는 함수
   const markUserActivity = () => {
-    localStorage.setItem('hasUserActivity', 'true');
-    setIsDataHidden(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hasUserActivity', 'true');
+      setIsDataHidden(false);
+    }
   };
 
   // 데이터가 숨겨진 상태일 때 표시
@@ -591,10 +599,13 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
             <button
               onClick={() => {
                 if (window.confirm('정말로 설문 결과를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
-                  // localStorage에서 설문 결과 제거
-                  localStorage.removeItem('surveyResult');
-                  localStorage.removeItem('surveyData');
-                  localStorage.removeItem('hasUserActivity');
+                  // 브라우저 환경 체크
+                  if (typeof window !== 'undefined') {
+                    // localStorage에서 설문 결과 제거
+                    localStorage.removeItem('surveyResult');
+                    localStorage.removeItem('surveyData');
+                    localStorage.removeItem('hasUserActivity');
+                  }
                   
                   // 페이지 새로고침하여 초기 상태로 복원
                   window.location.reload();
