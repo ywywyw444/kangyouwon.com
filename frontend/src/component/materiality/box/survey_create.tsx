@@ -68,6 +68,19 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
   }, [generatedSurveyId, companyId, assessmentResult]);
 
   const handleCreate = async () => {
+    // 설문이 이미 생성된 경우 확인
+    if (generatedSurveyId) {
+      if (confirm('이미 설문이 생성되어 있습니다.\n\n새로운 설문을 생성하시겠습니까?\n\n기존 설문은 유지되지만, 새로운 설문 ID가 생성됩니다.')) {
+        // 기존 설문 ID를 초기화하고 새로 생성
+        setGeneratedSurveyId(null);
+        // 잠시 대기 후 새 설문 생성 진행
+        setTimeout(() => handleCreate(), 100);
+        return;
+      } else {
+        return;
+      }
+    }
+
     const resultData = assessmentResult?.data || assessmentResult;
     const categories = resultData?.matched_categories || [];
 
@@ -175,9 +188,9 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
         <div className="flex-1 text-center">
           <button
             onClick={handleCreate}
-            disabled={!assessmentResult}
+            disabled={!assessmentResult && !generatedSurveyId}
             className={`inline-flex items-center px-8 py-4 border-2 text-lg font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl ${
-              assessmentResult
+              assessmentResult || generatedSurveyId
                 ? 'border-blue-500 text-blue-700 bg-white hover:bg-blue-50 hover:border-blue-600'
                 : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed'
             }`}
@@ -188,14 +201,17 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
             설문 생성하기
           </button>
           <p className="text-sm text-gray-600 mt-3">
-            중간 중대성 평가 결과를 바탕으로 설문을 생성합니다
+            {generatedSurveyId 
+              ? '이미 설문이 생성되어 있습니다. 새로운 설문을 생성하려면 버튼을 클릭하세요.'
+              : '중간 중대성 평가 결과를 바탕으로 설문을 생성합니다'
+            }
           </p>
           <div className="mt-4">
             <button
               onClick={handlePreview}
-              disabled={!assessmentResult || !generatedSurveyId}
+              disabled={!generatedSurveyId}
               className={`inline-flex items-center px-6 py-3 border-2 text-base font-semibold rounded-lg transition-all duration-200 ${
-                assessmentResult && generatedSurveyId
+                generatedSurveyId
                   ? 'border-green-500 text-green-700 bg-white hover:bg-green-50 hover:border-green-600'
                   : 'border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed'
               }`}
