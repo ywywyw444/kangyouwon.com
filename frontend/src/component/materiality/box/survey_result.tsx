@@ -12,49 +12,72 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   React.useEffect(() => {
-    // 처음 접속 시에는 항상 빈 화면으로 시작
+    // 처음 접속 시에는 데이터를 화면에 표시하지 않음
     const hasUserActivity = localStorage.getItem('hasUserActivity');
+    if (!hasUserActivity) {
+      setIsDataHidden(true);
+      console.log('🆕 처음 접속: 화면에 데이터를 표시하지 않습니다.');
+      return;
+    }
+
+    // 사용자 활동이 있는 경우에만 데이터를 화면에 표시
     if (hasUserActivity === 'true') {
       setIsDataHidden(false);
-    } else {
-      // 명시적으로 빈 화면으로 설정
-      setIsDataHidden(true);
+      console.log('💾 데이터 표시 (사용자 활동 있음)');
     }
   }, []);
 
   // 백엔드에서 설문 응답 데이터 로드 (동일한 내용의 설문들 포함)
   React.useEffect(() => {
+    let isSubscribed = true; // 비동기 작업 취소를 위한 플래그
+    let previousResponseCount = 0; // 이전 응답 수를 저장
+
     const loadBackendResponses = async () => {
-      // 사용자 활동이 있고 데이터가 숨겨지지 않은 경우에만 로드
-      const hasUserActivity = localStorage.getItem('hasUserActivity');
-      if (!hasUserActivity || isDataHidden || !surveyResult?.survey_id) {
-        console.log('🆕 처음 접속 또는 데이터 숨김 상태: 백엔드 응답 데이터를 자동으로 불러오지 않습니다.');
+      if (!surveyResult?.survey_id) {
+        console.log('⚠️ 설문 ID가 없어 응답 데이터를 불러올 수 없습니다.');
         return;
       }
 
-      setLoading(true);
       try {
+        // 첫 로드 시에만 로딩 표시
+        if (backendResponses.length === 0) {
+          setLoading(true);
+        }
+
         // 먼저 설문 정보를 가져와서 content_hash 확인
         const surveyResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}`);
+        if (!isSubscribed) return; // 컴포넌트가 언마운트되었다면 중단
+
         if (surveyResponse.ok) {
           const surveyData = await surveyResponse.json();
           const contentHash = surveyData.content_hash;
           
+          let newResponses = [];
           if (contentHash) {
             // 동일한 내용 해시를 가진 설문들의 모든 응답을 가져오기
             const responsesResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses?content_hash=${contentHash}`);
+            if (!isSubscribed) return;
+
             if (responsesResponse.ok) {
               const data = await responsesResponse.json();
-              setBackendResponses(data.responses || []);
-              console.log(`📊 동일한 내용의 설문들에서 총 ${data.responses?.length || 0}개 응답을 가져왔습니다.`);
+              newResponses = data.responses || [];
             }
           } else {
             // content_hash가 없으면 기존 방식으로 단일 설문 응답만 가져오기
             const response = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses`);
+            if (!isSubscribed) return;
+
             if (response.ok) {
               const data = await response.json();
-              setBackendResponses(data.responses || []);
+              newResponses = data.responses || [];
             }
+          }
+
+          // 새로운 응답이 있을 때만 상태 업데이트 및 로그 출력
+          if (newResponses.length !== previousResponseCount) {
+            setBackendResponses(newResponses);
+            console.log(`📊 설문 응답 업데이트: ${newResponses.length}개 (${newResponses.length - previousResponseCount}개 증가)`);
+            previousResponseCount = newResponses.length;
           }
         }
       } catch (error) {
@@ -64,8 +87,18 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       }
     };
 
+    // 초기 로드
     loadBackendResponses();
-  }, [surveyResult?.survey_id, isDataHidden]);
+
+    // 주기적으로 새로운 응답 확인 (30초마다)
+    const intervalId = setInterval(loadBackendResponses, 30000);
+
+    // 컴포넌트 언마운트 시 정리
+    return () => {
+      isSubscribed = false;
+      clearInterval(intervalId);
+    };
+  }, [surveyResult?.survey_id, backendResponses.length]);
 
   // 설문 결과 통계 계산 (백엔드 데이터 우선 사용)
   const calculateSurveyStats = () => {
@@ -382,7 +415,9 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((score) => {
                     const count = stats.scoreDistribution.outside[score];
-                    const percentage = stats.total > 0 ? (count / stats.total) * 100 : 0;
+                    // 각 점수별 응답 수를 기준으로 그래프 길이 계산
+                    const maxCount = Math.max(...Object.values(stats.scoreDistribution.outside));
+                    const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
                     
                     return (
                       <div key={score} className="flex items-center min-w-0">
@@ -393,14 +428,11 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                               count > 0 ? 'bg-orange-500' : 'bg-orange-300'
                             }`}
                             style={{ 
-                              width: `${Math.min(100, percentage)}%` 
+                              width: `${barWidth}%` 
                             }}
                           ></div>
                         </div>
                         <span className="w-8 text-sm text-orange-600 flex-shrink-0 text-right">{count}</span>
-                        <span className="w-12 text-xs text-orange-500 flex-shrink-0 text-right">
-                          {percentage > 0 ? `${percentage.toFixed(1)}%` : '0%'}
-                        </span>
                       </div>
                     );
                   })}
@@ -413,7 +445,9 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((score) => {
                     const count = stats.scoreDistribution.inside[score];
-                    const percentage = stats.total > 0 ? (count / stats.total) * 100 : 0;
+                    // 각 점수별 응답 수를 기준으로 그래프 길이 계산
+                    const maxCount = Math.max(...Object.values(stats.scoreDistribution.inside));
+                    const barWidth = maxCount > 0 ? (count / maxCount) * 100 : 0;
                     
                     return (
                       <div key={score} className="flex items-center min-w-0">
@@ -424,14 +458,11 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                               count > 0 ? 'bg-orange-500' : 'bg-orange-300'
                             }`}
                             style={{ 
-                              width: `${Math.min(100, percentage)}%` 
+                              width: `${barWidth}%` 
                             }}
                           ></div>
                         </div>
                         <span className="w-8 text-sm text-orange-600 flex-shrink-0 text-right">{count}</span>
-                        <span className="w-12 text-xs text-orange-500 flex-shrink-0 text-right">
-                          {percentage > 0 ? `${percentage.toFixed(1)}%` : '0%'}
-                        </span>
                       </div>
                     );
                   })}

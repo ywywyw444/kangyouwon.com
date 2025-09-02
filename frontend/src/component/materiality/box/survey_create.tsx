@@ -64,10 +64,11 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
   // 컴포넌트 마운트 시 기존 설문 ID 확인 (사용자 활동이 있는 경우에만)
   React.useEffect(() => {
     const checkExistingSurvey = () => {
-      // 사용자 활동이 없는 경우 기존 설문 ID를 로드하지 않음
+      // 처음 접속 시에는 데이터를 화면에 표시하지 않음
       const hasUserActivity = localStorage.getItem('hasUserActivity');
       if (!hasUserActivity) {
-        console.log('🆕 처음 접속: 기존 설문 ID를 자동으로 불러오지 않습니다.');
+        setIsDataHidden(true);
+        console.log('🆕 처음 접속: 화면에 데이터를 표시하지 않습니다.');
         return;
       }
 

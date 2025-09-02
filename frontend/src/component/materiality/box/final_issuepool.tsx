@@ -284,7 +284,7 @@ const FinalIssuepool: React.FC = () => {
                 {groupWeights && (
                   <div>
                     <h4 className="font-semibold text-gray-700 mb-2">그룹 가중치:</h4>
-                    <pre className="bg-white p-3 rounded text-xs overflow-auto">
+                    <pre className="bg-white p-3 rounded text-xs font-medium text-gray-800 overflow-auto">
                       {JSON.stringify(groupWeights, null, 2)}
                     </pre>
                   </div>
@@ -293,7 +293,7 @@ const FinalIssuepool: React.FC = () => {
                 {surveyScores && (
                   <div>
                     <h4 className="font-semibold text-gray-700 mb-2">설문 점수 (정규화):</h4>
-                    <pre className="bg-white p-3 rounded text-xs overflow-auto">
+                    <pre className="bg-white p-3 rounded text-xs font-medium text-gray-800 overflow-auto">
                       {JSON.stringify(surveyScores, null, 2)}
                     </pre>
                   </div>
@@ -302,7 +302,7 @@ const FinalIssuepool: React.FC = () => {
                 {mediaNorm && (
                   <div>
                     <h4 className="font-semibold text-gray-700 mb-2">미디어 점수 (정규화):</h4>
-                    <pre className="bg-white p-3 rounded text-xs overflow-auto">
+                    <pre className="bg-white p-3 rounded text-xs font-medium text-gray-800 overflow-auto">
                       {JSON.stringify(mediaNorm, null, 2)}
                     </pre>
                   </div>
@@ -311,7 +311,7 @@ const FinalIssuepool: React.FC = () => {
                 {finalScores && (
                   <div>
                     <h4 className="font-semibold text-gray-700 mb-2">최종 점수:</h4>
-                    <pre className="bg-white p-3 rounded text-xs overflow-auto">
+                    <pre className="bg-white p-3 rounded text-xs font-medium text-gray-800 overflow-auto">
                       {JSON.stringify(finalScores, null, 2)}
                     </pre>
                   </div>

@@ -179,47 +179,41 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
 
   useEffect(() => {
     const loadAssessmentResultFromStorage = () => {
-      // 사용자 활동 상태 확인
+      // 처음 접속 시에는 데이터를 화면에 표시하지 않음
       const hasUserActivity = localStorage.getItem('hasUserActivity');
-      
-      // 처음 접속이거나 사용자 활동이 없는 경우 데이터를 자동으로 불러오지 않음
       if (!hasUserActivity) {
-        console.log('🆕 처음 접속: 중대성 평가 결과를 자동으로 불러오지 않습니다.');
+        setIsDataHidden(true);
+        console.log('🆕 처음 접속: 화면에 데이터를 표시하지 않습니다.');
         return;
       }
 
-      // 사용자 활동이 있는 경우에만 데이터 로드
+      // 사용자 활동이 있는 경우에만 데이터를 화면에 표시
       const savedResult = localStorage.getItem('materialityAssessmentResult');
       if (savedResult) {
         try {
           const parsedResult = JSON.parse(savedResult);
-          // assessment_result 필드가 있으면 해당 데이터를 사용
           if (parsedResult.assessment_result) {
+            // 데이터는 state에 로드하되, isDataHidden으로 화면 표시 여부 제어
             setAssessmentResult(parsedResult.assessment_result);
-            // display_category_count도 복원
             if (parsedResult.display_category_count !== undefined) {
               setDisplayCategoryCount(parsedResult.display_category_count);
-              console.log('📊 복원된 표시 카테고리 개수:', parsedResult.display_category_count);
             }
-            console.log('💾 저장된 중대성 평가 결과 불러오기 완료:', parsedResult.assessment_result);
+            console.log('💾 데이터 로드 완료 (사용자 활동 있음)');
           } else {
             setAssessmentResult(parsedResult);
-            // display_category_count도 복원
             if (parsedResult.display_category_count !== undefined) {
               setDisplayCategoryCount(parsedResult.display_category_count);
-              console.log('📊 복원된 표시 카테고리 개수:', parsedResult.display_category_count);
             }
-            console.log('💾 저장된 중대성 평가 결과 불러오기 완료:', parsedResult);
           }
         } catch (e) {
-          console.error('❌ 저장된 중대성 평가 결과 파싱 실패:', e);
-          localStorage.removeItem('materialityAssessmentResult'); // 파싱 실패 시 삭제
+          console.error('❌ 데이터 파싱 실패:', e);
+          localStorage.removeItem('materialityAssessmentResult');
         }
       }
     };
 
     loadAssessmentResultFromStorage();
-  }, [setAssessmentResult]);
+  }, [setAssessmentResult, setDisplayCategoryCount]);
 
   useEffect(() => {
     const loadSearchResultFromStorage = () => {

@@ -42,13 +42,18 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   React.useEffect(() => {
-    // 처음 접속 시에는 항상 빈 화면으로 시작
+    // 처음 접속 시에는 데이터를 화면에 표시하지 않음
     const hasUserActivity = localStorage.getItem('hasUserActivity');
+    if (!hasUserActivity) {
+      setIsDataHidden(true);
+      console.log('🆕 처음 접속: 화면에 데이터를 표시하지 않습니다.');
+      return;
+    }
+
+    // 사용자 활동이 있는 경우에만 데이터를 화면에 표시
     if (hasUserActivity === 'true') {
       setIsDataHidden(false);
-    } else {
-      // 명시적으로 빈 화면으로 설정
-      setIsDataHidden(true);
+      console.log('💾 데이터 표시 (사용자 활동 있음)');
     }
   }, []);
 

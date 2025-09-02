@@ -348,6 +348,9 @@ export default function SurveyPage() {
           // 설문 결과에 응답자 정보 포함
           surveyResult.participant = participantInfo;
           surveyResult.survey_id = surveyId;
+
+          // 설문 응답이 성공적으로 저장되었음을 표시
+          localStorage.setItem('hasUserActivity', 'true');
         } catch (error) {
           console.error('❌ 설문 응답 제출 실패:', error);
           alert(`❌ 설문 응답 제출에 실패했습니다.\n\n오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);

@@ -29,7 +29,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
     setSendStatus(prev => ({ ...prev, total: validEmails.length }));
   }, [excelData]);
 
-  // 컴포넌트 마운트 시 기존 설문 URL 확인
+  // 설문 URL 주기적으로 확인 및 업데이트
   useEffect(() => {
     const checkExistingSurvey = () => {
       // localStorage에서 기존 설문 ID 확인
@@ -38,7 +38,11 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
         try {
           const data = JSON.parse(surveyData);
           if (data.surveyId) {
-            setSurveyUrl(`${window.location.origin}/survey?id=${data.surveyId}`);
+            const newUrl = `${window.location.origin}/survey?id=${data.surveyId}`;
+            if (newUrl !== surveyUrl) { // URL이 변경된 경우에만 상태 업데이트
+              console.log('📝 설문 URL 업데이트:', newUrl);
+              setSurveyUrl(newUrl);
+            }
           }
         } catch (error) {
           console.error('설문 데이터 파싱 실패:', error);
@@ -46,8 +50,15 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
       }
     };
 
+    // 초기 확인
     checkExistingSurvey();
-  }, []);
+
+    // 3초마다 확인
+    const intervalId = setInterval(checkExistingSurvey, 3000);
+
+    // 컴포넌트 언마운트 시 인터벌 정리
+    return () => clearInterval(intervalId);
+  }, [surveyUrl]); // surveyUrl을 의존성 배열에 추가하여 변경 감지
 
   // 응답률 계산
   useEffect(() => {
@@ -333,6 +344,25 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
             </div>
             
             <div className="flex space-x-3">
+              {/* 발송 준비 상태 요약 */}
+              <div className="flex-1 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div className="font-medium text-gray-700 mb-2">📋 발송 준비 체크리스트:</div>
+                  <div className={`flex items-center ${surveyUrl ? 'text-green-600' : 'text-red-600'}`}>
+                    <span className={`w-2 h-2 rounded-full mr-2 ${surveyUrl ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    설문 링크: {surveyUrl ? '✅ 준비 완료' : '❌ 미생성'}
+                  </div>
+                  <div className={`flex items-center ${companyName.trim() ? 'text-green-600' : 'text-red-600'}`}>
+                    <span className={`w-2 h-2 rounded-full mr-2 ${companyName.trim() ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    회사명: {companyName.trim() ? '✅ 입력 완료' : '❌ 미입력'}
+                  </div>
+                  <div className={`flex items-center ${sendStatus.total > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <span className={`w-2 h-2 rounded-full mr-2 ${sendStatus.total > 0 ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                    이메일 목록: {sendStatus.total > 0 ? `✅ ${sendStatus.total}개 준비 완료` : '❌ 미업로드'}
+                  </div>
+                </div>
+              </div>
+              
               <button
                 onClick={handleSendEmails}
                 disabled={isLoading || !surveyUrl || !companyName.trim() || sendStatus.total === 0}
@@ -341,6 +371,13 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     : 'bg-green-600 hover:bg-green-700 text-white'
                 }`}
+                title={
+                  isLoading ? '발송 중입니다...' :
+                  !surveyUrl ? '설문을 먼저 생성해주세요' :
+                  !companyName.trim() ? '회사명을 입력해주세요' :
+                  sendStatus.total === 0 ? '이메일 목록을 업로드해주세요' :
+                  '모든 준비가 완료되었습니다'
+                }
               >
                 {isLoading ? (
                   <>
@@ -358,7 +395,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                     설문 발송하기
                   </>
                 )}
-              </button>
+                              </button>
               
               <button
                 onClick={checkSurveyResponses}
@@ -375,6 +412,40 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                 응답 현황 확인
               </button>
             </div>
+            
+            {/* 발송 준비 안내 메시지 */}
+            {(!surveyUrl || !companyName.trim() || sendStatus.total === 0) && (
+              <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <div className="text-sm text-yellow-800">
+                    <div className="font-medium mb-2">📋 설문 발송을 위해 다음 단계를 완료해주세요:</div>
+                    <ul className="space-y-1 text-xs">
+                      {!surveyUrl && (
+                        <li className="flex items-center">
+                          <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                          <strong>1단계:</strong> "설문 생성하기"에서 설문을 생성하여 설문 링크를 만드세요
+                        </li>
+                      )}
+                      {!companyName.trim() && (
+                        <li className="flex items-center">
+                          <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                          <strong>2단계:</strong> 위의 "회사명" 필드에 회사명을 입력하세요
+                        </li>
+                      )}
+                      {sendStatus.total === 0 && (
+                        <li className="flex items-center">
+                          <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                          <strong>3단계:</strong> "설문 대상 업로드"에서 엑셀 파일을 업로드하세요
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
