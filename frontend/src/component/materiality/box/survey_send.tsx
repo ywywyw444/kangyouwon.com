@@ -96,7 +96,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     setSendStatus((p) => ({ ...p, total: validEmails.length }));
   }, [validEmails]);
 
-  // 발송된 설문 정보 로드
+    // 발송된 설문 정보 로드 (컴포넌트 마운트 시 한 번만)
   useEffect(() => {
       if (typeof window === 'undefined') return;
 
@@ -105,16 +105,20 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
         const sentSurveyInfo = localStorage.getItem('sentSurveyInfo');
         if (sentSurveyInfo) {
           const parsed = JSON.parse(sentSurveyInfo);
-          const existingSurvey = sentSurveys.find(s => s.surveyId === parsed.surveyId);
+          console.log('📧 발송된 설문 정보 로드:', parsed);
           
-          if (!existingSurvey) {
-            setSentSurveys(prev => [...prev, {
-              surveyId: parsed.surveyId,
-              sentAt: parsed.sentAt,
-              sentEmails: parsed.sentEmails || [],
-              totalSent: parsed.sentEmails?.length || 0
-            }]);
-          }
+          setSentSurveys(prev => {
+            const existingSurvey = prev.find(s => s.surveyId === parsed.surveyId);
+            if (!existingSurvey) {
+              return [...prev, {
+                surveyId: parsed.surveyId,
+                sentAt: parsed.sentAt,
+                sentEmails: parsed.sentEmails || [],
+                totalSent: parsed.sentEmails?.length || 0
+              }];
+            }
+            return prev;
+          });
         }
       } catch (error) {
         console.error('발송된 설문 정보 로드 실패:', error);
@@ -122,7 +126,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     };
     
     loadSentSurveys();
-  }, [sentSurveys]);
+  }, []); // 의존성 배열을 빈 배열로 변경하여 한 번만 실행
 
   // 초기 복원: 회사별 selectedSurveyId → 없으면 리스트/단건 → 마지막으로 전역키 fallback
   useEffect(() => {
@@ -186,7 +190,22 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
   useEffect(() => {
     const totalSent = sentSurveys.reduce((sum, survey) => sum + survey.totalSent, 0);
     setSendStatus((p) => ({ ...p, sent: totalSent }));
+    console.log('📊 발송 상태 업데이트:', { totalSent, sentSurveys });
   }, [sentSurveys]);
+
+  // 선택된 설문 ID가 변경될 때 발송 현황 업데이트
+  useEffect(() => {
+    if (selectedSurveyId && sentSurveys.length > 0) {
+      const currentSurveySent = sentSurveys.find(s => s.surveyId === selectedSurveyId);
+      if (currentSurveySent) {
+        console.log('📊 현재 선택된 설문 발송 현황:', {
+          selectedSurveyId,
+          currentSurveySent,
+          totalSent: currentSurveySent.totalSent
+        });
+      }
+    }
+  }, [selectedSurveyId, sentSurveys]);
 
   // 응답률 계산
   useEffect(() => {
@@ -637,7 +656,14 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
               <h4 className="font-medium text-gray-800 mb-2">📊 발송 현황</h4>
               <div className="text-sm text-gray-600 space-y-1">
                 <p>• 대상 이메일: {sendStatus.total}개</p>
-                <p>• 발송 완료: {sendStatus.sent}개</p>
+                <p>• 발송 완료: {(() => {
+                  // 현재 선택된 설문의 발송 현황만 표시
+                  if (selectedSurveyId && sentSurveys.length > 0) {
+                    const currentSurveySent = sentSurveys.find(s => s.surveyId === selectedSurveyId);
+                    return currentSurveySent ? currentSurveySent.totalSent : 0;
+                  }
+                  return sendStatus.sent;
+                })()}개</p>
               </div>
               
               {/* 발송된 설문별 누적 현황 */}
@@ -645,32 +671,46 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                 <div className="mt-3 pt-3 border-t border-gray-200">
                   <h5 className="text-sm font-medium text-gray-700 mb-2">📋 발송된 설문별 현황</h5>
                   <div className="space-y-2">
-                    {sentSurveys.map((survey, index) => (
-                      <div key={survey.surveyId} className="bg-gray-50 rounded p-3 text-xs">
-                        <div className="flex flex-col space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1 min-w-0">
-                              <span className="font-medium text-gray-700">
-                                설문 {index + 1}
+                    {sentSurveys.map((survey, index) => {
+                      const isCurrentSurvey = survey.surveyId === selectedSurveyId;
+                      return (
+                        <div key={survey.surveyId} className={`rounded p-3 text-xs ${
+                          isCurrentSurvey ? 'bg-blue-50 border-2 border-blue-300' : 'bg-gray-50'
+                        }`}>
+                          <div className="flex flex-col space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <span className={`font-medium ${
+                                  isCurrentSurvey ? 'text-blue-700' : 'text-gray-700'
+                                }`}>
+                                  설문 {index + 1}
+                                  {isCurrentSurvey && <span className="ml-2 text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full">현재 선택</span>}
+                                </span>
+                              </div>
+                              <span className={`px-2 py-1 rounded-full flex-shrink-0 ${
+                                isCurrentSurvey ? 'bg-blue-200 text-blue-800' : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {survey.totalSent}개 발송
                               </span>
                             </div>
-                            <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full flex-shrink-0">
-                              {survey.totalSent}개 발송
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-mono text-gray-600 break-all">
-                                {survey.surveyId}
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className={`font-mono break-all ${
+                                  isCurrentSurvey ? 'text-blue-600' : 'text-gray-600'
+                                }`}>
+                                  {survey.surveyId}
+                                </div>
                               </div>
+                              <span className={`ml-2 flex-shrink-0 ${
+                                isCurrentSurvey ? 'text-blue-500' : 'text-gray-500'
+                              }`}>
+                                {new Date(survey.sentAt).toLocaleDateString('ko-KR')}
+                              </span>
                             </div>
-                            <span className="text-gray-500 ml-2 flex-shrink-0">
-                              {new Date(survey.sentAt).toLocaleDateString('ko-KR')}
-                            </span>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
                 </div>
               )}
