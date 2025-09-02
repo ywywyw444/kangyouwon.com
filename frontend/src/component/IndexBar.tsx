@@ -138,24 +138,93 @@ export default function IndexBar() {
         </div>
       </div>
 
-      {/* 새로운 가로 탭 네비게이션 */}
-      <div className="bg-blue-50 border-b border-gray-200 shadow-sm sticky top-20 z-30">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center space-x-1 overflow-x-auto scrollbar-hide px-6 py-3">
-            {indexItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => scrollToSection(item.id)}
-                className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
-                  visibleSection === item.id
-                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                }`}
-              >
-                <span className="mr-2">{item.icon}</span>
-                <span>{item.title}</span>
-              </button>
-            ))}
+      {/* 새로운 스텝 진행률 네비게이션 */}
+      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-20 z-30">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            {indexItems.map((item, index) => {
+              const isActive = visibleSection === item.id;
+              const isCompleted = index < indexItems.findIndex(i => i.id === visibleSection);
+              const isPending = index > indexItems.findIndex(i => i.id === visibleSection);
+              
+              return (
+                <div key={item.id} className="flex items-center flex-1">
+                  {/* 스텝 원 */}
+                  <div className="flex items-center">
+                    <button
+                      onClick={() => scrollToSection(item.id)}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
+                        isActive
+                          ? 'bg-blue-600 text-white shadow-lg scale-110'
+                          : isCompleted
+                          ? 'bg-green-500 text-white'
+                          : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                      }`}
+                    >
+                      {isCompleted ? (
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <span>{index + 1}</span>
+                      )}
+                    </button>
+                    
+                    {/* 스텝 제목 */}
+                    <div className="ml-3 hidden md:block">
+                      <div
+                        className={`text-sm font-medium transition-colors duration-200 cursor-pointer ${
+                          isActive
+                            ? 'text-blue-600'
+                            : isCompleted
+                            ? 'text-green-600'
+                            : 'text-gray-500'
+                        }`}
+                        onClick={() => scrollToSection(item.id)}
+                      >
+                        {item.title}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {isActive ? '진행 중' : isCompleted ? '완료' : '대기 중'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* 연결선 (마지막 아이템 제외) */}
+                  {index < indexItems.length - 1 && (
+                    <div className="flex-1 mx-4 h-1 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-500 ${
+                          isCompleted
+                            ? 'bg-green-500 w-full'
+                            : isActive
+                            ? 'bg-blue-500 w-1/2'
+                            : 'bg-gray-200 w-0'
+                        }`}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          
+          {/* 전체 진행률 표시 */}
+          <div className="mt-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-700">전체 진행률</span>
+              <span className="text-sm font-bold text-blue-600">
+                {Math.round(((indexItems.findIndex(i => i.id === visibleSection) + 1) / indexItems.length) * 100)}%
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-500"
+                style={{
+                  width: `${((indexItems.findIndex(i => i.id === visibleSection) + 1) / indexItems.length) * 100}%`
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
