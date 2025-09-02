@@ -223,10 +223,10 @@ export default function MaterialityHomePage() {
     // 초기 로드
     loadSurveyResult();
 
-    // localStorage 변경 감지를 위한 주기적 체크 (1초마다)
-    const intervalId = setInterval(loadSurveyResult, 1000);
+    // localStorage 변경 감지를 위한 주기적 체크 (1초마다) - 실시간 db연결 해제
+    // const intervalId = setInterval(loadSurveyResult, 1000);
 
-    return () => clearInterval(intervalId);
+    // return () => clearInterval(intervalId);
   }, []);
 
   // displayCategoryCount 변경 시 localStorage에 저장

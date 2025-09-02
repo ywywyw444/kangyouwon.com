@@ -77,7 +77,16 @@ const SurveyWeightControls: React.FC<{
             step={0.05}
             value={local.segmentTotals.내부}
             onChange={(e) => setSeg("내부", parseFloat(e.target.value))}
-            className="w-full"
+            className="w-full mb-2"
+          />
+          <input
+            type="number"
+            min={0}
+            max={1}
+            step={0.05}
+            value={local.segmentTotals.내부}
+            onChange={(e) => setSeg("내부", parseFloat(e.target.value))}
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded font-bold text-gray-900"
           />
         </div>
         <div>
@@ -91,7 +100,16 @@ const SurveyWeightControls: React.FC<{
             step={0.05}
             value={local.segmentTotals.외부}
             onChange={(e) => setSeg("외부", parseFloat(e.target.value))}
-            className="w-full"
+            className="w-full mb-2"
+          />
+          <input
+            type="number"
+            min={0}
+            max={1}
+            step={0.05}
+            value={local.segmentTotals.외부}
+            onChange={(e) => setSeg("외부", parseFloat(e.target.value))}
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded font-bold text-gray-900"
           />
         </div>
       </div>
@@ -117,7 +135,16 @@ const SurveyWeightControls: React.FC<{
                 step={0.01}
                 value={local.base[g]}
                 onChange={(e) => setInternal(g, parseFloat(e.target.value))}
-                className="w-full"
+                className="w-full mb-2"
+              />
+              <input
+                type="number"
+                min={0}
+                max={1}
+                step={0.01}
+                value={local.base[g]}
+                onChange={(e) => setInternal(g, parseFloat(e.target.value))}
+                className="w-full px-2 py-1 text-sm border border-gray-300 rounded font-bold text-gray-900"
               />
             </div>
           ))}
@@ -208,14 +235,33 @@ const FinalIssuepool: React.FC = () => {
       }
 
       try {
-        const savedResponses = localStorage.getItem("surveyResponses");
-        if (savedResponses) {
-          const responses = JSON.parse(savedResponses);
+        // 여러 소스에서 설문 데이터 확인
+        let responses = null;
+        
+        // 1. surveyResult prop에서 확인
+        const surveyResult = localStorage.getItem('surveyResult');
+        if (surveyResult) {
+          const parsed = JSON.parse(surveyResult);
+          if (parsed.responses && Array.isArray(parsed.responses)) {
+            responses = parsed.responses;
+            console.log('📊 surveyResult에서 설문 데이터 로드:', responses.length, '개');
+          }
+        }
+        
+        // 2. surveyResponses 키에서 확인 (fallback)
+        if (!responses) {
+          const savedResponses = localStorage.getItem("surveyResponses");
+          if (savedResponses) {
+            responses = JSON.parse(savedResponses);
+            console.log('📊 surveyResponses에서 설문 데이터 로드:', responses.length, '개');
+          }
+        }
 
+        if (responses && responses.length > 0) {
           // Transform to SurveyResponse format
           const surveyResponses: SurveyResponse[] = responses.map((response: any) => ({
             respondentId:
-              response.participant?.email || `respondent_${Date.now()}_${Math.random()}`,
+              response.participant?.email || response.participant_id || `respondent_${Date.now()}_${Math.random()}`,
             group: mapPositionToGroup(response.participant?.position || "기타"),
             understanding: 3, // Default understanding level
             answers: (response.responses || []).reduce((acc: any, resp: any) => {
@@ -227,7 +273,10 @@ const FinalIssuepool: React.FC = () => {
             }, {}),
           }));
 
+          console.log('📊 변환된 설문 응답:', surveyResponses);
           setSurveyResponses(surveyResponses);
+        } else {
+          console.log('⚠️ 설문 응답 데이터를 찾을 수 없습니다.');
         }
       } catch (error) {
         console.error("Error loading survey data:", error);
@@ -236,6 +285,40 @@ const FinalIssuepool: React.FC = () => {
 
     loadSurveyData();
   }, [setSurveyResponses]);
+
+  // 주기적으로 설문 데이터 확인 (5초마다) - 실시간 db연결 해제
+  // useEffect(() => {
+  //   const intervalId = setInterval(() => {
+  //     const hasUserActivity = localStorage.getItem("hasUserActivity");
+  //     if (hasUserActivity === "true") {
+  //       // 설문 데이터가 있는지 확인
+  //       const surveyResult = localStorage.getItem('surveyResult');
+  //       if (surveyResult) {
+  //         const parsed = JSON.parse(surveyResult);
+  //         if (parsed.responses && Array.isArray(parsed.responses) && parsed.responses.length > 0) {
+  //           // 설문 데이터가 있으면 다시 로드
+  //           const responses = parsed.responses;
+  //           const surveyResponses: SurveyResponse[] = responses.map((response: any) => ({
+  //             respondentId:
+  //               response.participant?.email || response.participant_id || `respondent_${Date.now()}_${Math.random()}`,
+  //             group: mapPositionToGroup(response.participant?.position || "기타"),
+  //             understanding: 3,
+  //             answers: (response.responses || []).reduce((acc: any, resp: any) => {
+  //               acc[resp.category] = {
+  //                 outsideIn: resp.outsideScore ?? 3,
+  //                 insideOut: resp.insideScore ?? 3,
+  //               };
+  //               return acc;
+  //             }, {}),
+  //           }));
+  //           setSurveyResponses(surveyResponses);
+  //         }
+  //       }
+  //     }
+  //   }, 5000);
+
+  //   return () => clearInterval(intervalId);
+  // }, [setSurveyResponses]);
 
   // Map position to group
   const mapPositionToGroup = (position: string): GroupId => {
@@ -262,10 +345,35 @@ const FinalIssuepool: React.FC = () => {
       console.log('📊 현재 가중치 설정:', baseWeights);
       console.log('📊 현재 파라미터:', { alphaOutsideIn, topN });
       
+      // 데이터 상태 확인
+      const { mediaRanked, surveyResponses } = useAssessmentStore.getState();
+      console.log('📊 미디어 데이터:', mediaRanked);
+      console.log('📊 설문 응답 데이터:', surveyResponses);
+      
+      if (!mediaRanked || mediaRanked.length === 0) {
+        console.warn('⚠️ 미디어 데이터가 없습니다. 미디어 검색을 먼저 실행해주세요.');
+        alert('미디어 데이터가 없습니다. 미디어 검색을 먼저 실행해주세요.');
+        return;
+      }
+      
+      if (!surveyResponses || surveyResponses.length === 0) {
+        console.warn('⚠️ 설문 응답 데이터가 없습니다. 설문을 먼저 완료해주세요.');
+        alert('설문 응답 데이터가 없습니다. 설문을 먼저 완료해주세요.');
+        return;
+      }
+      
       // 계산 실행
       computeAll();
       
-      console.log('✅ 최종 이슈풀 계산 완료');
+      // 계산 후 상태 확인
+      setTimeout(() => {
+        const { finalTop, groupWeights, surveyScores } = useAssessmentStore.getState();
+        console.log('✅ 최종 이슈풀 계산 완료');
+        console.log('📊 최종 결과:', finalTop);
+        console.log('📊 그룹 가중치:', groupWeights);
+        console.log('📊 설문 점수:', surveyScores);
+      }, 100);
+      
     } catch (error) {
       console.error("❌ 계산 중 오류 발생:", error);
       alert("계산 중 오류가 발생했습니다.");
@@ -343,7 +451,7 @@ const FinalIssuepool: React.FC = () => {
               max="50"
               value={topN}
               onChange={(e) => handleParamChange("topN", parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg font-bold text-gray-900"
             />
           </div>
         </div>

@@ -177,8 +177,9 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       if (sid !== selectedSurveyId) setSelectedSurveyId(sid);
       if (url !== surveyUrl) setSurveyUrl(url);
     };
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
+    // 실시간 db연결 해제
+    // const id = setInterval(tick, 1000);
+    // return () => clearInterval(id);
   }, [companyId, selectedSurveyId, surveyUrl]);
 
   // 발송 상태 계산 (sentSurveys 기반)
