@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { normalizeSurveyKey, generateSurveyKey } from '@/lib/surveyKey';
 
 interface Category {
   category: string;
@@ -285,8 +286,9 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
         }));
 
         // 백엔드로 설문 데이터 전송
+        const corpId = '1'; // 실제 corporation 테이블의 id 사용
         const surveyRequest = {
-          corporation_id: '1', // 실제 corporation 테이블의 id 사용
+          corporation_id: corpId,
           categories: categoriesWithQuestionNumbers,
           excel_data: excelData.length > 0 ? {
             total_companies: excelData.length,
@@ -315,7 +317,8 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
         }
 
         const surveyResponse = await response.json();
-        const surveyId = surveyResponse.survey_id;
+        const rawSurveyId = surveyResponse.survey_id;
+        const surveyId = normalizeSurveyKey(rawSurveyId);
         
         console.log('✅ 설문 데이터 백엔드 저장 완료:', {
           surveyId: surveyId,
@@ -466,14 +469,30 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
               {/* 현재 활성 설문 URL */}
               <div className="bg-white rounded-lg p-4 border border-blue-200">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-blue-900">현재 활성 설문</span>
-                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">활성</span>
+                  <div className="flex flex-col">
+                    <span className="font-medium text-blue-900">현재 활성 설문</span>
+                    <span className="text-sm text-blue-700">
+                      {displayCategoryCount || (assessmentResult?.data?.matched_categories || assessmentResult?.matched_categories || []).length || 0}개 문항
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                      v{surveyResult?.content_hash?.substring(0, 4) || '0000'}
+                    </span>
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">활성</span>
+                  </div>
                 </div>
                 <div className="font-mono text-sm text-blue-700 break-all bg-blue-50 p-2 rounded border border-blue-200">
                   {`${window.location.origin}/survey?id=${generatedSurveyId}`}
                 </div>
                 <div className="mt-2 text-xs text-blue-600">
-                  설문 버전: <span className="font-mono bg-blue-100 px-2 py-1 rounded">{surveyResult?.content_hash?.substring(0, 8) || '기본'}</span>
+                  생성일시: {new Date(surveyResult?.created_at || Date.now()).toLocaleDateString('ko-KR', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
                 </div>
                 <button
                   onClick={() => {
@@ -509,7 +528,8 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
                             previousSurveys.push({
                               id: data.surveyId,
                               contentHash: data.contentHash,
-                              timestamp: data.timestamp
+                              timestamp: data.timestamp,
+                              categoryCount: data.categoryCount || 0 // 카테고리 개수 추가
                             });
                           }
                         } catch (e) {
@@ -517,15 +537,32 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
                         }
                       }
                     }
-                    return previousSurveys.length > 0 ? (
-                      previousSurveys.map((survey, index) => (
+
+                    // 최신순으로 정렬하고 최대 3개만 표시
+                    const sortedSurveys = previousSurveys
+                      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                      .slice(0, 3);
+
+                    return sortedSurveys.length > 0 ? (
+                      sortedSurveys.map((survey, index) => (
                         <div key={survey.id} className="bg-white rounded-lg p-3 border border-gray-200">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-gray-700">
-                              버전 {survey.contentHash?.substring(0, 8) || '기본'}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {new Date(survey.timestamp).toLocaleDateString()}
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-700">
+                                {survey.categoryCount}개 문항
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(survey.timestamp).toLocaleDateString('ko-KR', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                              v{survey.contentHash?.substring(0, 4) || '0000'}
                             </span>
                           </div>
                           <div className="font-mono text-xs text-gray-600 break-all bg-gray-50 p-2 rounded">
@@ -544,7 +581,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
                               URL 복사
                             </button>
                             <button
-                              onClick={async () => {
+                                                                            onClick={async () => {
                                 if (confirm('이 이전 설문을 삭제하시겠습니까?\n연결된 응답 데이터도 함께 삭제됩니다.')) {
                                   try {
                                     const response = await fetch(
@@ -552,7 +589,28 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
                                       { method: 'DELETE' }
                                     );
                                     if (response.ok) {
-                                      localStorage.removeItem(`surveyData_${survey.id}`);
+                                      // 모든 관련 localStorage 항목 삭제
+                                      for (let i = 0; i < localStorage.length; i++) {
+                                        const key = localStorage.key(i);
+                                        if (key && (
+                                          key === `surveyData_${companyId}` ||
+                                          key.startsWith(`survey_${companyId}_`) ||
+                                          key.includes(survey.id)
+                                        )) {
+                                          const data = JSON.parse(localStorage.getItem(key) || '{}');
+                                          if (data.surveyId === survey.id) {
+                                            localStorage.removeItem(key);
+                                            console.log('🗑️ 삭제된 localStorage 키:', key);
+                                          }
+                                        }
+                                      }
+
+                                      // 선택된 설문 ID가 삭제된 설문인 경우 제거
+                                      const selectedSurveyId = localStorage.getItem('selectedSurveyId');
+                                      if (selectedSurveyId === survey.id) {
+                                        localStorage.removeItem('selectedSurveyId');
+                                      }
+
                                       alert('✅ 이전 설문이 삭제되었습니다.');
                                       window.location.reload();
                                     }

@@ -340,56 +340,6 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
              </div>
            </div>
 
-           {/* 설문 버전 관리 */}
-           <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-200">
-             <h3 className="text-lg font-semibold text-yellow-800 mb-4">
-               🔄 설문 버전 관리
-               <span className="ml-2 text-sm font-normal text-yellow-600">
-                 (동일 내용의 설문은 자동으로 집계가 통합됩니다)
-               </span>
-             </h3>
-             <div className="space-y-4">
-               {/* 현재 설문 URL */}
-               <div className="bg-white rounded-lg p-4 border border-yellow-200">
-                 <div className="flex items-center justify-between mb-2">
-                   <span className="font-medium text-yellow-900">현재 설문 링크</span>
-                   <span className="text-sm text-yellow-600">
-                     {surveyResult.is_active ? '활성' : '비활성'}
-                   </span>
-                 </div>
-                 <div className="font-mono text-sm bg-yellow-50 p-2 rounded break-all">
-                   {`${window.location.origin}/survey?id=${surveyResult.survey_id}`}
-                 </div>
-               </div>
-
-               {/* 설문 삭제 버튼 */}
-               <button
-                 onClick={async () => {
-                   if (window.confirm('⚠️ 이 설문과 모든 응답 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
-                     try {
-                       const response = await fetch(
-                         `/api/v1/materiality-service/surveys/${surveyResult.survey_id}`,
-                         { method: 'DELETE' }
-                       );
-
-                       if (response.ok) {
-                         alert('✅ 설문이 성공적으로 삭제되었습니다.');
-                         window.location.reload();
-                       } else {
-                         throw new Error('설문 삭제 실패');
-                       }
-                     } catch (error) {
-                       console.error('설문 삭제 중 오류:', error);
-                       alert('❌ 설문 삭제 중 오류가 발생했습니다.');
-                     }
-                   }
-                 }}
-                 className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg transition-colors duration-200"
-               >
-                 🗑️ 이 설문 삭제하기
-               </button>
-             </div>
-           </div>
 
           {/* ESG 분류별 통계 */}
           <div className="bg-green-50 rounded-lg p-6 border border-green-200">
@@ -590,32 +540,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
             </div>
           </div>
 
-          {/* 설문 결과 리셋 */}
-          <div className="bg-red-50 rounded-lg p-6 border border-red-200">
-            <h3 className="text-lg font-semibold text-red-800 mb-4">🔄 설문 결과 관리</h3>
-            <p className="text-sm text-red-600 mb-4">
-              설문 결과를 초기화하면 모든 응답 데이터가 삭제되며 복구할 수 없습니다.
-            </p>
-            <button
-              onClick={() => {
-                if (window.confirm('정말로 설문 결과를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
-                  // 브라우저 환경 체크
-                  if (typeof window !== 'undefined') {
-                    // localStorage에서 설문 결과 제거
-                    localStorage.removeItem('surveyResult');
-                    localStorage.removeItem('surveyData');
-                    localStorage.removeItem('hasUserActivity');
-                  }
-                  
-                  // 페이지 새로고침하여 초기 상태로 복원
-                  window.location.reload();
-                }
-              }}
-              className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
-            >
-              🗑️ 설문 결과 초기화
-            </button>
-          </div>
+
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { normalizeSurveyKey, generateSurveyKey } from '@/lib/surveyKey';
 
 interface ExcelRow {
   email: string;
@@ -181,14 +182,15 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
     }
 
     try {
-      // 설문 ID 추출
-      const surveyId = surveyUrl.split('id=')[1];
-      if (!surveyId) {
+      // 설문 ID 추출 및 정규화
+      const rawSurveyId = surveyUrl.split('id=')[1];
+      if (!rawSurveyId) {
         throw new Error('설문 ID를 찾을 수 없습니다.');
       }
+      const surveyId = normalizeSurveyKey(rawSurveyId);
 
       // 설문 응답 현황 조회
-      const response = await fetch(`/api/v1/materiality-service/surveys/${surveyId}/responses`);
+      const response = await fetch(`/api/v1/materiality-service/surveys/${encodeURIComponent(surveyId)}/responses`);
       
       if (!response.ok) {
         throw new Error(`응답 현황 조회 실패: ${response.status}`);
@@ -281,54 +283,109 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                   />
                 </div>
 
-                {/* 설문 URL 표시 */}
-                <div className={`rounded-lg p-3 border ${surveyUrl ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200'}`}>
-                  <div className="flex justify-between items-start mb-2">
-                    <label className={`block text-sm font-medium ${surveyUrl ? 'text-blue-800' : 'text-yellow-800'}`}>
-                      {surveyUrl ? '✅ 설문 링크 생성됨' : '⚠️ 설문 링크 없음'}
-                    </label>
-                    {surveyUrl && (
-                      <button
-                        onClick={() => {
-                          if (confirm('❗ 이 설문을 삭제하시겠습니까?\n\n삭제된 설문은 복구할 수 없습니다.')) {
-                            // 브라우저 환경 체크
-                            if (typeof window === 'undefined') return;
-                            
-                            // localStorage에서 설문 데이터 삭제
-                            const selectedSurveyId = localStorage.getItem('selectedSurveyId');
-                            if (selectedSurveyId) {
-                              // 설문 데이터 삭제
-                              localStorage.removeItem(`surveyData_${selectedSurveyId}`);
-                              localStorage.removeItem('selectedSurveyId');
-                              
-                              // 설문 URL 초기화
-                              setSurveyUrl('');
-                              
-                              console.log('🗑️ 설문 삭제 완료:', selectedSurveyId);
-                              alert('✅ 설문이 삭제되었습니다.');
+                {/* 설문 버전 선택 */}
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <h4 className="font-medium text-blue-800 mb-3 flex items-center">
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    설문 버전 선택
+                  </h4>
+                  <div className="space-y-2">
+                    {(() => {
+                      const surveys = [];
+                      for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key?.startsWith('surveyData_')) {
+                          try {
+                            const data = JSON.parse(localStorage.getItem(key) || '');
+                            if (data.surveyId) {
+                              surveys.push({
+                                id: data.surveyId,
+                                contentHash: data.contentHash,
+                                timestamp: data.timestamp,
+                                categoryCount: data.categoryCount || 0
+                              });
                             }
+                          } catch (e) {
+                            console.warn('설문 데이터 파싱 실패:', e);
                           }
-                        }}
-                        className="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded transition-colors duration-200 flex items-center"
-                        title="이 설문을 삭제합니다"
-                      >
-                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        삭제
-                      </button>
-                    )}
+                        }
+                      }
+
+                      // 최신순으로 정렬
+                      const sortedSurveys = surveys
+                        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+                      return sortedSurveys.length > 0 ? (
+                        <div className="space-y-2">
+                          {sortedSurveys.map((survey) => {
+                            const isSelected = surveyUrl === `${window.location.origin}/survey?id=${survey.id}`;
+                            return (
+                              <div
+                                key={survey.id}
+                                onClick={() => {
+                                  const newUrl = `${window.location.origin}/survey?id=${survey.id}`;
+                                  setSurveyUrl(newUrl);
+                                  localStorage.setItem('selectedSurveyId', survey.id);
+                                }}
+                                className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                                  isSelected
+                                    ? 'bg-blue-100 border-blue-300'
+                                    : 'bg-white border-gray-200 hover:bg-blue-50'
+                                }`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <input
+                                      type="radio"
+                                      checked={isSelected}
+                                      onChange={() => {}}
+                                      className="text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <div>
+                                      <div className="text-sm font-medium text-gray-900">
+                                        {survey.categoryCount}개 문항
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        {new Date(survey.timestamp).toLocaleDateString('ko-KR', {
+                                          year: 'numeric',
+                                          month: '2-digit',
+                                          day: '2-digit',
+                                          hour: '2-digit',
+                                          minute: '2-digit'
+                                        })}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                                    v{survey.contentHash?.substring(0, 4) || '0000'}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-blue-600 text-center py-4">
+                          먼저 "설문 생성하기"에서 설문을 생성해주세요.
+                        </div>
+                      );
+                    })()}
                   </div>
-                  {surveyUrl ? (
-                    <div className="text-xs text-blue-600 break-all">
-                      {surveyUrl}
-                    </div>
-                  ) : (
-                    <div className="text-xs text-yellow-600">
-                      먼저 "설문 생성하기"에서 설문을 생성해주세요.
-                    </div>
-                  )}
                 </div>
+
+                {/* 선택된 설문 URL 표시 */}
+                {surveyUrl && (
+                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="text-xs text-gray-600">
+                      <div className="font-medium mb-1">선택된 설문 URL:</div>
+                      <div className="font-mono bg-white p-2 rounded border border-gray-300 break-all">
+                        {surveyUrl}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* 업로드된 이메일 정보 표시 */}
                 <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
@@ -420,15 +477,16 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
               
               <button
                 onClick={handleSendEmails}
-                disabled={isLoading || !surveyUrl || !companyName.trim() || sendStatus.total === 0}
+                disabled={isLoading || !surveyUrl || !companyName.trim() || sendStatus.total === 0 || !localStorage.getItem('selectedSurveyId')}
                 className={`flex-1 font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center ${
-                  isLoading || !surveyUrl || !companyName.trim() || sendStatus.total === 0
+                  isLoading || !surveyUrl || !companyName.trim() || sendStatus.total === 0 || !localStorage.getItem('selectedSurveyId')
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     : 'bg-green-600 hover:bg-green-700 text-white'
                 }`}
                 title={
                   isLoading ? '발송 중입니다...' :
                   !surveyUrl ? '설문을 먼저 생성해주세요' :
+                  !localStorage.getItem('selectedSurveyId') ? '설문 버전을 선택해주세요' :
                   !companyName.trim() ? '회사명을 입력해주세요' :
                   sendStatus.total === 0 ? '이메일 목록을 업로드해주세요' :
                   '모든 준비가 완료되었습니다'

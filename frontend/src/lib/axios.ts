@@ -1,43 +1,33 @@
 import axios from 'axios';
 
-const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
-  timeout: 10000,
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+// 요청 인터셉터: X-Request-ID 추가
+axios.interceptors.request.use((config) => {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+  config.headers = { ...config.headers, 'X-Request-ID': id };
+  return config;
 });
 
-// Request interceptor
-api.interceptors.request.use(
-  (config) => {
-    // Add auth token if available
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
+// 응답 인터셉터: 에러 로깅
+axios.interceptors.response.use(
+  response => response,
   (error) => {
+    const { config, response } = error;
+    console.groupCollapsed(
+      `❌ API ${response?.status || ''} ${config?.method?.toUpperCase()} ${config?.url || ''}`
+    );
+    console.log('request headers', config?.headers);
+    console.log('request payload', (() => {
+      try {
+        return JSON.parse(config?.data as any);
+      } catch {
+        return config?.data;
+      }
+    })());
+    console.log('response headers', response?.headers);
+    console.log('response data', response?.data);
+    console.groupEnd();
     return Promise.reject(error);
   }
 );
 
-// Response interceptor
-api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    // Handle common errors
-    if (error.response?.status === 401) {
-      // Unauthorized - redirect to login
-      localStorage.removeItem('token');
-      window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
-
-export default api;
+export default axios;
