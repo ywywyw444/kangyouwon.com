@@ -29,14 +29,27 @@ const getSurveyList = (companyId: string): StoredSurvey[] => {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(SURVEY_LIST_KEY(companyId));
-    return raw ? (JSON.parse(raw) as StoredSurvey[]) : [];
-  } catch {
+    const result = raw ? (JSON.parse(raw) as StoredSurvey[]) : [];
+    console.log('🔍 getSurveyList 호출:', {
+      companyId,
+      key: SURVEY_LIST_KEY(companyId),
+      raw,
+      result
+    });
+    return result;
+  } catch (error) {
+    console.error('❌ getSurveyList 오류:', error);
     return [];
   }
 };
 
 const saveSurveyList = (companyId: string, list: StoredSurvey[]) => {
   if (typeof window === 'undefined') return;
+  console.log('💾 saveSurveyList 호출:', {
+    companyId,
+    key: SURVEY_LIST_KEY(companyId),
+    list
+  });
   localStorage.setItem(SURVEY_LIST_KEY(companyId), JSON.stringify(list));
 };
 
@@ -82,14 +95,40 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
   }>>([]);
   const [customEmailBody, setCustomEmailBody] = useState('');
 
-  // 유효 이메일 계산
-  const validEmails = useMemo(
-    () =>
-      (excelData || [])
-        .map((r) => r.email?.trim())
-        .filter((e): e is string => !!e && e.includes('@')),
-    [excelData]
-  );
+  // 유효 이메일 계산 (설문 대상자 + 발송 완료된 명단)
+  const validEmails = useMemo(() => {
+    if (typeof window === 'undefined') return [];
+    
+    // 설문 대상자 이메일
+    const targetEmails = (excelData || [])
+      .map((r) => r.email?.trim())
+      .filter((e): e is string => !!e && e.includes('@'));
+    
+    // 발송 완료된 명단 이메일
+    let sentEmails: string[] = [];
+    try {
+      const sentRecipients = localStorage.getItem('sentRecipients');
+      if (sentRecipients) {
+        const parsed = JSON.parse(sentRecipients);
+        sentEmails = parsed
+          .map((r: any) => r.email?.trim())
+          .filter((e: string) => !!e && e.includes('@'));
+      }
+    } catch (error) {
+      console.error('발송 완료된 명단 로드 실패:', error);
+    }
+    
+    // 중복 제거하여 전체 이메일 목록 반환
+    const allEmails = [...new Set([...targetEmails, ...sentEmails])];
+    
+    console.log('📧 이메일 계산:', {
+      targetEmails: targetEmails.length,
+      sentEmails: sentEmails.length,
+      totalEmails: allEmails.length
+    });
+    
+    return allEmails;
+  }, [excelData]);
 
   // total 업데이트
   useEffect(() => {
@@ -279,21 +318,41 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     }
   }, [generateDefaultEmailBody, customEmailBody]);
 
-  // 설문 URL이 변경될 때 메일 본문의 설문 링크 자동 업데이트
+  // 설문 URL이나 마감일이 변경될 때 메일 본문의 해당 부분 자동 업데이트
   useEffect(() => {
-    if (customEmailBody && surveyUrl) {
-      // 기존 설문 링크 패턴을 찾아서 새로운 URL로 교체
-      const linkPattern = /• 설문 링크: .*/;
-      const newLinkLine = `• 설문 링크: ${surveyUrl}`;
+    if (customEmailBody) {
+      let updatedBody = customEmailBody;
+      let hasChanges = false;
       
-      if (linkPattern.test(customEmailBody)) {
-        const updatedBody = customEmailBody.replace(linkPattern, newLinkLine);
-        if (updatedBody !== customEmailBody) {
-          setCustomEmailBody(updatedBody);
+      // 설문 링크 업데이트
+      if (surveyUrl) {
+        const linkPattern = /• 설문 링크: .*/;
+        const newLinkLine = `• 설문 링크: ${surveyUrl}`;
+        
+        if (linkPattern.test(updatedBody)) {
+          updatedBody = updatedBody.replace(linkPattern, newLinkLine);
+          hasChanges = true;
         }
       }
+      
+      // 응답 마감일 업데이트
+      const deadlineText = deadline
+        ? new Date(deadline).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
+        : '미정';
+      
+      const deadlinePattern = /• 응답 마감: .*/;
+      const newDeadlineLine = `• 응답 마감: ${deadlineText}`;
+      
+      if (deadlinePattern.test(updatedBody)) {
+        updatedBody = updatedBody.replace(deadlinePattern, newDeadlineLine);
+        hasChanges = true;
+      }
+      
+      if (hasChanges && updatedBody !== customEmailBody) {
+        setCustomEmailBody(updatedBody);
+      }
     }
-  }, [surveyUrl]);
+  }, [surveyUrl, deadline, customEmailBody]);
 
   // 메일 본문 미리보기 (첫 번째 수신자 기준)
   const emailBodyPreview = useMemo(() => {
@@ -446,6 +505,13 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     let list = getSurveyList(companyId)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, 3);
+
+    console.log('📋 설문 리스트 로드:', {
+      companyId,
+      listLength: list.length,
+      list: list.map(s => ({ id: s.id, categoryCount: s.categoryCount, isActive: s.isActive })),
+      rawList: list
+    });
 
     if (list.length === 0) {
       const raw = localStorage.getItem(SURVEY_SINGLE_KEY(companyId));
@@ -629,14 +695,28 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                   <div className="text-sm font-medium text-amber-800 mb-2">
                     메일 본문을 수정할 수 있습니다. {`{이름}`}은 각 수신자 이름으로 자동 치환됩니다.
                     <br />
-                    <span className="text-amber-700 font-semibold">※ 설문 링크는 자동으로 활성 설문 URL로 설정됩니다.</span>
+                    <span className="text-amber-700 font-semibold">※ 아래 두 항목은 자동으로 업데이트되며 편집할 수 없습니다.</span>
                   </div>
                   
-                  {/* 설문 링크 정보 표시 */}
-                  <div className="mb-3 p-2 bg-blue-50 border border-blue-200 rounded">
-                    <div className="text-xs text-blue-800 font-medium mb-1">🔗 자동 포함될 설문 링크:</div>
-                    <div className="text-xs font-mono text-blue-700 break-all bg-white p-2 rounded border">
-                      {surveyUrl || '(설문을 선택해주세요)'}
+                  {/* 자동 업데이트되는 항목들 표시 */}
+                  <div className="mb-3 space-y-2">
+                    {/* 설문 링크 정보 */}
+                    <div className="p-2 bg-blue-50 border border-blue-200 rounded">
+                      <div className="text-xs text-blue-800 font-medium mb-1">🔗 자동 포함될 설문 링크:</div>
+                      <div className="text-xs font-mono text-blue-700 break-all bg-white p-2 rounded border">
+                        {surveyUrl || '(설문을 선택해주세요)'}
+                      </div>
+                    </div>
+                    
+                    {/* 응답 마감일 정보 */}
+                    <div className="p-2 bg-green-50 border border-green-200 rounded">
+                      <div className="text-xs text-green-800 font-medium mb-1">📅 자동 포함될 응답 마감일:</div>
+                      <div className="text-xs font-mono text-green-700 bg-white p-2 rounded border">
+                        {deadline 
+                          ? new Date(deadline).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
+                          : '미정'
+                        }
+                      </div>
                     </div>
                   </div>
                   

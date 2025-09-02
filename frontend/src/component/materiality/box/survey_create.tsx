@@ -310,8 +310,16 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
 
   // 실제 설문 생성 로직
   const createNewSurvey = async () => {
+    console.log('🚀 설문 생성 시작:', { assessmentResult, displayCategoryCount });
+    
     const resultData = assessmentResult?.data || assessmentResult;
     const categories = resultData?.matched_categories || [];
+
+    console.log('📊 중대성 평가 결과 데이터:', {
+      resultData,
+      categoriesLength: categories.length,
+      categories: categories
+    });
 
     if (categories.length <= 0) {
       alert('❌ 설문을 진행할 수 있는 카테고리 데이터가 없습니다.\n\n먼저 중대성 평가를 완료해주세요.');
@@ -489,12 +497,26 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
       );
 
       // 리스트(최대 3) 업데이트: 현재 항목을 활성으로 업서트
+      console.log('💾 설문 리스트에 저장할 정보:', {
+        surveyId,
+        categoryCount: selectedCategories.length,
+        selectedCategories: selectedCategories
+      });
+      
       upsertSurveyEntry(companyId, {
         id: surveyId,
         contentHash,
         timestamp: new Date().toISOString(),
         categoryCount: selectedCategories.length,
         isActive: true,
+      });
+      
+      // 설문 리스트 저장 후 확인
+      const savedList = getSurveyList(companyId);
+      console.log('💾 설문 리스트 저장 완료:', {
+        companyId,
+        savedListLength: savedList.length,
+        savedList: savedList.map(s => ({ id: s.id, categoryCount: s.categoryCount, isActive: s.isActive }))
       });
       
       // 활성 상태 동기화

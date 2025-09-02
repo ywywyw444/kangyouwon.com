@@ -717,7 +717,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
                             }}
                             className="text-green-600 hover:text-green-900 font-medium"
                           >
-                            다시 추가
+                            다시 목록에 추가
                           </button>
                         </td>
                       </tr>
