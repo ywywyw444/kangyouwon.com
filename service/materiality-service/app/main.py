@@ -18,6 +18,7 @@ from app.router.issuepool_router import issuepool_router
 from app.router.middleissue_router import middleissue_router
 from app.router.category_router import category_router
 from app.router.survey_router import survey_router
+from app.router.email_router import email_router
 
 # 환경 변수 로드 (Railway 환경에서는 건너뛰기)
 if os.getenv("RAILWAY_ENVIRONMENT") != "true":
@@ -68,6 +69,7 @@ app.include_router(issuepool_router, prefix="/materiality-service", tags=["issue
 app.include_router(middleissue_router, prefix="/materiality-service", tags=["middleissue"])
 app.include_router(category_router, prefix="/materiality-service", tags=["category"])
 app.include_router(survey_router, prefix="/materiality-service", tags=["survey"])
+app.include_router(email_router, prefix="/materiality-service", tags=["email"])
 
 @app.get("/")
 async def root():

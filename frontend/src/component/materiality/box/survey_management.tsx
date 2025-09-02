@@ -1,10 +1,154 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface SurveyManagementProps {
   excelData: any[];
 }
 
 const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
+  const [sendMethod, setSendMethod] = useState<string>('email');
+  const [sendSchedule, setSendSchedule] = useState<string>('immediate');
+  const [deadline, setDeadline] = useState<string>('');
+  const [companyName, setCompanyName] = useState<string>('');
+  const [surveyUrl, setSurveyUrl] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [sendStatus, setSendStatus] = useState<{
+    total: number;
+    sent: number;
+    responded: number;
+    responseRate: number;
+  }>({
+    total: excelData.length,
+    sent: 0,
+    responded: 0,
+    responseRate: 0
+  });
+
+  // 컴포넌트 마운트 시 기존 설문 URL 확인
+  useEffect(() => {
+    const checkExistingSurvey = () => {
+      // localStorage에서 기존 설문 ID 확인
+      const surveyData = localStorage.getItem('surveyData_1'); // companyId 1 사용
+      if (surveyData) {
+        try {
+          const data = JSON.parse(surveyData);
+          if (data.surveyId) {
+            setSurveyUrl(`${window.location.origin}/survey?id=${data.surveyId}`);
+          }
+        } catch (error) {
+          console.error('설문 데이터 파싱 실패:', error);
+        }
+      }
+    };
+
+    checkExistingSurvey();
+  }, []);
+
+  // 응답률 계산
+  useEffect(() => {
+    const responseRate = sendStatus.total > 0 ? Math.round((sendStatus.responded / sendStatus.total) * 100) : 0;
+    setSendStatus(prev => ({ ...prev, responseRate }));
+  }, [sendStatus.responded, sendStatus.total]);
+
+  // 이메일 발송 함수
+  const handleSendEmails = async () => {
+    if (!surveyUrl) {
+      alert('❌ 설문이 생성되지 않았습니다.\n\n먼저 "설문 생성하기" 버튼을 눌러 설문을 생성해주세요.');
+      return;
+    }
+
+    if (!companyName.trim()) {
+      alert('❌ 회사명을 입력해주세요.');
+      return;
+    }
+
+    if (excelData.length === 0) {
+      alert('❌ 발송할 이메일 주소가 없습니다.\n\n엑셀 파일을 업로드해주세요.');
+      return;
+    }
+
+    // 이메일 주소 추출
+    const emailList = excelData
+      .map(row => row.email)
+      .filter(email => email && email.trim() !== '');
+
+    if (emailList.length === 0) {
+      alert('❌ 유효한 이메일 주소가 없습니다.\n\n엑셀 파일에 이메일 주소를 확인해주세요.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Gmail API를 통한 이메일 발송
+      const response = await fetch('/api/v1/materiality-service/email/send-survey', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to_emails: emailList,
+          survey_url: surveyUrl,
+          company_name: companyName,
+          survey_title: '중대성 평가 설문'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`이메일 발송 실패: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setSendStatus(prev => ({ ...prev, sent: emailList.length }));
+        alert(`✅ 이메일 발송 완료!\n\n📧 ${emailList.length}명에게 설문 링크가 발송되었습니다.\n\n${result.message}`);
+      } else {
+        throw new Error(result.message || '이메일 발송에 실패했습니다.');
+      }
+
+    } catch (error) {
+      console.error('이메일 발송 오류:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다';
+      alert(`❌ 이메일 발송에 실패했습니다.\n\n오류: ${errorMessage}\n\n다시 시도해주세요.`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 설문 응답 현황 확인 함수
+  const checkSurveyResponses = async () => {
+    if (!surveyUrl) {
+      alert('❌ 설문이 생성되지 않았습니다.');
+      return;
+    }
+
+    try {
+      // 설문 ID 추출
+      const surveyId = surveyUrl.split('id=')[1];
+      if (!surveyId) {
+        throw new Error('설문 ID를 찾을 수 없습니다.');
+      }
+
+      // 설문 응답 현황 조회
+      const response = await fetch(`/api/v1/materiality-service/surveys/${surveyId}/responses`);
+      
+      if (!response.ok) {
+        throw new Error(`응답 현황 조회 실패: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const responseCount = data.responses ? data.responses.length : 0;
+      
+      setSendStatus(prev => ({ ...prev, responded: responseCount }));
+      
+      alert(`📊 설문 응답 현황\n\n• 총 발송: ${sendStatus.sent}명\n• 응답 완료: ${responseCount}명\n• 응답률: ${Math.round((responseCount / sendStatus.total) * 100)}%`);
+
+    } catch (error) {
+      console.error('응답 현황 조회 오류:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다';
+      alert(`❌ 응답 현황 조회에 실패했습니다.\n\n오류: ${errorMessage}`);
+    }
+  };
   return (
     <div id="survey-management" className="bg-white rounded-xl shadow-lg p-6 mb-12">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">
@@ -33,20 +177,39 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
               <h4 className="font-medium text-gray-800 mb-2">📧 발송 설정</h4>
               <div className="space-y-3">
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">회사명</label>
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="회사명을 입력하세요"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                  />
+                </div>
+                
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">발송 방식</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm">
-                    <option>이메일 발송</option>
-                    <option>SMS 발송</option>
-                    <option>링크 공유</option>
+                  <select 
+                    value={sendMethod}
+                    onChange={(e) => setSendMethod(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                  >
+                    <option value="email">이메일 발송</option>
+                    <option value="sms">SMS 발송</option>
+                    <option value="link">링크 공유</option>
                   </select>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">발송 일정</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm">
-                    <option>즉시 발송</option>
-                    <option>예약 발송</option>
-                    <option>단계별 발송</option>
+                  <select 
+                    value={sendSchedule}
+                    onChange={(e) => setSendSchedule(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                  >
+                    <option value="immediate">즉시 발송</option>
+                    <option value="scheduled">예약 발송</option>
+                    <option value="staged">단계별 발송</option>
                   </select>
                 </div>
                 
@@ -54,45 +217,89 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">응답 마감일</label>
                   <input
                     type="date"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
                   />
                 </div>
+
+                {/* 설문 URL 표시 */}
+                {surveyUrl && (
+                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                    <label className="block text-sm font-medium text-blue-800 mb-1">📋 설문 링크</label>
+                    <div className="text-xs text-blue-600 break-all">
+                      {surveyUrl}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             
             <div className="bg-white rounded-lg p-4 border border-green-200">
               <h4 className="font-medium text-gray-800 mb-2">📊 발송 현황</h4>
               <div className="text-sm text-gray-600 space-y-1">
-                <p>• 대상 기업: {excelData.length}개</p>
-                <p>• 발송 완료: 0개</p>
-                <p>• 응답 완료: 0개</p>
-                <p>• 응답률: 0%</p>
+                <p>• 대상 기업: {sendStatus.total}개</p>
+                <p>• 발송 완료: {sendStatus.sent}개</p>
+                <p>• 응답 완료: {sendStatus.responded}개</p>
+                <p>• 응답률: {sendStatus.responseRate}%</p>
+              </div>
+              
+              {/* 응답률 시각화 */}
+              <div className="mt-3">
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>응답률</span>
+                  <span>{sendStatus.responseRate}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-green-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${sendStatus.responseRate}%` }}
+                  ></div>
+                </div>
               </div>
             </div>
             
             <div className="flex space-x-3">
               <button
-                onClick={() => {
-                  alert('설문 발송 기능을 구현합니다.');
-                }}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
+                onClick={handleSendEmails}
+                disabled={isLoading || !surveyUrl || !companyName.trim()}
+                className={`flex-1 font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center ${
+                  isLoading || !surveyUrl || !companyName.trim()
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700 text-white'
+                }`}
               >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-                설문 발송하기
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    발송 중...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    설문 발송하기
+                  </>
+                )}
               </button>
               
               <button
-                onClick={() => {
-                  alert('발송 일정 설정 기능을 구현합니다.');
-                }}
-                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
+                onClick={checkSurveyResponses}
+                disabled={!surveyUrl}
+                className={`flex-1 font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center ${
+                  !surveyUrl
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
               >
                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
-                일정 설정
+                응답 현황 확인
               </button>
             </div>
           </div>

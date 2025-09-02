@@ -12,6 +12,7 @@ from app.domain.survey.schema import (
     SurveyListResponse
 )
 from app.domain.survey.repository import SurveyRepository
+from app.common.email.gmail_service import gmail_service
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +45,15 @@ class SurveyService:
             # repository를 통해 설문 생성 (동기 호출을 별도 스레드로 실행)
             survey_entity = await anyio.to_thread.run_sync(self.repository.create_survey, request)
             
+            # 이메일 발송 (요청된 경우)
+            if request.send_email and request.excel_data and request.company_name:
+                await self._send_survey_emails(survey_entity, request)
+            
             # 응답 스키마로 변환 (Repository에서 이미 필요한 속성들을 미리 로드함)
             return SurveyDataResponse(
                 survey_id=survey_entity.survey_id,
                 corporation_id=survey_entity.corporation_id,
+                content_hash=survey_entity.content_hash,
                 timestamp=survey_entity.timestamp,
                 total_categories=survey_entity.total_categories,
                 categories=survey_entity.categories,  # 이미 로드된 속성 직접 사용
@@ -57,6 +63,48 @@ class SurveyService:
         except Exception as e:
             logger.error(f"설문 생성 실패: {e}")
             raise
+    
+    async def _send_survey_emails(self, survey_entity, request: SurveyCreateRequest):
+        """설문 이메일 발송"""
+        try:
+            if not gmail_service.is_available():
+                logger.warning("⚠️ Gmail API 서비스가 사용 불가능합니다. 이메일 발송을 건너뜁니다.")
+                return
+            
+            # 엑셀 데이터에서 이메일 주소 추출
+            excel_data = self._prepare_response_data(survey_entity.excel_data)
+            if not excel_data or 'data' not in excel_data:
+                logger.warning("⚠️ 엑셀 데이터가 없어 이메일 발송을 건너뜁니다.")
+                return
+            
+            # 이메일 주소 목록 추출
+            email_list = []
+            for row in excel_data['data']:
+                if 'email' in row and row['email']:
+                    email_list.append(row['email'])
+            
+            if not email_list:
+                logger.warning("⚠️ 유효한 이메일 주소가 없어 이메일 발송을 건너뜁니다.")
+                return
+            
+            # 설문 URL 생성 (프론트엔드 URL + 설문 ID)
+            survey_url = f"https://kangyouwon.com/survey?id={survey_entity.survey_id}"
+            
+            # 이메일 발송
+            success = gmail_service.send_survey_email(
+                to_emails=email_list,
+                survey_url=survey_url,
+                company_name=request.company_name,
+                survey_title="중대성 평가 설문"
+            )
+            
+            if success:
+                logger.info(f"✅ 설문 이메일 발송 완료: {len(email_list)}명")
+            else:
+                logger.error("❌ 설문 이메일 발송 실패")
+                
+        except Exception as e:
+            logger.error(f"❌ 설문 이메일 발송 중 오류: {str(e)}")
     
     async def get_survey(self, survey_id: str) -> Optional[SurveyDataResponse]:
         """설문 조회"""

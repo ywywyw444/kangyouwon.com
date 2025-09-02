@@ -47,6 +47,7 @@ class SurveyTableManager:
                 CREATE TABLE IF NOT EXISTS surveys (
                     survey_id VARCHAR(255) PRIMARY KEY,
                     corporation_id VARCHAR(255) NOT NULL,
+                    content_hash VARCHAR(255),
                     timestamp TIMESTAMP NOT NULL,
                     total_categories INTEGER NOT NULL,
                     categories JSON NOT NULL,
@@ -56,6 +57,7 @@ class SurveyTableManager:
                 );
                 CREATE INDEX IF NOT EXISTS idx_surveys_corporation_id ON surveys(corporation_id);
                 CREATE INDEX IF NOT EXISTS idx_surveys_survey_id ON surveys(survey_id);
+                CREATE INDEX IF NOT EXISTS idx_surveys_content_hash ON surveys(content_hash);
                 """
             },
             {
@@ -74,11 +76,13 @@ class SurveyTableManager:
                     responses JSON NOT NULL,
                     timestamp TIMESTAMP NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (survey_id) REFERENCES surveys(survey_id) ON DELETE CASCADE
                 );
                 CREATE INDEX IF NOT EXISTS idx_survey_responses_survey_id ON survey_responses(survey_id);
                 CREATE INDEX IF NOT EXISTS idx_survey_responses_corporation_id ON survey_responses(corporation_id);
                 CREATE INDEX IF NOT EXISTS idx_survey_responses_participant_email ON survey_responses(participant_email);
+                CREATE UNIQUE INDEX IF NOT EXISTS uix_survey_response_email_per_survey ON survey_responses (survey_id, participant_email);
                 """
             }
         ]
@@ -216,6 +220,25 @@ class SurveyTableManager:
             logger.error(f"❌ 테이블 삭제 중 오류가 발생했습니다: {e}")
             return False
     
+    def recreate_tables_with_content_hash(self):
+        """content_hash 컬럼이 포함된 테이블로 재생성"""
+        logger.info("🔄 content_hash 컬럼이 포함된 테이블로 재생성합니다...")
+        
+        # 1. 기존 테이블 삭제
+        logger.info("1️⃣ 기존 테이블 삭제 중...")
+        if not self.drop_all_tables():
+            logger.error("❌ 기존 테이블 삭제에 실패했습니다.")
+            return False
+        
+        # 2. 새 테이블 생성
+        logger.info("2️⃣ 새 테이블 생성 중...")
+        if not self.create_all_tables():
+            logger.error("❌ 새 테이블 생성에 실패했습니다.")
+            return False
+        
+        logger.info("✅ content_hash 컬럼이 포함된 테이블 재생성이 완료되었습니다!")
+        return True
+    
     def show_table_info(self):
         """테이블 정보 표시"""
         logger.info("📋 설문 데이터베이스 테이블 정보:")
@@ -225,6 +248,7 @@ class SurveyTableManager:
         📊 surveys 테이블:
         - survey_id (VARCHAR(255), PK): 설문 고유 ID
         - corporation_id (VARCHAR(255), NOT NULL): 회사 ID (corporation.id 참조)
+        - content_hash (VARCHAR(255)): 설문 내용 해시값 (동일 내용 판단용)
         - timestamp (TIMESTAMP, NOT NULL): 설문 생성 시간
         - total_categories (INTEGER, NOT NULL): 총 카테고리 수
         - categories (JSON, NOT NULL): 카테고리 데이터
@@ -234,6 +258,11 @@ class SurveyTableManager:
         
         🔗 외래키 관계:
         - corporation_id → corporation.id (기업 정보 테이블)
+        
+        📋 인덱스:
+        - idx_surveys_corporation_id: corporation_id 검색 최적화
+        - idx_surveys_survey_id: survey_id 검색 최적화
+        - idx_surveys_content_hash: content_hash 검색 최적화 (중복 설문 방지)
         """)
         
         # survey_responses 테이블 정보
@@ -344,11 +373,12 @@ def main():
         print("\n사용 가능한 작업:")
         print("1. 설문 테이블 생성")
         print("2. 설문 테이블 삭제 (주의: 모든 데이터 손실)")
-        print("3. 테이블 정보 보기")
-        print("4. 설문 생성 테스트")
-        print("5. 종료")
+        print("3. content_hash 컬럼 포함 테이블 재생성 (권장)")
+        print("4. 테이블 정보 보기")
+        print("5. 설문 생성 테스트")
+        print("6. 종료")
         
-        choice = input("\n작업을 선택하세요 (1-5): ").strip()
+        choice = input("\n작업을 선택하세요 (1-6): ").strip()
         
         if choice == '1':
             if manager.create_all_tables():
@@ -363,20 +393,26 @@ def main():
                 logger.error("💥 테이블 삭제에 실패했습니다.")
         
         elif choice == '3':
-            manager.show_table_info()
+            if manager.recreate_tables_with_content_hash():
+                logger.info("🎉 content_hash 컬럼이 포함된 테이블 재생성이 성공했습니다!")
+            else:
+                logger.error("💥 테이블 재생성에 실패했습니다.")
         
         elif choice == '4':
+            manager.show_table_info()
+        
+        elif choice == '5':
             if manager.test_survey_creation():
                 logger.info("🎯 설문 생성 테스트가 성공했습니다!")
             else:
                 logger.error("💥 설문 생성 테스트에 실패했습니다.")
         
-        elif choice == '5':
+        elif choice == '6':
             logger.info("👋 프로그램을 종료합니다.")
             break
         
         else:
-            logger.warning("⚠️ 잘못된 선택입니다. 1-5 중에서 선택해주세요.")
+            logger.warning("⚠️ 잘못된 선택입니다. 1-6 중에서 선택해주세요.")
         
         input("\n계속하려면 Enter를 누르세요...")
 

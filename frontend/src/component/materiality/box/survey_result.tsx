@@ -8,11 +8,20 @@ interface SurveyResultProps {
 const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) => {
   const [backendResponses, setBackendResponses] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(false);
+  const [isDataHidden, setIsDataHidden] = React.useState(true);
+
+  // 컴포넌트 마운트 시 사용자 활동 여부 확인
+  React.useEffect(() => {
+    const hasUserActivity = localStorage.getItem('hasUserActivity');
+    if (hasUserActivity === 'true') {
+      setIsDataHidden(false);
+    }
+  }, []);
 
   // 백엔드에서 설문 응답 데이터 로드 (동일한 내용의 설문들 포함)
   React.useEffect(() => {
     const loadBackendResponses = async () => {
-      if (surveyResult?.survey_id) {
+      if (surveyResult?.survey_id && !isDataHidden) {
         setLoading(true);
         try {
           // 먼저 설문 정보를 가져와서 content_hash 확인
@@ -47,7 +56,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     };
 
     loadBackendResponses();
-  }, [surveyResult?.survey_id]);
+  }, [surveyResult?.survey_id, isDataHidden]);
 
   // 설문 결과 통계 계산 (백엔드 데이터 우선 사용)
   const calculateSurveyStats = () => {
@@ -161,7 +170,38 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
 
   const stats = calculateSurveyStats();
 
+  // 사용자 활동을 표시하는 함수
+  const markUserActivity = () => {
+    localStorage.setItem('hasUserActivity', 'true');
+    setIsDataHidden(false);
+  };
 
+  // 데이터가 숨겨진 상태일 때 표시
+  if (isDataHidden) {
+    return (
+      <div id="survey-results" className="bg-white rounded-xl shadow-lg p-6 mb-12">
+        <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+          📊 설문 결과 확인
+        </h2>
+        
+        <div className="bg-gray-50 rounded-lg p-12 text-center border-2 border-dashed border-gray-300">
+          <div className="text-4xl text-gray-300 mb-4">📈</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">설문 결과 확인</h3>
+          <p className="text-gray-500 mb-6">설문 응답 결과를 확인하고 분석할 수 있는 공간입니다.</p>
+          
+          <button
+            onClick={markUserActivity}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            설문 결과 불러오기
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -405,6 +445,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                   // localStorage에서 설문 결과 제거
                   localStorage.removeItem('surveyResult');
                   localStorage.removeItem('surveyData');
+                  localStorage.removeItem('hasUserActivity');
                   
                   // 페이지 새로고침하여 초기 상태로 복원
                   window.location.reload();

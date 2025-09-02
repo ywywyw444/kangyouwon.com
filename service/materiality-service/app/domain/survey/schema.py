@@ -42,6 +42,8 @@ class SurveyCreateRequest(BaseModel):
     categories: List[Dict[str, Any]] = Field(..., description="설문 카테고리 목록 (실제 데이터 구조)")
     excel_data: Optional[Dict[str, Any]] = Field(None, description="엑셀 데이터")
     content_hash: Optional[str] = Field(None, description="설문 내용 해시값 (동일 내용 판단용)")
+    send_email: Optional[bool] = Field(False, description="이메일 발송 여부")
+    company_name: Optional[str] = Field(None, description="회사명 (이메일 발송용)")
 
 class SurveyResponseRequest(BaseModel):
     """설문 응답 요청 스키마 (Frontend 데이터 구조에 맞춤)"""

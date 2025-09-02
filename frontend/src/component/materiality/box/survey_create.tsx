@@ -256,10 +256,10 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
         
         // Copy link to clipboard
         navigator.clipboard.writeText(surveyLink).then(() => {
-          alert(`✅ 설문이 생성되었습니다!\n\n📊 총 ${selectedCategories.length}개 카테고리\n🔗 설문 링크가 클립보드에 복사되었습니다.\n\n링크: ${surveyLink}`);
+          alert(`✅ 설문이 생성되었습니다!\n\n📊 총 ${selectedCategories.length}개 카테고리\n🔗 설문 링크가 클립보드에 복사되었습니다.\n\n링크: ${surveyLink}\n\n💡 설문 관리 페이지에서 이메일 발송을 진행하세요.`);
         }).catch(() => {
           // Fallback: show link in alert
-          alert(`✅ 설문이 생성되었습니다!\n\n📊 총 ${selectedCategories.length}개 카테고리\n🔗 설문 링크:\n${surveyLink}\n\n위 링크를 복사하여 공유하세요.`);
+          alert(`✅ 설문이 생성되었습니다!\n\n📊 총 ${selectedCategories.length}개 카테고리\n🔗 설문 링크:\n${surveyLink}\n\n위 링크를 복사하여 공유하세요.\n\n💡 설문 관리 페이지에서 이메일 발송을 진행하세요.`);
         });
         
       } catch (error) {
@@ -308,6 +308,9 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
               ? '이미 설문이 생성되어 있습니다. 새로운 설문을 생성하려면 버튼을 클릭하세요.'
               : '중간 중대성 평가 결과를 바탕으로 설문을 생성합니다'
             }
+          </p>
+          <p className="text-xs text-blue-600 mt-2">
+            💡 설문 생성 후 "설문 관리" 페이지에서 이메일 발송을 진행하세요
           </p>
           <div className="mt-4">
             <button
