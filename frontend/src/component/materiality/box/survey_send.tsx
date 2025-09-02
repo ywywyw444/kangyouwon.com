@@ -9,16 +9,6 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
   const [sendSchedule, setSendSchedule] = useState<string>('immediate');
   const [deadline, setDeadline] = useState<string>('');
   const [companyName, setCompanyName] = useState<string>('');
-  interface SurveyVersion {
-    id: string;
-    url: string;
-    contentHash: string;
-    timestamp: string;
-    isActive: boolean;
-  }
-
-  const [availableSurveys, setAvailableSurveys] = useState<SurveyVersion[]>([]);
-  const [selectedSurveyId, setSelectedSurveyId] = useState<string>('');
   const [surveyUrl, setSurveyUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [sendStatus, setSendStatus] = useState<{

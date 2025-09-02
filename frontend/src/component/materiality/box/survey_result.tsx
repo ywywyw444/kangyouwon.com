@@ -100,9 +100,17 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     };
   }, [surveyResult?.survey_id, backendResponses.length]);
 
-  // 설문 결과 통계 계산 (백엔드 데이터 우선 사용)
+  // 설문 결과 통계 계산 (선택된 설문의 응답만 사용)
   const calculateSurveyStats = () => {
-    const responses = backendResponses.length > 0 ? backendResponses : (surveyResult?.responses || []);
+    // 선택된 설문 ID 확인
+    const selectedSurveyId = localStorage.getItem('selectedSurveyId');
+    
+    // 선택된 설문의 응답만 필터링
+    const filteredResponses = backendResponses.filter(response => 
+      response.survey_id === selectedSurveyId
+    );
+    
+    const responses = filteredResponses.length > 0 ? filteredResponses : (surveyResult?.responses || []);
     if (!responses || responses.length === 0) return null;
 
     // 디버깅을 위한 로그

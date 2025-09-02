@@ -180,12 +180,39 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
           ? categories.slice(0, displayCategoryCount)
           : categories;
 
-        // 설문 내용의 해시값 생성
-        const contentHash = generateSurveyContentHash(selectedCategories, excelData);
+        // 설문 내용의 해시값 생성 (카테고리와 base issue pool만 고려)
+        const contentHash = generateSurveyContentHash(
+          selectedCategories.map(cat => ({
+            category: cat.category,
+            selected_base_issue_pool: cat.selected_base_issue_pool,
+            rank: cat.rank
+          })),
+          [] // excelData는 해시 계산에서 제외
+        );
         
         // 기존에 동일한 내용의 설문이 있는지 확인
         const existingSurveyKey = `survey_${companyId}_${contentHash}`;
         const existingSurvey = localStorage.getItem(existingSurveyKey);
+
+        // 현재 활성 설문이 있다면 해시값 비교
+        const currentSurveyData = localStorage.getItem(`surveyData_${companyId}`);
+        if (currentSurveyData) {
+          const currentData = JSON.parse(currentSurveyData);
+          if (currentData.contentHash === contentHash) {
+            // 내용이 동일하면 기존 설문 재사용
+            console.log('📋 동일한 내용의 설문이 이미 존재합니다. 기존 설문을 재사용합니다.');
+            setGeneratedSurveyId(currentData.surveyId);
+            setSurveyResult({
+              survey_id: currentData.surveyId,
+              content_hash: contentHash,
+              created_at: currentData.timestamp,
+              is_active: true
+            });
+            // 이 설문을 기본 선택 설문으로 설정
+            localStorage.setItem('selectedSurveyId', currentData.surveyId);
+            return;
+          }
+        }
         
         if (existingSurvey) {
           const existingData = JSON.parse(existingSurvey);
