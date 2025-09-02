@@ -91,13 +91,13 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     loadSentSurveyInfo();
     checkSurveyResult();
     
-    // 주기적으로 발송된 설문 정보 및 설문 결과 확인 (5초마다)
-    const intervalId = setInterval(() => {
-      loadSentSurveyInfo();
-      checkSurveyResult();
-    }, 5000);
+    // 주기적으로 발송된 설문 정보 및 설문 결과 확인 (5초마다) - 주석처리
+    // const intervalId = setInterval(() => {
+    //   loadSentSurveyInfo();
+    //   checkSurveyResult();
+    // }, 5000);
     
-    return () => clearInterval(intervalId);
+    // return () => clearInterval(intervalId);
   }, []);
 
   // 백엔드에서 설문 응답 데이터 로드 (동일한 내용의 설문들 포함)
@@ -171,16 +171,16 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       }
     };
 
-    // 초기 로드
-    loadBackendResponses();
+    // 초기 로드 - 주석처리 (수동으로 버튼을 눌러서 로드)
+    // loadBackendResponses();
 
-    // 주기적으로 새로운 응답 확인 (30초마다)
-    const intervalId = setInterval(loadBackendResponses, 30000);
+    // 주기적으로 새로운 응답 확인 (30초마다) - 주석처리
+    // const intervalId = setInterval(loadBackendResponses, 30000);
 
     // 컴포넌트 언마운트 시 정리
     return () => {
       isSubscribed = false;
-      clearInterval(intervalId);
+      // clearInterval(intervalId);
     };
   }, [surveyResult?.survey_id]);
 
@@ -349,7 +349,74 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     }
   };
 
-  // 응답 현황 확인 함수
+  // 설문 응답 데이터 수동 로드 함수
+  const loadSurveyResponses = async () => {
+    if (!surveyResult?.survey_id) {
+      alert('❌ 설문 ID가 없습니다.');
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      console.log('🔍 설문 응답 데이터 수동 로드 시작:', surveyResult.survey_id);
+
+      // 먼저 설문 정보를 가져와서 content_hash 확인
+      const surveyResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}`);
+      if (!surveyResponse.ok) {
+        throw new Error(`설문 정보 조회 실패: ${surveyResponse.status}`);
+      }
+
+      const surveyData = await surveyResponse.json();
+      console.log('🔍 설문 데이터:', surveyData);
+      const contentHash = surveyData.content_hash;
+      
+      let newResponses = [];
+      if (contentHash) {
+        // 동일한 내용 해시를 가진 설문들의 모든 응답을 가져오기
+        const responsesResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses?content_hash=${contentHash}`);
+        if (responsesResponse.ok) {
+          const data = await responsesResponse.json();
+          newResponses = data.responses || [];
+          console.log('🔍 응답 데이터 (content_hash):', newResponses);
+        }
+      } else {
+        // content_hash가 없으면 기존 방식으로 단일 설문 응답만 가져오기
+        const response = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses`);
+        if (response.ok) {
+          const data = await response.json();
+          newResponses = data.responses || [];
+          console.log('🔍 응답 데이터 (단일):', newResponses);
+        }
+      }
+
+      setBackendResponses(newResponses);
+      console.log(`📊 설문 응답 데이터 로드 완료: ${newResponses.length}개`);
+
+      // 응답 현황 업데이트
+      const validEmails = (excelData || [])
+        .map((r) => r.email?.trim())
+        .filter((e): e is string => !!e && e.includes('@'));
+      
+      const totalEmails = validEmails.length;
+      const responseRate = totalEmails > 0 ? Math.round((newResponses.length / totalEmails) * 100) : 0;
+      
+      setResponseStatus({
+        total: totalEmails,
+        sent: totalEmails,
+        responded: newResponses.length,
+        responseRate: responseRate
+      });
+
+      alert(`✅ 설문 응답 데이터 로드 완료!\n\n• 총 응답: ${newResponses.length}개\n• 응답률: ${responseRate}%`);
+    } catch (error) {
+      console.error('❌ 설문 응답 데이터 로드 실패:', error);
+      alert(`❌ 설문 응답 데이터 로드 실패\n\n오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 응답 현황 확인 함수 (기존 함수 유지)
   const checkSurveyResponses = async () => {
     if (!surveyResult?.survey_id) {
       alert('❌ 설문 ID가 없습니다.');
@@ -470,7 +537,23 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       <div className="space-y-6">
                      {/* 기본 정보 */}
            <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
-             <h3 className="text-lg font-semibold text-blue-800 mb-4">📋 설문 기본 정보</h3>
+             <div className="flex items-center justify-between mb-4">
+               <h3 className="text-lg font-semibold text-blue-800">📋 설문 기본 정보</h3>
+               <button
+                 onClick={loadSurveyResponses}
+                 disabled={!surveyResult?.survey_id || loading}
+                 className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center ${
+                   !surveyResult?.survey_id || loading
+                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                     : 'bg-blue-600 hover:bg-blue-700 text-white'
+                 }`}
+               >
+                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                 </svg>
+                 {loading ? '로딩 중...' : '응답 데이터 로드'}
+               </button>
+             </div>
              <div className="space-y-3">
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">설문 제목:</span>

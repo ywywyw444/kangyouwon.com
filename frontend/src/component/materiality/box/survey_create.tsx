@@ -24,10 +24,10 @@ const generateSurveyContentHash = (categories: Category[], excelData: ExcelRow[]
   // 카테고리 데이터를 정규화하여 해시 생성
   const normalizedCategories = categories
     .map((cat) => ({
-      category: cat.category || '',
-      selected_base_issue_pool: cat.selected_base_issue_pool || '',
-      esg_classification: cat.esg_classification || '',
-      final_score: cat.final_score || 0,
+    category: cat.category || '',
+    selected_base_issue_pool: cat.selected_base_issue_pool || '',
+    esg_classification: cat.esg_classification || '',
+    final_score: cat.final_score || 0,
       rank: cat.rank,
     }))
     .sort((a, b) => a.rank - b.rank); // 순위로 정렬하여 일관성 보장
@@ -35,10 +35,10 @@ const generateSurveyContentHash = (categories: Category[], excelData: ExcelRow[]
   // 엑셀 데이터도 정규화 (현재 해시에 사용하지 않지만, 인터페이스 유지)
   const normalizedExcelData = excelData
     .map((row) => ({
-      name: row.name,
-      position: row.position,
-      company: row.company,
-      stakeholderType: row.stakeholderType,
+    name: row.name,
+    position: row.position,
+    company: row.company,
+    stakeholderType: row.stakeholderType,
       email: row.email,
     }))
     .sort((a, b) => (a.email || '').localeCompare(b.email || ''));
@@ -204,7 +204,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
       // (기존 호환 키) 현재 회사에 대한 기존 설문이 있는지 확인
       const existingSurveyKey = `surveyData_${companyId}`;
       const existingSurvey = localStorage.getItem(existingSurveyKey);
-
+      
       if (existingSurvey) {
         try {
           const surveyData = JSON.parse(existingSurvey);
@@ -249,7 +249,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         }
       } catch {}
     };
-
+    
     checkExistingSurvey();
   }, [companyId]);
 
@@ -269,7 +269,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         contentHash: active?.contentHash,
         categoryCount: active?.categoryCount,
       };
-
+      
       try {
         localStorage.setItem(surveyKey, JSON.stringify(surveyData));
         console.log('💾 설문 ID localStorage 저장(단건) 완료:', generatedSurveyId);
@@ -291,7 +291,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         setGeneratedSurveyId(null);
         localStorage.removeItem(`surveyData_${companyId}`);
         console.log('🗑️ 기존 설문 데이터 제거 완료');
-
+        
         setTimeout(() => {
           if (assessmentResult) {
             createNewSurvey();
@@ -318,16 +318,16 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
       return;
     }
 
-    try {
-      // 선택된 개수만큼만 사용 (0이면 전체)
-      const selectedCategories: Category[] = (displayCategoryCount > 0
-        ? categories.slice(0, displayCategoryCount)
+      try {
+        // 선택된 개수만큼만 사용 (0이면 전체)
+        const selectedCategories: Category[] = (displayCategoryCount > 0 
+          ? categories.slice(0, displayCategoryCount)
         : categories
       ).map((cat: any) => ({
-        category: cat.category || '',
-        selected_base_issue_pool: cat.selected_base_issue_pool || '',
-        esg_classification: cat.esg_classification || '',
-        final_score: cat.final_score || 0,
+            category: cat.category || '',
+            selected_base_issue_pool: cat.selected_base_issue_pool || '',
+            esg_classification: cat.esg_classification || '',
+            final_score: cat.final_score || 0,
         rank: cat.rank || 0,
         frequency_score: cat.frequency_score || 0,
         relevance_score: cat.relevance_score || 0,
@@ -362,7 +362,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         }
         
         alert('❌ 설문은 회사별 최대 3개까지만 생성할 수 있습니다.\n\n이전에 생성한 설문을 삭제한 후 다시 시도해주세요.');
-        return;
+            return;
       }
 
       // ---- 동일 내용 설문 재사용 ----
@@ -393,70 +393,70 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
       }
 
       // UI 순서대로 질문 번호 부여
-      const categoriesWithQuestionNumbers = selectedCategories.map((cat: any, index: number) => ({
+        const categoriesWithQuestionNumbers = selectedCategories.map((cat: any, index: number) => ({
         question_number: index + 1,
-        rank: cat.rank,
-        category: cat.category || '카테고리명 없음',
-        selected_base_issue_pool: cat.selected_base_issue_pool || '',
-        esg_classification: cat.esg_classification || '미분류',
-        final_score: cat.final_score || 0,
-        frequency_score: cat.frequency_score || 0,
-        relevance_score: cat.relevance_score || 0,
-        recent_score: cat.recent_score || 0,
-        rank_score: cat.rank_score || 0,
-        reference_score: cat.reference_score || 0,
+          rank: cat.rank,
+          category: cat.category || '카테고리명 없음',
+          selected_base_issue_pool: cat.selected_base_issue_pool || '',
+          esg_classification: cat.esg_classification || '미분류',
+          final_score: cat.final_score || 0,
+          frequency_score: cat.frequency_score || 0,
+          relevance_score: cat.relevance_score || 0,
+          recent_score: cat.recent_score || 0,
+          rank_score: cat.rank_score || 0,
+          reference_score: cat.reference_score || 0,
         negative_score: cat.negative_score || 0,
-      }));
+        }));
 
       // 백엔드 요청 페이로드
       const corpId = '1'; // TODO: 실제 corporation 테이블의 id 사용
-      const surveyRequest = {
-        corporation_id: corpId,
-        categories: categoriesWithQuestionNumbers,
+        const surveyRequest = {
+          corporation_id: corpId,
+          categories: categoriesWithQuestionNumbers,
         excel_data:
           excelData.length > 0
             ? {
-                total_companies: excelData.length,
-                companies: excelData.map((row: any) => ({
-                  name: row.name || '',
-                  position: row.position || '',
-                  company: row.company || '',
-                  stakeholder_type: row.stakeholderType || '',
+            total_companies: excelData.length,
+            companies: excelData.map((row: any) => ({
+              name: row.name || '',
+              position: row.position || '',
+              company: row.company || '',
+              stakeholder_type: row.stakeholderType || '',
                   email: row.email || '',
                 })),
               }
             : null,
         content_hash: contentHash,
-      };
+        };
 
-      // Gateway를 통해 materiality-service로 전송
-      const response = await fetch('/api/v1/materiality-service/surveys', {
-        method: 'POST',
+        // Gateway를 통해 materiality-service로 전송
+        const response = await fetch('/api/v1/materiality-service/surveys', {
+          method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(surveyRequest),
-      });
+        });
 
-      if (!response.ok) {
-        throw new Error(`설문 생성 실패: ${response.status} ${response.statusText}`);
-      }
+        if (!response.ok) {
+          throw new Error(`설문 생성 실패: ${response.status} ${response.statusText}`);
+        }
 
-      const surveyResponse = await response.json();
-      const rawSurveyId = surveyResponse.survey_id;
-      const surveyId = normalizeSurveyKey(rawSurveyId);
-
-      console.log('✅ 설문 데이터 백엔드 저장 완료:', {
+        const surveyResponse = await response.json();
+        const rawSurveyId = surveyResponse.survey_id;
+        const surveyId = normalizeSurveyKey(rawSurveyId);
+        
+        console.log('✅ 설문 데이터 백엔드 저장 완료:', {
         surveyId,
-        categories: surveyResponse.total_categories,
-        companyId: surveyResponse.company_id,
+          categories: surveyResponse.total_categories,
+          companyId: surveyResponse.company_id,
         contentHash: surveyResponse.content_hash,
-      });
-
+        });
+        
       // 화면 상태 업데이트
-      setGeneratedSurveyId(surveyId);
+        setGeneratedSurveyId(surveyId);
       const newSurveyResult = {
-        survey_id: surveyId,
-        content_hash: surveyResponse.content_hash,
-        created_at: new Date().toISOString(),
+          survey_id: surveyId,
+          content_hash: surveyResponse.content_hash,
+          created_at: new Date().toISOString(),
         is_active: true,
       };
       setSurveyResult(newSurveyResult);
@@ -499,10 +499,10 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
           `✅ 설문이 생성되었습니다!\n\n📊 총 ${selectedCategories.length}개 카테고리\n🔗 설문 링크:\n${surveyLink}\n\n위 링크를 복사하여 공유하세요.\n\n💡 설문 관리 페이지에서 이메일 발송을 진행하세요.`
         );
       }
-    } catch (error) {
-      console.error('❌ 설문 생성 실패:', error);
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다';
-      alert(`❌ 설문 생성에 실패했습니다.\n\n오류: ${errorMessage}\n\n다시 시도해주세요.`);
+      } catch (error) {
+        console.error('❌ 설문 생성 실패:', error);
+        const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다';
+        alert(`❌ 설문 생성에 실패했습니다.\n\n오류: ${errorMessage}\n\n다시 시도해주세요.`);
     }
   };
 
@@ -522,7 +522,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
           <div className="text-4xl text-gray-300 mb-4">📝</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">설문 생성</h3>
           <p className="text-gray-500 mb-6">중대성 평가를 완료하면 여기서 설문을 생성할 수 있습니다.</p>
-
+          
           <button
             onClick={() => {
               localStorage.setItem('hasUserActivity', 'true');
@@ -576,7 +576,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
             설문 생성하기
           </button>
           <p className="text-sm text-gray-600 mt-3">
-            {generatedSurveyId
+            {generatedSurveyId 
               ? '이미 설문이 생성되어 있습니다. 새로운 설문을 생성하려면 버튼을 클릭하세요.'
               : '중간 중대성 평가 결과를 바탕으로 설문을 생성합니다'}
           </p>
@@ -599,7 +599,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
           </div>
         </div>
 
-        {/* 오른쪽: URL 표시 및 복사 기능 */}
+                      {/* 오른쪽: URL 표시 및 복사 기능 */}
         {generatedSurveyId && (
           <div className="flex-1 bg-gray-50 rounded-lg p-6 border border-gray-200">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
@@ -613,7 +613,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
               </svg>
               설문 URL
             </h3>
-
+            
             <div className="space-y-4">
               {/* 현재 활성 설문 URL */}
               <div className="bg-white rounded-lg p-4 border border-blue-200">
@@ -697,13 +697,13 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                                v{survey.contentHash?.substring(0, 4) || '0000'}
-                              </span>
+                            <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                              v{survey.contentHash?.substring(0, 4) || '0000'}
+                            </span>
                               {survey.isActive && (
                                 <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">활성</span>
                               )}
-                            </div>
+                          </div>
                           </div>
 
                           <div className="font-mono text-xs text-gray-600 break-all bg-gray-50 p-2 rounded">{link}</div>
@@ -721,7 +721,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
                             </button>
 
                             <button
-                              onClick={async () => {
+                                                                            onClick={async () => {
                                 if (!confirm('이 설문을 삭제하시겠습니까?\n연결된 응답 데이터도 함께 삭제됩니다.')) return;
                                 
                                 try {
@@ -826,8 +826,8 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
                               삭제
                             </button>
                           </div>
-                        </div>
-                      );
+                      </div>
+                    );
                     });
                   })()}
                 </div>
