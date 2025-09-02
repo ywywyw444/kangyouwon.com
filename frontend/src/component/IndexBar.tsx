@@ -130,7 +130,7 @@ export default function IndexBar() {
       </div>
 
       {/* 새로운 가로 탭 네비게이션 */}
-      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
+      <div className="bg-blue-50 border-b border-gray-200 shadow-sm sticky top-20 z-30">
         <div className="max-w-7xl mx-auto px-6 py-3">
           <div className="flex items-center space-x-1 overflow-x-auto scrollbar-hide">
             {indexItems.map((item) => (
