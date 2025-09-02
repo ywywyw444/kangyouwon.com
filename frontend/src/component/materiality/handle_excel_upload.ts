@@ -83,6 +83,7 @@ export const handleExcelUpload = async (file: File, setIsExcelValid: any, setExc
             
             try {
               localStorage.setItem('excelUploadData', JSON.stringify(dataToSave));
+              localStorage.setItem('hasUserActivity', 'true'); // 사용자 활동 기록
               console.log('💾 localStorage 저장 완료:', dataToSave);
               
               // 저장 확인

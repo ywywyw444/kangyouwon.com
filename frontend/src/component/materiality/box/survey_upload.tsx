@@ -33,6 +33,13 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
   deleteRow,
   loadUploadedExcelData
 }) => {
+  // 사용자 활동 추적 함수
+  const markUserActivity = () => {
+    localStorage.setItem('hasUserActivity', 'true');
+    setIsDataHidden(false); // 데이터 표시 활성화
+    console.log('✅ 사용자 활동 기록됨 (엑셀 업로드)');
+  };
+
   return (
     <div id="survey-upload" className="bg-white rounded-xl shadow-lg p-6 mb-12">
       <div>
@@ -57,7 +64,10 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
               Excel 템플릿 다운로드
             </a>
             <button
-              onClick={loadUploadedExcelData}
+              onClick={() => {
+                markUserActivity(); // 사용자 활동 기록
+                loadUploadedExcelData();
+              }}
               className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
             >
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,6 +90,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
             
             const file = e.dataTransfer.files[0];
             if (file) {
+              markUserActivity(); // 사용자 활동 기록
               handleExcelUpload(file, setIsExcelValid, setExcelFilename, setExcelBase64, setExcelData);
             }
           }}
@@ -94,6 +105,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
             onChange={(e) => {
               const file = e.target.files?.[0];
               if (file) {
+                markUserActivity(); // 사용자 활동 기록
                 handleExcelUpload(file, setIsExcelValid, setExcelFilename, setExcelBase64, setExcelData);
               }
             }}
@@ -151,6 +163,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
           <div className="flex items-center space-x-3">
             <button
               onClick={() => {
+                markUserActivity(); // 사용자 활동 기록
                 try {
                   // 먼저 localStorage에서 직접 데이터 확인
                   const savedData = localStorage.getItem('excelUploadData');

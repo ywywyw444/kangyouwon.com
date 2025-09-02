@@ -41,6 +41,7 @@ class SurveyCreateRequest(BaseModel):
     corporation_id: str = Field(..., description="회사 ID (corporation_id로 통일)")
     categories: List[Dict[str, Any]] = Field(..., description="설문 카테고리 목록 (실제 데이터 구조)")
     excel_data: Optional[Dict[str, Any]] = Field(None, description="엑셀 데이터")
+    content_hash: Optional[str] = Field(None, description="설문 내용 해시값 (동일 내용 판단용)")
 
 class SurveyResponseRequest(BaseModel):
     """설문 응답 요청 스키마 (Frontend 데이터 구조에 맞춤)"""
@@ -53,6 +54,7 @@ class SurveyDataResponse(BaseModel):
     """설문 데이터 응답 스키마"""
     survey_id: str = Field(..., description="설문 ID")
     corporation_id: str = Field(..., description="회사 ID")
+    content_hash: Optional[str] = Field(None, description="설문 내용 해시값")
     timestamp: datetime = Field(..., description="생성 시간")
     total_categories: int = Field(..., description="총 카테고리 수")
     categories: List[Dict[str, Any]] = Field(..., description="카테고리 데이터")

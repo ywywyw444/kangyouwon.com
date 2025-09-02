@@ -100,8 +100,8 @@ class SurveyRepository:
                 
                 # JSONB 타입으로 바인딩 (파이썬 객체 그대로 전달)
                 sql = text("""
-                INSERT INTO surveys (survey_id, corporation_id, "timestamp", total_categories, categories, excel_data)
-                VALUES (:survey_id, :corporation_id, :timestamp, :total_categories, :categories, :excel_data)
+                INSERT INTO surveys (survey_id, corporation_id, content_hash, "timestamp", total_categories, categories, excel_data)
+                VALUES (:survey_id, :corporation_id, :content_hash, :timestamp, :total_categories, :categories, :excel_data)
                 """).bindparams(
                     bindparam("categories", type_=JSONB),
                     bindparam("excel_data", type_=JSONB),
@@ -110,6 +110,7 @@ class SurveyRepository:
                 params = {
                     "survey_id": survey_id,
                     "corporation_id": corporation_id,
+                    "content_hash": request.content_hash,          # 설문 내용 해시값
                     "timestamp": datetime.now(),
                     "total_categories": len(request.categories),
                     "categories": request.categories,              # 파이썬 객체 그대로
@@ -303,4 +304,40 @@ class SurveyRepository:
                 
         except Exception as e:
             logger.error(f"응답 수 조회 실패: {e}")
+            raise
+    
+    def get_surveys_by_content_hash(self, content_hash: str) -> List[SurveyEntity]:
+        """동일한 내용 해시를 가진 설문들 조회"""
+        try:
+            with self._get_session() as session:
+                surveys = session.query(SurveyEntity).filter(
+                    SurveyEntity.content_hash == content_hash
+                ).order_by(desc(SurveyEntity.created_at)).all()
+                return surveys
+                
+        except Exception as e:
+            logger.error(f"내용 해시별 설문 조회 실패: {e}")
+            raise
+    
+    def get_responses_by_content_hash(self, content_hash: str) -> List[SurveyResponseEntity]:
+        """동일한 내용 해시를 가진 설문들의 모든 응답 조회"""
+        try:
+            with self._get_session() as session:
+                # 동일한 내용 해시를 가진 설문들의 ID 목록 조회
+                survey_ids = session.query(SurveyEntity.survey_id).filter(
+                    SurveyEntity.content_hash == content_hash
+                ).all()
+                
+                if not survey_ids:
+                    return []
+                
+                # 해당 설문들의 모든 응답 조회
+                responses = session.query(SurveyResponseEntity).filter(
+                    SurveyResponseEntity.survey_id.in_([sid[0] for sid in survey_ids])
+                ).order_by(SurveyResponseEntity.created_at).all()
+                
+                return responses
+                
+        except Exception as e:
+            logger.error(f"내용 해시별 응답 조회 실패: {e}")
             raise

@@ -10,6 +10,7 @@ class SurveyEntity(Base):
     
     survey_id = Column(String(255), primary_key=True, index=True)
     corporation_id = Column(String(255), ForeignKey('corporation.id'), nullable=False, index=True)  # corporation 테이블의 id 참조
+    content_hash = Column(String(255), nullable=True, index=True)  # 설문 내용 해시값 (동일 내용 판단용)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
     total_categories = Column(Integer, nullable=False)
     categories = Column(Text, nullable=False)  # 카테고리 데이터 저장

@@ -2,6 +2,42 @@
 
 import React, { useState } from 'react';
 
+// 설문 내용의 해시값을 생성하는 함수
+const generateSurveyContentHash = (categories: any[], excelData: any[]): string => {
+  // 카테고리 데이터를 정규화하여 해시 생성
+  const normalizedCategories = categories.map(cat => ({
+    category: cat.category,
+    selected_base_issue_pool: cat.selected_base_issue_pool,
+    esg_classification: cat.esg_classification,
+    final_score: cat.final_score,
+    rank: cat.rank
+  })).sort((a, b) => a.rank - b.rank); // 순위로 정렬하여 일관성 보장
+
+  // 엑셀 데이터도 정규화
+  const normalizedExcelData = excelData.map(row => ({
+    name: row.name,
+    position: row.position,
+    company: row.company,
+    stakeholderType: row.stakeholderType,
+    email: row.email
+  })).sort((a, b) => a.email.localeCompare(b.email)); // 이메일로 정렬
+
+  // JSON 문자열로 변환하여 해시 생성
+  const contentString = JSON.stringify({
+    categories: normalizedCategories,
+    excelData: normalizedExcelData
+  });
+
+  // 간단한 해시 함수 (실제 프로덕션에서는 crypto-js 등 사용 권장)
+  let hash = 0;
+  for (let i = 0; i < contentString.length; i++) {
+    const char = contentString.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // 32bit 정수로 변환
+  }
+  return Math.abs(hash).toString(36);
+};
+
 type SurveyCreateProps = {
   companyId: string;
   assessmentResult: any;
@@ -109,6 +145,40 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
           ? categories.slice(0, displayCategoryCount)
           : categories;
 
+        // 설문 내용의 해시값 생성
+        const contentHash = generateSurveyContentHash(selectedCategories, excelData);
+        
+        // 기존에 동일한 내용의 설문이 있는지 확인
+        const existingSurveyKey = `survey_${companyId}_${contentHash}`;
+        const existingSurvey = localStorage.getItem(existingSurveyKey);
+        
+        if (existingSurvey) {
+          const existingData = JSON.parse(existingSurvey);
+          const existingSurveyId = existingData.surveyId;
+          
+          // 기존 설문이 여전히 유효한지 확인
+          try {
+            const response = await fetch(`/api/v1/materiality-service/surveys/${existingSurveyId}`);
+            if (response.ok) {
+              // 기존 설문이 유효하면 재사용
+              setGeneratedSurveyId(existingSurveyId);
+              const surveyLink = `${window.location.origin}/survey?id=${existingSurveyId}`;
+              
+              alert(`✅ 동일한 내용의 설문이 이미 존재합니다!\n\n📊 총 ${selectedCategories.length}개 카테고리\n🔗 기존 설문 링크가 클립보드에 복사되었습니다.\n\n링크: ${surveyLink}`);
+              
+              // 클립보드에 복사
+              navigator.clipboard.writeText(surveyLink).catch(() => {
+                console.log('클립보드 복사 실패');
+              });
+              
+              return; // 기존 설문 재사용하고 종료
+            }
+          } catch (error) {
+            console.log('기존 설문 확인 실패, 새로 생성합니다:', error);
+            // 기존 설문이 유효하지 않으면 새로 생성
+          }
+        }
+
         // UI에 표시되는 순서대로 질문 번호 부여 (순위와 관계없이)
         const categoriesWithQuestionNumbers = selectedCategories.map((cat: any, index: number) => ({
           question_number: index + 1, // UI 표시 순서대로 Q1, Q2, Q3...
@@ -138,7 +208,8 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
               stakeholder_type: row.stakeholderType || '',
               email: row.email || ''
             }))
-          } : null
+          } : null,
+          content_hash: contentHash // 설문 내용 해시값 추가
         };
 
         // Gateway를 통해 materiality-service로 전송
@@ -154,17 +225,31 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
           throw new Error(`설문 생성 실패: ${response.status} ${response.statusText}`);
         }
 
-        const surveyData = await response.json();
-        const surveyId = surveyData.survey_id;
+        const surveyResponse = await response.json();
+        const surveyId = surveyResponse.survey_id;
         
         console.log('✅ 설문 데이터 백엔드 저장 완료:', {
           surveyId: surveyId,
-          categories: surveyData.total_categories,
-          companyId: surveyData.company_id
+          categories: surveyResponse.total_categories,
+          companyId: surveyResponse.company_id
         });
         
         // Store the generated survey ID
         setGeneratedSurveyId(surveyId);
+        
+        // 설문 내용 해시값과 함께 저장
+        const surveyData = {
+          surveyId: surveyId,
+          contentHash: contentHash,
+          timestamp: new Date().toISOString(),
+          categoryCount: selectedCategories.length
+        };
+        
+        // 기존 설문 데이터 저장 (companyId 기반)
+        localStorage.setItem(`surveyData_${companyId}`, JSON.stringify(surveyData));
+        
+        // 설문 내용 해시 기반으로도 저장 (중복 생성 방지용)
+        localStorage.setItem(existingSurveyKey, JSON.stringify(surveyData));
         
         // Generate survey link
         const surveyLink = `${window.location.origin}/survey?id=${surveyId}`;

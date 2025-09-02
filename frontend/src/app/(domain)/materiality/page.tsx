@@ -83,7 +83,16 @@ export default function MaterialityHomePage() {
   } = useExcelDataStore();
 
   // 화면 표시 제어를 위한 별도 상태
-  const [isDataHidden, setIsDataHidden] = useState(false);
+  const [isDataHidden, setIsDataHidden] = useState(true); // 처음 접속 시 데이터 숨김
+  
+  // 사용자 활동 감지하여 데이터 표시
+  useEffect(() => {
+    const hasUserActivity = localStorage.getItem('hasUserActivity');
+    if (hasUserActivity) {
+      setIsDataHidden(false);
+      console.log('✅ 사용자 활동 감지: 데이터 표시 활성화');
+    }
+  }, []);
   
   // 모달 상태
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);

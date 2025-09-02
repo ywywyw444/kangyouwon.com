@@ -97,6 +97,21 @@ class SurveyController:
             logger.error(f"❌ 컨트롤러: Service 호출 중 오류 - {str(e)}")
             raise
     
+    async def get_survey_responses_by_content_hash(self, content_hash: str) -> SurveyResponsesResponse:
+        """동일한 내용 해시를 가진 설문들의 모든 응답 조회 - 서비스 호출"""
+        try:
+            logger.info(f"🔍 컨트롤러: 내용 해시별 설문 응답 목록 조회 요청을 Service로 전달 - {content_hash}")
+            
+            # content_hash를 Service로 전달 (데이터베이스 연결 없음)
+            result = await self.service.get_survey_responses_by_content_hash(content_hash)
+            
+            logger.info(f"✅ 컨트롤러: Service 응답 수신 - {result.total_responses}개 응답")
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ 컨트롤러: Service 호출 중 오류 - {str(e)}")
+            raise
+    
     async def get_all_surveys(self) -> SurveyListResponse:
         """모든 설문 목록 조회 - 서비스 호출"""
         try:

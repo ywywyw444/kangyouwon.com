@@ -9,16 +9,34 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
   const [backendResponses, setBackendResponses] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(false);
 
-  // 백엔드에서 설문 응답 데이터 로드
+  // 백엔드에서 설문 응답 데이터 로드 (동일한 내용의 설문들 포함)
   React.useEffect(() => {
     const loadBackendResponses = async () => {
       if (surveyResult?.survey_id) {
         setLoading(true);
         try {
-          const response = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses`);
-          if (response.ok) {
-            const data = await response.json();
-            setBackendResponses(data.responses || []);
+          // 먼저 설문 정보를 가져와서 content_hash 확인
+          const surveyResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}`);
+          if (surveyResponse.ok) {
+            const surveyData = await surveyResponse.json();
+            const contentHash = surveyData.content_hash;
+            
+            if (contentHash) {
+              // 동일한 내용 해시를 가진 설문들의 모든 응답을 가져오기
+              const responsesResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses?content_hash=${contentHash}`);
+              if (responsesResponse.ok) {
+                const data = await responsesResponse.json();
+                setBackendResponses(data.responses || []);
+                console.log(`📊 동일한 내용의 설문들에서 총 ${data.responses?.length || 0}개 응답을 가져왔습니다.`);
+              }
+            } else {
+              // content_hash가 없으면 기존 방식으로 단일 설문 응답만 가져오기
+              const response = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses`);
+              if (response.ok) {
+                const data = await response.json();
+                setBackendResponses(data.responses || []);
+              }
+            }
           }
         } catch (error) {
           console.error('백엔드 응답 데이터 로드 실패:', error);

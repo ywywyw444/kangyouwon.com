@@ -86,6 +86,12 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
   setIsDetailModalOpen,
   excelData
 }) => {
+  // 사용자 활동 추적 함수
+  const markUserActivity = () => {
+    localStorage.setItem('hasUserActivity', 'true');
+    console.log('✅ 사용자 활동 기록됨');
+  };
+
   const saveAssessmentResult = () => {
     if (assessmentResult) {
       try {
@@ -127,6 +133,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
         // localStorage 용량 확인 및 정리
         try {
           localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+          markUserActivity(); // 사용자 활동 기록
           console.log('💾 중대성 평가 결과 저장 완료:', dataToSave);
           console.log('📋 저장된 카테고리 수:', categories.length);
           console.log('📋 Base Issue Pool이 설정된 카테고리 수:', categories.filter((cat: any) => cat.selected_base_issue_pool).length);
@@ -139,6 +146,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
             
             // 다시 저장 시도
             localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+            markUserActivity(); // 사용자 활동 기록
             console.log('💾 중대성 평가 결과 저장 완료 (용량 정리 후):', dataToSave);
             alert(`✅ 중대성 평가 결과가 성공적으로 저장되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n📋 Base Issue Pool 설정: ${categories.filter((cat: any) => cat.selected_base_issue_pool).length}개`);
           } else {
@@ -156,6 +164,15 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
 
   useEffect(() => {
     const loadAssessmentResultFromStorage = () => {
+      // 사용자 활동 상태 확인
+      const hasUserActivity = localStorage.getItem('hasUserActivity');
+      
+      // 처음 접속이거나 사용자 활동이 없는 경우 데이터를 자동으로 불러오지 않음
+      if (!hasUserActivity) {
+        console.log('🆕 처음 접속: 중대성 평가 결과를 자동으로 불러오지 않습니다.');
+        return;
+      }
+
       const savedResult = localStorage.getItem('materialityAssessmentResult');
       if (savedResult) {
         try {
@@ -190,6 +207,15 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
 
   useEffect(() => {
     const loadSearchResultFromStorage = () => {
+      // 사용자 활동 상태 확인
+      const hasUserActivity = localStorage.getItem('hasUserActivity');
+      
+      // 처음 접속이거나 사용자 활동이 없는 경우 데이터를 자동으로 불러오지 않음
+      if (!hasUserActivity) {
+        console.log('🆕 처음 접속: 지난 중대성 평가 목록을 자동으로 불러오지 않습니다.');
+        return;
+      }
+
       const savedSearchResult = localStorage.getItem('materialitySearchResult');
       if (savedSearchResult) {
         try {
@@ -221,7 +247,10 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
       {/* 액션 버튼들 */}
       <div className="flex flex-col sm:flex-row gap-4 mb-8">
         <button
-          onClick={() => handleViewReport(searchResult, setIsIssuepoolLoading, setIssuepoolData)}
+          onClick={() => {
+            markUserActivity(); // 사용자 활동 기록
+            handleViewReport(searchResult, setIsIssuepoolLoading, setIssuepoolData);
+          }}
           disabled={!searchResult?.data || isIssuepoolLoading}
           className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
             !searchResult?.data || isIssuepoolLoading
@@ -259,6 +288,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
 
             // 로딩 상태 시작
             setIsAssessmentStarting(true);
+            markUserActivity(); // 사용자 활동 기록
 
             try {
               // 3. 기사 데이터 구조 검증 및 안전한 매핑
@@ -860,7 +890,10 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                 
                 {/* 중대성 평가 결과 불러오기 버튼 */}
                 <button
-                  onClick={() => loadAssessmentResult(setAssessmentResult, () => {}, () => {}, () => {}, setDisplayCategoryCount)}
+                  onClick={() => {
+                    markUserActivity(); // 사용자 활동 기록
+                    loadAssessmentResult(setAssessmentResult, () => {}, () => {}, () => {}, setDisplayCategoryCount);
+                  }}
                   className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
                   title="저장된 중대성 평가 결과를 불러옵니다"
                 >
@@ -937,7 +970,10 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
              {/* 중대성 평가 결과 불러오기 버튼 - 결과가 없어도 항상 표시 */}
              <div className="text-center">
                <button
-                 onClick={() => loadAssessmentResult(setAssessmentResult, () => {}, () => {}, () => {}, setDisplayCategoryCount)}
+                 onClick={() => {
+                   markUserActivity(); // 사용자 활동 기록
+                   loadAssessmentResult(setAssessmentResult, () => {}, () => {}, () => {}, setDisplayCategoryCount);
+                 }}
                  className="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-md text-purple-700 bg-white hover:bg-purple-50 transition-colors duration-200"
                  title="저장된 중대성 평가 결과를 불러옵니다"
                >

@@ -100,6 +100,7 @@ class SurveyService:
                 SurveyDataResponse(
                     survey_id=entity.survey_id,
                     corporation_id=entity.corporation_id,
+                    content_hash=entity.content_hash,
                     timestamp=entity.timestamp,
                     total_categories=entity.total_categories,
                     categories=self._prepare_response_data(entity.categories),  # 파이썬 객체로 변환
@@ -170,6 +171,45 @@ class SurveyService:
             logger.error(f"설문 응답 목록 조회 실패: {e}")
             raise
     
+    async def get_survey_responses_by_content_hash(self, content_hash: str) -> SurveyResponsesResponse:
+        """동일한 내용 해시를 가진 설문들의 모든 응답 조회"""
+        try:
+            logger.info(f"내용 해시별 설문 응답 목록 조회 시작: {content_hash}")
+            
+            # repository를 통해 동일한 내용 해시를 가진 설문들의 모든 응답 조회
+            response_entities = await anyio.to_thread.run_sync(self.repository.get_responses_by_content_hash, content_hash)
+            
+            # 응답 데이터 변환
+            responses = []
+            for entity in response_entities:
+                response_data = {
+                    "participant_id": entity.participant_id,
+                    "participant": {
+                        "name": entity.participant_name,
+                        "company": entity.participant_company,
+                        "position": entity.participant_position,
+                        "email": entity.participant_email
+                    },
+                    "responses": self._prepare_response_data(entity.responses),  # 파이썬 객체로 변환
+                    "timestamp": entity.timestamp.isoformat(),
+                    "survey_id": entity.survey_id,
+                    "corporation_id": entity.corporation_id
+                }
+                responses.append(response_data)
+            
+            logger.info(f"동일한 내용의 설문들에서 총 {len(responses)}개 응답을 찾았습니다.")
+            
+            return SurveyResponsesResponse(
+                survey_id="",  # 여러 설문의 응답이므로 빈 문자열
+                corporation_id=responses[0]["corporation_id"] if responses else "",
+                total_responses=len(responses),
+                responses=responses
+            )
+                
+        except Exception as e:
+            logger.error(f"내용 해시별 설문 응답 목록 조회 실패: {e}")
+            raise
+    
     async def get_all_surveys(self) -> SurveyListResponse:
         """모든 설문 목록 조회"""
         try:
@@ -183,6 +223,7 @@ class SurveyService:
                 SurveyDataResponse(
                     survey_id=entity.survey_id,
                     corporation_id=entity.corporation_id,
+                    content_hash=entity.content_hash,
                     timestamp=entity.timestamp,
                     total_categories=entity.total_categories,
                     categories=self._prepare_response_data(entity.categories),  # 파이썬 객체로 변환

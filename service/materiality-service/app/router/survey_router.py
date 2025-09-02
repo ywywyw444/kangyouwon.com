@@ -100,12 +100,18 @@ async def submit_survey_response(survey_id: str, survey_response_request: Survey
         raise HTTPException(status_code=500, detail=str(e))
 
 @survey_router.get("/surveys/{survey_id}/responses", response_model=SurveyResponsesResponse)
-async def get_survey_responses(survey_id: str):
-    """설문 응답 목록 조회"""
+async def get_survey_responses(survey_id: str, content_hash: Optional[str] = None):
+    """설문 응답 목록 조회 (content_hash가 있으면 동일한 내용의 설문들 포함)"""
     try:
-        logger.info(f"설문 응답 목록 조회 요청: {survey_id}")
+        logger.info(f"설문 응답 목록 조회 요청: {survey_id}, content_hash: {content_hash}")
         
-        result = await survey_controller.get_survey_responses(survey_id)
+        if content_hash:
+            # 동일한 내용 해시를 가진 설문들의 모든 응답 조회
+            result = await survey_controller.get_survey_responses_by_content_hash(content_hash)
+        else:
+            # 기존 방식: 단일 설문의 응답만 조회
+            result = await survey_controller.get_survey_responses(survey_id)
+        
         return result
             
     except Exception as e:
