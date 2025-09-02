@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import axios from 'axios';
 import { handleViewReport } from '../handle_view_report';
-import { loadAssessmentResult, loadSearchResult } from '../load_assessment_result';
+import { loadAssessmentResult } from '../load_assessment_result';
 import { fetchAllCategories } from '../fetch_all_categories';
 import { addNewCategory } from '../add_new_category';
 
@@ -419,22 +419,22 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
           )}
         </button>
         
-        {/* 내용 지우기 버튼 */}
-        <button
-          onClick={() => {
-            if (confirm('화면에서 모든 내용을 지우시겠습니까?\n\n저장된 데이터는 메모리에 남아있어서 불러오기 버튼으로 다시 표시할 수 있습니다.')) {
-              // 화면에서만 내용 지우기 (localStorage는 유지)
-              setIssuepoolData(null);
-              setAssessmentResult(null);
-              console.log('🧹 화면 내용 지우기 완료 (localStorage 유지)');
-              alert('✅ 화면 내용이 지워졌습니다.\n\n불러오기 버튼을 눌러서 저장된 데이터를 다시 표시할 수 있습니다.');
-            }
-          }}
-          className="px-6 py-3 rounded-lg font-medium transition-all duration-200 bg-gray-500 hover:bg-gray-600 text-white shadow-lg hover:shadow-xl"
-          title="화면에서 내용을 지웁니다 (저장된 데이터는 유지)"
-        >
-          🧹 내용 지우기
-        </button>
+                 {/* 내용 지우기 버튼 */}
+         <button
+           onClick={() => {
+             if (confirm('화면에서 모든 내용을 지우시겠습니까?\n\n저장된 데이터는 메모리에 남아있어서 불러오기 버튼으로 다시 표시할 수 있습니다.')) {
+               // 화면에서만 내용 지우기 (localStorage는 유지)
+               setIssuepoolData(null);
+               // assessmentResult는 지우지 않음 (중대성 평가 결과 불러오기 버튼이 살아있어야 함)
+               console.log('🧹 화면 내용 지우기 완료 (localStorage 유지, 중대성 평가 결과는 유지)');
+               alert('✅ 화면 내용이 지워졌습니다.\n\n불러오기 버튼을 눌러서 저장된 데이터를 다시 표시할 수 있습니다.');
+             }
+           }}
+           className="px-6 py-3 rounded-lg font-medium transition-all duration-200 bg-gray-500 hover:bg-gray-600 text-white shadow-lg hover:shadow-xl"
+           title="화면에서 내용을 지웁니다 (저장된 데이터는 유지)"
+         >
+           🧹 내용 지우기
+         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -869,17 +869,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                   중대성 평가 결과 불러오기
                 </button>
                 
-                {/* 지난 중대성 평가 목록 불러오기 버튼 */}
-                <button
-                  onClick={() => loadSearchResult(setIssuepoolData)}
-                  className="inline-flex items-center px-4 py-2 border border-indigo-300 text-sm font-medium rounded-md text-indigo-700 bg-white hover:bg-indigo-50 transition-colors duration-200"
-                  title="저장된 지난 중대성 평가 목록을 불러옵니다"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  지난 중대성 평가 목록 불러오기
-                </button>
+                
                 
                 {/* 추가하기 버튼 */}
                 <button
