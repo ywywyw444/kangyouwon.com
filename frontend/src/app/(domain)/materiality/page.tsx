@@ -144,6 +144,7 @@ export default function MaterialityHomePage() {
   const [isCustomBaseIssuePool, setIsCustomBaseIssuePool] = useState(false);
   const [customBaseIssuePoolText, setCustomBaseIssuePoolText] = useState<string>('');
   const [displayCategoryCount, setDisplayCategoryCount] = useState<number>(0);
+  const [visibleSection, setVisibleSection] = useState<string>('media-search'); // 기본적으로 미디어 검색 섹션 표시
 
   // 중대성 평가 관련 상태
   const [issuepoolData, setIssuepoolData] = useState<IssuepoolData | null>(null);
@@ -159,6 +160,23 @@ export default function MaterialityHomePage() {
 
   // 설문 결과 상태
   const [surveyResult, setSurveyResult] = useState<any>(null);
+
+  // 섹션 변경 이벤트 감지 (IndexBar에서 발생)
+  useEffect(() => {
+    const handleSectionChange = (event: CustomEvent) => {
+      const sectionId = event.detail?.sectionId;
+      if (sectionId) {
+        setVisibleSection(sectionId);
+      }
+    };
+
+    // 커스텀 이벤트 리스너 등록
+    window.addEventListener('sectionChange', handleSectionChange as EventListener);
+
+    return () => {
+      window.removeEventListener('sectionChange', handleSectionChange as EventListener);
+    };
+  }, []);
 
   // 로그인한 사용자의 기업 정보 가져오기
   useEffect(() => {
@@ -456,27 +474,29 @@ export default function MaterialityHomePage() {
           </div>
   
           {/* 선택 옵션 */}
-          <MediaSearch
-            companyId={companyId || ''}
-            companySearchTerm={companySearchTerm}
-            searchPeriod={searchPeriod}
-            isCompanyLoading={isCompanyLoading}
-            isMediaSearching={isMediaSearching}
-            companies={companies}
-            filteredCompanies={filteredCompanies}
-            isCompanyDropdownOpen={isCompanyDropdownOpen}
-            setCompanyId={setCompanyId}
-            setCompanySearchTerm={setCompanySearchTerm}
-            setSearchPeriod={setSearchPeriod}
-            setIsCompanyDropdownOpen={setIsCompanyDropdownOpen}
-            setSearchResult={setSearchResult}
-            setExcelFilename={(name) => setExcelFilename(name ?? null)}
-            setExcelBase64={(b64) => setExcelBase64(b64 ?? null)}
-            setLoading={setLoading}
-          />
+          {visibleSection === 'media-search' && (
+            <MediaSearch
+              companyId={companyId || ''}
+              companySearchTerm={companySearchTerm}
+              searchPeriod={searchPeriod}
+              isCompanyLoading={isCompanyLoading}
+              isMediaSearching={isMediaSearching}
+              companies={companies}
+              filteredCompanies={filteredCompanies}
+              isCompanyDropdownOpen={isCompanyDropdownOpen}
+              setCompanyId={setCompanyId}
+              setCompanySearchTerm={setCompanySearchTerm}
+              setSearchPeriod={setSearchPeriod}
+              setIsCompanyDropdownOpen={setIsCompanyDropdownOpen}
+              setSearchResult={setSearchResult}
+              setExcelFilename={(name) => setExcelFilename(name ?? null)}
+              setExcelBase64={(b64) => setExcelBase64(b64 ?? null)}
+              setLoading={setLoading}
+            />
+          )}
   
           {/* 미디어 검색 결과 */}
-          {searchResult && (
+          {visibleSection === 'media-search' && searchResult && (
             <SearchResult
               searchResult={searchResult}
               isSearchResultCollapsed={isSearchResultCollapsed}
@@ -493,7 +513,8 @@ export default function MaterialityHomePage() {
 
   
           {/* 지난 중대성 평가 목록 */}
-          <FirstAssessment
+          {visibleSection === 'middle-issuepool' && (
+            <FirstAssessment
             companyId={companyId || ''}
             searchResult={searchResult}
             issuepoolData={issuepoolData}
@@ -533,38 +554,49 @@ export default function MaterialityHomePage() {
             setIsDetailModalOpen={setIsDetailModalOpen}
             excelData={excelData}
           />
+          )}
 
           {/* 설문 진행하기 버튼 */}
-          <SurveyCreate companyId={companyId || ''} assessmentResult={assessmentResult} excelData={excelData} displayCategoryCount={displayCategoryCount} />
+          {visibleSection === 'survey-create' && (
+            <SurveyCreate companyId={companyId || ''} assessmentResult={assessmentResult} excelData={excelData} displayCategoryCount={displayCategoryCount} />
+          )}
 
           {/* 설문 대상 업로드 */}
-          <SurveyUpload
-            excelData={surveyUploadData}
-            isExcelValid={surveyUploadIsValid}
-            excelFilename={excelFilename ?? null}
-            excelBase64={excelBase64 ?? null}
-            isDataHidden={isDataHidden}
-            setIsExcelValid={(valid) => setSurveyUploadsValid(!!valid)}
-            setExcelFilename={(name) => setExcelFilename(name ?? null)}
-            setExcelBase64={(b64) => setExcelBase64(b64 ?? null)}
-            setExcelData={setSurveyUploadData}
-            setIsDataHidden={setIsDataHidden}
-            loadUploadedExcelData={loadSurveyUploadData}
-            updateRow={updateSurveyUploadRow}
-            deleteRow={deleteSurveyUploadRow}
-          />
+          {visibleSection === 'survey-upload' && (
+            <SurveyUpload
+              excelData={surveyUploadData}
+              isExcelValid={surveyUploadIsValid}
+              excelFilename={excelFilename ?? null}
+              excelBase64={excelBase64 ?? null}
+              isDataHidden={isDataHidden}
+              setIsExcelValid={(valid) => setSurveyUploadsValid(!!valid)}
+              setExcelFilename={(name) => setExcelFilename(name ?? null)}
+              setExcelBase64={(b64) => setExcelBase64(b64 ?? null)}
+              setExcelData={setSurveyUploadData}
+              setIsDataHidden={setIsDataHidden}
+              loadUploadedExcelData={loadSurveyUploadData}
+              updateRow={updateSurveyUploadRow}
+              deleteRow={deleteSurveyUploadRow}
+            />
+          )}
 
           {/* 설문 관리 섹션 */}
-          <SurveyManagement companyId={companyId || ''} excelData={surveyUploadData} surveyResult={surveyResult} />
+          {visibleSection === 'survey-send' && (
+            <SurveyManagement companyId={companyId || ''} excelData={surveyUploadData} surveyResult={surveyResult} />
+          )}
 
           {/* 설문 결과 확인 */}
-          <SurveyResult 
-            excelData={surveyUploadData} 
-            surveyResult={surveyResult}
-          />
+          {visibleSection === 'survey-results' && (
+            <SurveyResult 
+              excelData={surveyUploadData} 
+              surveyResult={surveyResult}
+            />
+          )}
   
           {/* 최종 이슈풀 확인하기 */}
-          <FinalIssuepool />
+          {visibleSection === 'final-issuepool' && (
+            <FinalIssuepool />
+          )}
   
           {/* 중대성 평가 상세 정보 모달 */}
           {isDetailModalOpen && assessmentResult && (

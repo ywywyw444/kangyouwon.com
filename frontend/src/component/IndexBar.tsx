@@ -21,6 +21,7 @@ const indexItems: IndexItem[] = [
 export default function IndexBar() {
   const [activeSection, setActiveSection] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
+  const [visibleSection, setVisibleSection] = useState('media-search'); // 기본적으로 미디어 검색 섹션 표시
 
   // 스크롤 위치에 따라 현재 섹션 업데이트
   useEffect(() => {
@@ -61,6 +62,14 @@ export default function IndexBar() {
 
   // 섹션으로 스크롤
   const scrollToSection = (id: string) => {
+    // 섹션 표시 상태 변경
+    setVisibleSection(id);
+    
+    // 다른 컴포넌트에서도 섹션 변경을 감지할 수 있도록 커스텀 이벤트 발생
+    const sectionChangeEvent = new CustomEvent('sectionChange', { detail: { sectionId: id } });
+    window.dispatchEvent(sectionChangeEvent);
+    
+    // 기존 스크롤 기능 유지
     const element = document.getElementById(id);
     if (element) {
       const navbarHeight = 64; // 네비게이션 바 높이
@@ -131,14 +140,14 @@ export default function IndexBar() {
 
       {/* 새로운 가로 탭 네비게이션 */}
       <div className="bg-blue-50 border-b border-gray-200 shadow-sm sticky top-20 z-30">
-        <div className="max-w-7xl mx-auto px-6 py-3">
-          <div className="flex items-center space-x-1 overflow-x-auto scrollbar-hide">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-center space-x-1 overflow-x-auto scrollbar-hide px-6 py-3">
             {indexItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => scrollToSection(item.id)}
                 className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-200 whitespace-nowrap ${
-                  activeSection === item.id
+                  visibleSection === item.id
                     ? 'bg-purple-100 text-purple-800 border border-purple-200'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
                 }`}
