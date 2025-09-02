@@ -39,7 +39,7 @@ async def send_email(request: EmailRequest):
     try:
         logger.info(f"📧 이메일 발송 요청: {len(request.to_emails)}명")
         
-        if not gmail_service.is_available():
+        if not gmail_service.user_email:
             raise HTTPException(
                 status_code=503, 
                 detail="Gmail API 서비스가 사용 불가능합니다. 설정을 확인해주세요."
@@ -49,7 +49,7 @@ async def send_email(request: EmailRequest):
             to_emails=request.to_emails,
             subject=request.subject,
             body=request.body,
-            html_body=request.html_body
+            is_html=bool(request.html_body)
         )
         
         if success:
@@ -77,7 +77,7 @@ async def send_survey_email(request: SurveyEmailRequest):
     try:
         logger.info(f"📊 설문 이메일 발송 요청: {len(request.to_emails)}명, 회사: {request.company_name}")
         
-        if not gmail_service.is_available():
+        if not gmail_service.user_email:
             raise HTTPException(
                 status_code=503, 
                 detail="Gmail API 서비스가 사용 불가능합니다. 설정을 확인해주세요."
@@ -113,6 +113,33 @@ async def send_survey_email(request: SurveyEmailRequest):
 async def get_email_service_status():
     """이메일 서비스 상태 확인"""
     return {
-        "available": gmail_service.is_available(),
-        "message": "Gmail API 서비스가 정상 작동 중입니다." if gmail_service.is_available() else "Gmail API 서비스가 사용 불가능합니다."
+        "available": bool(gmail_service.user_email),
+        "message": "Gmail API 서비스가 정상 작동 중입니다." if gmail_service.user_email else "Gmail API 서비스가 사용 불가능합니다."
     }
+
+@email_router.post("/test")
+async def test_email():
+    """이메일 발송 테스트"""
+    try:
+        from app.gmail_send import gmail_send
+        
+        # 테스트 이메일 발송
+        msg_id = gmail_send(
+            to="test@example.com",
+            subject="테스트 이메일",
+            html="<h1>테스트</h1><p>이메일 발송이 정상 작동합니다.</p>",
+            text="테스트 이메일 발송이 정상 작동합니다."
+        )
+        
+        return {
+            "success": True,
+            "message": "이메일 발송 테스트 성공",
+            "message_id": msg_id
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ 이메일 테스트 실패: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"이메일 테스트 실패: {str(e)}"
+        )
