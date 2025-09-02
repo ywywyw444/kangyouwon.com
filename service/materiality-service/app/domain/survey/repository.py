@@ -121,7 +121,7 @@ class SurveyRepository:
                 logger.info(f"[PARAMS keys] {list(params.keys())}")
                 
                 session.execute(sql, params)
-                session.flush()  # INSERT가 바로 반영되도록만 보장
+                session.commit()  # 트랜잭션 커밋
                 
                 # 생성된 엔티티 조회하여 반환
                 survey_entity = session.query(SurveyEntity).filter(
@@ -189,21 +189,26 @@ class SurveyRepository:
                 ).first()
                 
                 if not survey:
+                    logger.warning(f"삭제할 설문을 찾을 수 없습니다: {survey_id}")
                     return False
                 
                 # 관련 응답도 삭제
-                session.query(SurveyResponseEntity).filter(
+                deleted_responses = session.query(SurveyResponseEntity).filter(
                     SurveyResponseEntity.survey_id == survey_id
                 ).delete()
                 
                 # 설문 삭제
                 session.delete(survey)
                 
-                logger.info(f"설문 삭제 완료: {survey_id}")
+                # 트랜잭션 커밋
+                session.commit()
+                
+                logger.info(f"설문 삭제 완료: {survey_id} (관련 응답 {deleted_responses}개도 함께 삭제)")
                 return True
                 
         except Exception as e:
             logger.error(f"설문 삭제 실패: {e}")
+            # 롤백은 with 문에서 자동으로 처리됨
             raise
     
     def submit_survey_response(self, request: SurveyResponseRequest) -> SurveyResponseEntity:
@@ -261,7 +266,7 @@ class SurveyRepository:
                 logger.info(f"[PARAMS keys] {list(params.keys())}")
                 
                 session.execute(sql, params)
-                session.flush()  # INSERT가 바로 반영되도록만 보장
+                session.commit()  # 트랜잭션 커밋
                 
                 # 생성된 엔티티 조회하여 반환
                 response_entity = session.query(SurveyResponseEntity).filter(

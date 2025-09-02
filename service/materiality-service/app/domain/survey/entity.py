@@ -9,7 +9,7 @@ class SurveyEntity(Base):
     __tablename__ = 'surveys'
     
     survey_id = Column(String(255), primary_key=True, index=True)
-    corporation_id = Column(String(255), ForeignKey('corporation.id'), nullable=False, index=True)  # corporation 테이블의 id 참조
+    corporation_id = Column(String(255), nullable=False, index=True)  # corporation ID (외래키 제약 조건 제거)
     content_hash = Column(String(255), nullable=True, index=True)  # 설문 내용 해시값 (동일 내용 판단용)
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)
     total_categories = Column(Integer, nullable=False)
@@ -25,7 +25,7 @@ class SurveyResponseEntity(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     participant_id = Column(String(255), nullable=False, index=True)
     survey_id = Column(String(255), ForeignKey('surveys.survey_id'), nullable=False, index=True)  # surveys 테이블의 survey_id 참조
-    corporation_id = Column(String(255), ForeignKey('corporation.id'), nullable=False, index=True)  # corporation 테이블의 id 참조
+    corporation_id = Column(String(255), nullable=False, index=True)  # corporation ID (외래키 제약 조건 제거)
     participant_name = Column(String(255), nullable=False)
     participant_company = Column(String(255), nullable=False)
     participant_position = Column(String(255), nullable=False)

@@ -34,6 +34,11 @@ const getSurveyList = (companyId: string): StoredSurvey[] => {
   }
 };
 
+const saveSurveyList = (companyId: string, list: StoredSurvey[]) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(SURVEY_LIST_KEY(companyId), JSON.stringify(list));
+};
+
 const setSelectedId = (companyId: string, surveyId: string) => {
       if (typeof window === 'undefined') return;
   // 회사별 키에 저장
@@ -50,6 +55,15 @@ const getSelectedId = (companyId: string): string | null => {
   // 하위 호환: 전역 키
   const legacy = localStorage.getItem(LEGACY_SELECTED_ID_KEY);
   return legacy || null;
+};
+
+// ✅ 선택된 설문을 활성화로 표시(나머지는 비활성)
+const markActiveSurvey = (companyId: string, activeId: string) => {
+  if (typeof window === 'undefined') return;
+  const list = getSurveyList(companyId);
+  if (!list.length) return;
+  const next = list.map(s => ({ ...s, isActive: s.id === activeId }));
+  saveSurveyList(companyId, next);
 };
 
 const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelData }) => {
@@ -85,6 +99,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       setSelectedSurveyId(sid);
       setSurveyUrl(url);
       setSelectedId(companyId, sid); // 회사별+전역키 동기화
+      markActiveSurvey(companyId, sid); // ✅ 초기 로드 시에도 활성 플래그 맞춤
     };
 
     // 1) 회사별 선택 키
@@ -322,6 +337,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                 setSelectedSurveyId(survey.id);
                 setSurveyUrl(url);
                 setSelectedId(companyId, survey.id); // ✅ 회사별 선택 반영(+전역키 동기화)
+                markActiveSurvey(companyId, survey.id); // ✅ 활성 플래그 갱신
               }}
               className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                 isSelected ? 'bg-blue-100 border-blue-300' : 'bg-white border-gray-200 hover:bg-blue-50'
@@ -347,9 +363,9 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                   <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
                     v{survey.contentHash?.substring(0, 4) || '0000'}
                   </span>
-                  {survey.isActive && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">활성</span>
-                  )}
+                                                {(survey.isActive || isSelected) && (
+                                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">활성</span>
+                              )}
                 </div>
               </div>
               <div className="mt-2 font-mono text-[11px] text-gray-600 break-all">{url}</div>
@@ -496,18 +512,6 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
               <div className="text-sm text-gray-600 space-y-1">
                 <p>• 대상 이메일: {sendStatus.total}개</p>
                 <p>• 발송 완료: {sendStatus.sent}개</p>
-                <p>• 응답 완료: {sendStatus.responded}개</p>
-                <p>• 응답률: {sendStatus.responseRate}%</p>
-              </div>
-              
-              <div className="mt-3">
-                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                  <span>응답률</span>
-                  <span>{sendStatus.responseRate}%</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-green-600 h-2 rounded-full transition-all duration-300" style={{ width: `${sendStatus.responseRate}%` }} />
-                </div>
               </div>
 
               <div className="mt-3 pt-3 border-t border-gray-200">

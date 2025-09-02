@@ -129,6 +129,15 @@ const canCreateNewSurvey = (companyId: string, contentHash: string) => {
   return list.length < 3;
 };
 
+// ✅ 선택된 설문을 활성화로 표시(나머지는 비활성)
+const markActiveSurvey = (companyId: string, activeId: string) => {
+  if (typeof window === 'undefined') return;
+  const list = getSurveyList(companyId);
+  if (!list.length) return;
+  const next = list.map(s => ({ ...s, isActive: s.id === activeId }));
+  saveSurveyList(companyId, next);
+};
+
 // 3개 설문이 생성된 상태를 시뮬레이션하는 함수
 const simulateThreeSurveys = (companyId: string) => {
   const mockSurveys: StoredSurvey[] = [
@@ -348,6 +357,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
           };
           setSurveyResult(newSurveyResult);
           localStorage.setItem('surveyResult', JSON.stringify(newSurveyResult));
+          markActiveSurvey(companyId, activeSurvey.id); // ✅ 활성 상태 동기화
         }
         
         alert('❌ 설문은 회사별 최대 3개까지만 생성할 수 있습니다.\n\n이전에 생성한 설문을 삭제한 후 다시 시도해주세요.');
@@ -370,6 +380,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
           setSurveyResult(newSurveyResult);
           localStorage.setItem('surveyResult', JSON.stringify(newSurveyResult));
           setActiveSurvey(companyId, same.id);
+          markActiveSurvey(companyId, same.id); // ✅ 활성 상태 동기화
 
           const surveyLink = `${window.location.origin}/survey?id=${same.id}`;
           alert(
@@ -471,6 +482,9 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         categoryCount: selectedCategories.length,
         isActive: true,
       });
+      
+      // 활성 상태 동기화
+      markActiveSurvey(companyId, surveyId);
 
       // 링크 복사 & 알림
       const surveyLink = `${window.location.origin}/survey?id=${surveyId}`;
@@ -685,7 +699,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
                               <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
                                 v{survey.contentHash?.substring(0, 4) || '0000'}
                               </span>
-                              {survey.isActive && (
+                              {(survey.isActive || survey.id === generatedSurveyId) && (
                                 <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">활성</span>
                               )}
                             </div>
