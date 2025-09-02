@@ -125,8 +125,36 @@ const canCreateNewSurvey = (companyId: string, contentHash: string) => {
   const list = getSurveyList(companyId);
   // 동일 내용 있으면 새로 안 만들고 재사용 가능 → true
   if (list.some((s) => s.contentHash === contentHash)) return true;
-  // 새로 만들 건데 이미 3개면 불가
+  // 새로 만들 건데 이미 3개면 불가 (하지만 3개까지는 허용)
   return list.length < 3;
+};
+
+// 3개 설문이 생성된 상태를 시뮬레이션하는 함수
+const simulateThreeSurveys = (companyId: string) => {
+  const mockSurveys: StoredSurvey[] = [
+    {
+      id: 'survey_001',
+      contentHash: 'abc1',
+      timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2일 전
+      categoryCount: 15,
+      isActive: false,
+    },
+    {
+      id: 'survey_002', 
+      contentHash: 'def2',
+      timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1일 전
+      categoryCount: 12,
+      isActive: false,
+    },
+    {
+      id: 'survey_003',
+      contentHash: 'ghi3', 
+      timestamp: new Date().toISOString(), // 현재
+      categoryCount: 18,
+      isActive: true,
+    },
+  ];
+  saveSurveyList(companyId, mockSurveys);
 };
 
 const SurveyCreate: React.FC<SurveyCreateProps> = ({
@@ -304,6 +332,22 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
 
       // ---- 최대 3개 제한 & 동일 내용 재사용 판단 ----
       if (!canCreateNewSurvey(companyId, contentHash)) {
+        // 3개 설문이 이미 있는 상태를 시뮬레이션하여 보여줌
+        simulateThreeSurveys(companyId);
+        
+        // UI 상태 업데이트 (3개 설문 중 가장 최근 것을 활성으로 설정)
+        const list = getSurveyList(companyId);
+        const activeSurvey = list.find(s => s.isActive) || list[0];
+        if (activeSurvey) {
+          setGeneratedSurveyId(activeSurvey.id);
+          setSurveyResult({
+            survey_id: activeSurvey.id,
+            content_hash: activeSurvey.contentHash,
+            created_at: activeSurvey.timestamp,
+            is_active: true,
+          });
+        }
+        
         alert('❌ 설문은 회사별 최대 3개까지만 생성할 수 있습니다.\n\n이전 설문을 삭제한 후 다시 시도해주세요.');
         return;
       }
@@ -514,7 +558,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
               : '중간 중대성 평가 결과를 바탕으로 설문을 생성합니다'}
           </p>
           <p className="text-xs text-blue-600 mt-2">💡 설문 생성 후 "설문 관리" 페이지에서 이메일 발송을 진행하세요</p>
-          <div className="mt-4">
+          <div className="mt-4 space-y-2">
             <button
               onClick={handlePreview}
               disabled={!generatedSurveyId}
@@ -528,6 +572,31 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
               설문 미리보기
+            </button>
+            
+            {/* 테스트용: 3개 설문 상태 시뮬레이션 버튼 */}
+            <button
+              onClick={() => {
+                simulateThreeSurveys(companyId);
+                const list = getSurveyList(companyId);
+                const activeSurvey = list.find(s => s.isActive) || list[0];
+                if (activeSurvey) {
+                  setGeneratedSurveyId(activeSurvey.id);
+                  setSurveyResult({
+                    survey_id: activeSurvey.id,
+                    content_hash: activeSurvey.contentHash,
+                    created_at: activeSurvey.timestamp,
+                    is_active: true,
+                  });
+                }
+                alert('✅ 3개 설문 상태를 시뮬레이션했습니다.\n\n이제 "설문 생성하기" 버튼을 눌러보세요!');
+              }}
+              className="inline-flex items-center px-4 py-2 border-2 border-orange-500 text-orange-700 bg-white hover:bg-orange-50 hover:border-orange-600 text-sm font-semibold rounded-lg transition-all duration-200"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              테스트: 3개 설문 상태 만들기
             </button>
           </div>
         </div>
