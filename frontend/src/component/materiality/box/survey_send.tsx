@@ -555,8 +555,19 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                     type="date"
                     value={deadline}
                     onChange={(e) => setDeadline(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm font-bold text-gray-900"
+                    style={{ color: deadline ? '#1f2937' : '#9ca3af' }}
                   />
+                  {deadline && (
+                    <div className="mt-2 text-xs text-green-600 font-medium">
+                      ✅ 설정된 마감일: {new Date(deadline).toLocaleDateString('ko-KR', { 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric',
+                        weekday: 'long'
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 {/* 설문 버전 선택 */}

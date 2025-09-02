@@ -395,7 +395,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
             <h4 className="font-medium text-purple-800">🏢 설문 대상자 목록</h4>
           </div>
           
-          {excelFilename && !isDataHidden ? (
+          {!isDataHidden ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
@@ -597,17 +597,55 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
           ) : (
             <div className="px-6 py-12 text-center">
               <div className="text-4xl text-gray-300 mb-4">📊</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">업로드된 파일이 없습니다</h3>
-              <p className="text-gray-500 mb-4">위의 '설문 대상 업로드' 섹션에서 Excel 파일을 업로드해주세요.</p>
-              <button
-                onClick={() => {
-                  // 파일 업로드 섹션으로 스크롤
-                  document.getElementById('excel-upload')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200 transition-colors duration-200"
-              >
-                파일 업로드하러 가기
-              </button>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {excelData.length === 0 ? '설문 대상자가 없습니다' : '업로드된 파일이 없습니다'}
+              </h3>
+              <p className="text-gray-500 mb-4">
+                {excelData.length === 0 
+                  ? 'Excel 파일을 업로드하거나 "추가" 버튼을 눌러 설문 대상을 추가해주세요.'
+                  : '위의 "설문 대상 업로드" 섹션에서 Excel 파일을 업로드해주세요.'
+                }
+              </p>
+              <div className="flex justify-center space-x-3">
+                <button
+                  onClick={() => {
+                    // 파일 업로드 섹션으로 스크롤
+                    document.getElementById('excel-upload')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200 transition-colors duration-200"
+                >
+                  파일 업로드하러 가기
+                </button>
+                <button
+                  onClick={() => {
+                    const newRow = {
+                      name: '',
+                      position: '',
+                      company: '',
+                      stakeholderType: '',
+                      email: ''
+                    };
+                    const updatedData = [...excelData, newRow];
+                    setExcelData(updatedData);
+                    
+                    // localStorage도 명시적으로 업데이트 (설문 대상 업로드 데이터용)
+                    const dataToSave = {
+                      excelData: updatedData,
+                      isValid: isExcelValid,
+                      fileName: excelFilename,
+                      base64Data: excelBase64
+                    };
+                    localStorage.setItem('excelUploadData', JSON.stringify(dataToSave));
+                    console.log('➕ 새 행 추가 후 localStorage 업데이트:', dataToSave);
+                  }}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 transition-colors duration-200"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  수동으로 추가
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -692,7 +730,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
         )}
         
         {/* 명단 관리 액션 버튼 */}
-        {excelFilename && (
+        {!isDataHidden && (
           <div className="mt-6 flex flex-wrap gap-3">
             <button
               onClick={() => {
