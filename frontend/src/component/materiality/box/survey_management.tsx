@@ -32,20 +32,20 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
   // 설문 URL 주기적으로 확인 및 업데이트
   useEffect(() => {
     const checkExistingSurvey = () => {
-      // localStorage에서 기존 설문 ID 확인
-      const surveyData = localStorage.getItem('surveyData_1'); // companyId 1 사용
+      // survey_create.tsx에서 저장한 설문 데이터 확인
+      const surveyData = localStorage.getItem('surveyData_1');
       if (surveyData) {
         try {
-          const data = JSON.parse(surveyData);
-          if (data.surveyId) {
-            const newUrl = `${window.location.origin}/survey?id=${data.surveyId}`;
-            if (newUrl !== surveyUrl) { // URL이 변경된 경우에만 상태 업데이트
+          const parsed = JSON.parse(surveyData);
+          if (parsed.surveyId) {
+            const newUrl = `${window.location.origin}/survey?id=${parsed.surveyId}`;
+            if (newUrl !== surveyUrl) {
               console.log('📝 설문 URL 업데이트:', newUrl);
               setSurveyUrl(newUrl);
             }
           }
         } catch (error) {
-          console.error('설문 데이터 파싱 실패:', error);
+          console.warn('설문 데이터 파싱 실패:', error);
         }
       }
     };
@@ -53,8 +53,8 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
     // 초기 확인
     checkExistingSurvey();
 
-    // 3초마다 확인
-    const intervalId = setInterval(checkExistingSurvey, 3000);
+    // 1초마다 확인 (더 빠른 응답성을 위해)
+    const intervalId = setInterval(checkExistingSurvey, 1000);
 
     // 컴포넌트 언마운트 시 인터벌 정리
     return () => clearInterval(intervalId);
