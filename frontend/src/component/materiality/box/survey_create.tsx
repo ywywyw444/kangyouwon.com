@@ -2,14 +2,30 @@
 
 import React, { useState } from 'react';
 
+interface Category {
+  category: string;
+  selected_base_issue_pool?: string;
+  esg_classification?: string;
+  final_score?: number;
+  rank: number;
+}
+
+interface ExcelRow {
+  name?: string;
+  position?: string;
+  company?: string;
+  stakeholderType?: string;
+  email: string;
+}
+
 // 설문 내용의 해시값을 생성하는 함수
-const generateSurveyContentHash = (categories: any[], excelData: any[]): string => {
+const generateSurveyContentHash = (categories: Category[], excelData: ExcelRow[]): string => {
   // 카테고리 데이터를 정규화하여 해시 생성
   const normalizedCategories = categories.map(cat => ({
-    category: cat.category,
-    selected_base_issue_pool: cat.selected_base_issue_pool,
-    esg_classification: cat.esg_classification,
-    final_score: cat.final_score,
+    category: cat.category || '',
+    selected_base_issue_pool: cat.selected_base_issue_pool || '',
+    esg_classification: cat.esg_classification || '',
+    final_score: cat.final_score || 0,
     rank: cat.rank
   })).sort((a, b) => a.rank - b.rank); // 순위로 정렬하여 일관성 보장
 
@@ -176,17 +192,19 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
     if (categories.length > 0) {
       try {
         // 선택된 개수만큼만 사용 (0이면 전체)
-        const selectedCategories = displayCategoryCount > 0 
+        const selectedCategories: Category[] = (displayCategoryCount > 0 
           ? categories.slice(0, displayCategoryCount)
-          : categories;
+          : categories).map((cat: any) => ({
+            category: cat.category || '',
+            selected_base_issue_pool: cat.selected_base_issue_pool || '',
+            esg_classification: cat.esg_classification || '',
+            final_score: cat.final_score || 0,
+            rank: cat.rank || 0
+          }));
 
         // 설문 내용의 해시값 생성 (카테고리와 base issue pool만 고려)
         const contentHash = generateSurveyContentHash(
-          selectedCategories.map(cat => ({
-            category: cat.category,
-            selected_base_issue_pool: cat.selected_base_issue_pool,
-            rank: cat.rank
-          })),
+          selectedCategories, // 이미 Category[] 타입으로 변환됨
           [] // excelData는 해시 계산에서 제외
         );
         
