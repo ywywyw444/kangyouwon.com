@@ -90,9 +90,13 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   React.useEffect(() => {
+    // 처음 접속 시에는 항상 빈 화면으로 시작
     const hasUserActivity = localStorage.getItem('hasUserActivity');
     if (hasUserActivity === 'true') {
       setIsDataHidden(false);
+    } else {
+      // 명시적으로 빈 화면으로 설정
+      setIsDataHidden(true);
     }
   }, []);
 
@@ -184,6 +188,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
         return;
       }
 
+      // 사용자 활동이 있는 경우에만 데이터 로드
       const savedResult = localStorage.getItem('materialityAssessmentResult');
       if (savedResult) {
         try {
@@ -503,6 +508,26 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
            title="화면에서 내용을 지웁니다 (저장된 데이터는 유지)"
          >
            🧹 내용 지우기
+         </button>
+         
+         {/* 완전 초기화 버튼 */}
+         <button
+           onClick={() => {
+             if (confirm('⚠️ 모든 데이터를 완전히 초기화하시겠습니까?\n\n이 작업은 되돌릴 수 없으며, 다음 로그인 시에도 빈 화면으로 시작됩니다.')) {
+               // hasUserActivity 플래그 제거하여 다음 로그인 시 빈 화면으로 시작
+               localStorage.removeItem('hasUserActivity');
+               // 화면에서 모든 내용 지우기
+               setIssuepoolData(null);
+               setAssessmentResult(null);
+               setIsDataHidden(true);
+               console.log('🔄 완전 초기화 완료: 다음 로그인 시 빈 화면으로 시작됩니다.');
+               alert('✅ 완전 초기화가 완료되었습니다.\n\n다음 로그인 시에는 빈 화면으로 시작됩니다.');
+             }
+           }}
+           className="px-6 py-3 rounded-lg font-medium transition-all duration-200 bg-red-500 hover:bg-red-600 text-white shadow-lg hover:shadow-xl"
+           title="모든 데이터를 완전히 초기화합니다 (다음 로그인 시 빈 화면)"
+         >
+           🔄 완전 초기화
          </button>
       </div>
 

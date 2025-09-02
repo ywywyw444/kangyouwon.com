@@ -12,46 +12,55 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   React.useEffect(() => {
+    // 처음 접속 시에는 항상 빈 화면으로 시작
     const hasUserActivity = localStorage.getItem('hasUserActivity');
     if (hasUserActivity === 'true') {
       setIsDataHidden(false);
+    } else {
+      // 명시적으로 빈 화면으로 설정
+      setIsDataHidden(true);
     }
   }, []);
 
   // 백엔드에서 설문 응답 데이터 로드 (동일한 내용의 설문들 포함)
   React.useEffect(() => {
     const loadBackendResponses = async () => {
-      if (surveyResult?.survey_id && !isDataHidden) {
-        setLoading(true);
-        try {
-          // 먼저 설문 정보를 가져와서 content_hash 확인
-          const surveyResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}`);
-          if (surveyResponse.ok) {
-            const surveyData = await surveyResponse.json();
-            const contentHash = surveyData.content_hash;
-            
-            if (contentHash) {
-              // 동일한 내용 해시를 가진 설문들의 모든 응답을 가져오기
-              const responsesResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses?content_hash=${contentHash}`);
-              if (responsesResponse.ok) {
-                const data = await responsesResponse.json();
-                setBackendResponses(data.responses || []);
-                console.log(`📊 동일한 내용의 설문들에서 총 ${data.responses?.length || 0}개 응답을 가져왔습니다.`);
-              }
-            } else {
-              // content_hash가 없으면 기존 방식으로 단일 설문 응답만 가져오기
-              const response = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses`);
-              if (response.ok) {
-                const data = await response.json();
-                setBackendResponses(data.responses || []);
-              }
+      // 사용자 활동이 있고 데이터가 숨겨지지 않은 경우에만 로드
+      const hasUserActivity = localStorage.getItem('hasUserActivity');
+      if (!hasUserActivity || isDataHidden || !surveyResult?.survey_id) {
+        console.log('🆕 처음 접속 또는 데이터 숨김 상태: 백엔드 응답 데이터를 자동으로 불러오지 않습니다.');
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // 먼저 설문 정보를 가져와서 content_hash 확인
+        const surveyResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}`);
+        if (surveyResponse.ok) {
+          const surveyData = await surveyResponse.json();
+          const contentHash = surveyData.content_hash;
+          
+          if (contentHash) {
+            // 동일한 내용 해시를 가진 설문들의 모든 응답을 가져오기
+            const responsesResponse = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses?content_hash=${contentHash}`);
+            if (responsesResponse.ok) {
+              const data = await responsesResponse.json();
+              setBackendResponses(data.responses || []);
+              console.log(`📊 동일한 내용의 설문들에서 총 ${data.responses?.length || 0}개 응답을 가져왔습니다.`);
+            }
+          } else {
+            // content_hash가 없으면 기존 방식으로 단일 설문 응답만 가져오기
+            const response = await fetch(`/api/v1/materiality-service/surveys/${surveyResult.survey_id}/responses`);
+            if (response.ok) {
+              const data = await response.json();
+              setBackendResponses(data.responses || []);
             }
           }
-        } catch (error) {
-          console.error('백엔드 응답 데이터 로드 실패:', error);
-        } finally {
-          setLoading(false);
         }
+      } catch (error) {
+        console.error('백엔드 응답 데이터 로드 실패:', error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -368,45 +377,72 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
             <h3 className="text-lg font-semibold text-orange-800 mb-4">📈 점수 분포</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Outside Score Distribution */}
-              <div className="min-w-0"> {/* min-w-0 추가로 오버플로우 방지 */}
+              <div className="min-w-0">
                 <h4 className="text-md font-semibold text-orange-700 mb-3">기업 재무 중요도 (Outside-in)</h4>
                 <div className="space-y-2">
-                  {[1, 2, 3, 4, 5].map((score) => (
-                    <div key={score} className="flex items-center min-w-0"> {/* min-w-0 추가 */}
-                      <span className="w-8 text-sm text-orange-600 flex-shrink-0">{score}점</span>
-                      <div className="flex-1 mx-3 bg-orange-200 rounded-full h-2 min-w-0 overflow-hidden"> {/* overflow-hidden 추가 */}
-                        <div 
-                          className="bg-orange-500 h-2 rounded-full transition-all duration-300" 
-                          style={{ 
-                            width: `${Math.min(100, stats.scoreDistribution.outside[score] > 0 ? (stats.scoreDistribution.outside[score] / Math.max(stats.total, 1)) * 100 : 0)}%` 
-                          }}
-                        ></div>
+                  {[1, 2, 3, 4, 5].map((score) => {
+                    const count = stats.scoreDistribution.outside[score];
+                    const percentage = stats.total > 0 ? (count / stats.total) * 100 : 0;
+                    
+                    return (
+                      <div key={score} className="flex items-center min-w-0">
+                        <span className="w-8 text-sm text-orange-600 flex-shrink-0">{score}점</span>
+                        <div className="flex-1 mx-3 bg-orange-200 rounded-full h-2 min-w-0 overflow-hidden">
+                          <div 
+                            className={`h-2 rounded-full transition-all duration-300 ${
+                              count > 0 ? 'bg-orange-500' : 'bg-orange-300'
+                            }`}
+                            style={{ 
+                              width: `${Math.min(100, percentage)}%` 
+                            }}
+                          ></div>
+                        </div>
+                        <span className="w-8 text-sm text-orange-600 flex-shrink-0 text-right">{count}</span>
+                        <span className="w-12 text-xs text-orange-500 flex-shrink-0 text-right">
+                          {percentage > 0 ? `${percentage.toFixed(1)}%` : '0%'}
+                        </span>
                       </div>
-                      <span className="w-8 text-sm text-orange-600 flex-shrink-0 text-right">{stats.scoreDistribution.outside[score]}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Inside Score Distribution */}
-              <div className="min-w-0"> {/* min-w-0 추가로 오버플로우 방지 */}
+              <div className="min-w-0">
                 <h4 className="text-md font-semibold text-orange-700 mb-3">환경/사회 중요도 (Inside-out)</h4>
                 <div className="space-y-2">
-                  {[1, 2, 3, 4, 5].map((score) => (
-                    <div key={score} className="flex items-center min-w-0"> {/* min-w-0 추가 */}
-                      <span className="w-8 text-sm text-orange-600 flex-shrink-0">{score}점</span>
-                      <div className="flex-1 mx-3 bg-orange-200 rounded-full h-2 min-w-0 overflow-hidden"> {/* overflow-hidden 추가 */}
-                        <div 
-                          className="bg-orange-500 h-2 rounded-full transition-all duration-300" 
-                          style={{ 
-                            width: `${Math.min(100, stats.scoreDistribution.inside[score] > 0 ? (stats.scoreDistribution.inside[score] / Math.max(stats.total, 1)) * 100 : 0)}%` 
-                          }}
-                        ></div>
+                  {[1, 2, 3, 4, 5].map((score) => {
+                    const count = stats.scoreDistribution.inside[score];
+                    const percentage = stats.total > 0 ? (count / stats.total) * 100 : 0;
+                    
+                    return (
+                      <div key={score} className="flex items-center min-w-0">
+                        <span className="w-8 text-sm text-orange-600 flex-shrink-0">{score}점</span>
+                        <div className="flex-1 mx-3 bg-orange-200 rounded-full h-2 min-w-0 overflow-hidden">
+                          <div 
+                            className={`h-2 rounded-full transition-all duration-300 ${
+                              count > 0 ? 'bg-orange-500' : 'bg-orange-300'
+                            }`}
+                            style={{ 
+                              width: `${Math.min(100, percentage)}%` 
+                            }}
+                          ></div>
+                        </div>
+                        <span className="w-8 text-sm text-orange-600 flex-shrink-0 text-right">{count}</span>
+                        <span className="w-12 text-xs text-orange-500 flex-shrink-0 text-right">
+                          {percentage > 0 ? `${percentage.toFixed(1)}%` : '0%'}
+                        </span>
                       </div>
-                      <span className="w-8 text-sm text-orange-600 flex-shrink-0 text-right">{stats.scoreDistribution.inside[score]}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
+              </div>
+            </div>
+            
+            {/* 전체 응답자 수 표시 */}
+            <div className="mt-4 pt-4 border-t border-orange-200">
+              <div className="text-center text-sm text-orange-600">
+                📊 총 응답자: {stats.total}명 기준
               </div>
             </div>
           </div>

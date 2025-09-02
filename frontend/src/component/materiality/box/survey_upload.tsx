@@ -40,6 +40,18 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
     console.log('✅ 사용자 활동 기록됨 (엑셀 업로드)');
   };
 
+  // 컴포넌트 마운트 시 사용자 활동 여부 확인
+  React.useEffect(() => {
+    // 처음 접속 시에는 항상 빈 화면으로 시작
+    const hasUserActivity = localStorage.getItem('hasUserActivity');
+    if (hasUserActivity === 'true') {
+      setIsDataHidden(false);
+    } else {
+      // 명시적으로 빈 화면으로 설정
+      setIsDataHidden(true);
+    }
+  }, []);
+
   // 데이터가 숨겨진 상태일 때 표시
   if (isDataHidden) {
     return (

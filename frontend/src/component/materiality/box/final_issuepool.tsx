@@ -26,15 +26,26 @@ const FinalIssuepool: React.FC = () => {
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   useEffect(() => {
+    // 처음 접속 시에는 항상 빈 화면으로 시작
     const hasUserActivity = localStorage.getItem('hasUserActivity');
     if (hasUserActivity === 'true') {
       setIsDataHidden(false);
+    } else {
+      // 명시적으로 빈 화면으로 설정
+      setIsDataHidden(true);
     }
   }, []);
 
-  // Load media data from localStorage (assuming it's stored there)
+  // Load media data from localStorage (사용자 활동이 있는 경우에만)
   useEffect(() => {
     const loadMediaData = () => {
+      // 사용자 활동이 없는 경우 데이터를 자동으로 불러오지 않음
+      const hasUserActivity = localStorage.getItem('hasUserActivity');
+      if (!hasUserActivity) {
+        console.log('🆕 처음 접속: 미디어 데이터를 자동으로 불러오지 않습니다.');
+        return;
+      }
+
       try {
         const savedData = localStorage.getItem('materialityAssessmentResult');
         if (savedData) {
@@ -57,9 +68,16 @@ const FinalIssuepool: React.FC = () => {
     loadMediaData();
   }, [setMediaRanked]);
 
-  // Load survey responses from localStorage
+  // Load survey responses from localStorage (사용자 활동이 있는 경우에만)
   useEffect(() => {
     const loadSurveyData = () => {
+      // 사용자 활동이 없는 경우 데이터를 자동으로 불러오지 않음
+      const hasUserActivity = localStorage.getItem('hasUserActivity');
+      if (!hasUserActivity) {
+        console.log('🆕 처음 접속: 설문 데이터를 자동으로 불러오지 않습니다.');
+        return;
+      }
+
       try {
         const savedResponses = localStorage.getItem('surveyResponses');
         if (savedResponses) {

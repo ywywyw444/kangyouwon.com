@@ -51,15 +51,26 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   React.useEffect(() => {
+    // 처음 접속 시에는 항상 빈 화면으로 시작
     const hasUserActivity = localStorage.getItem('hasUserActivity');
     if (hasUserActivity === 'true') {
       setIsDataHidden(false);
+    } else {
+      // 명시적으로 빈 화면으로 설정
+      setIsDataHidden(true);
     }
   }, []);
 
-  // 컴포넌트 마운트 시 기존 설문 ID 확인
+  // 컴포넌트 마운트 시 기존 설문 ID 확인 (사용자 활동이 있는 경우에만)
   React.useEffect(() => {
     const checkExistingSurvey = () => {
+      // 사용자 활동이 없는 경우 기존 설문 ID를 로드하지 않음
+      const hasUserActivity = localStorage.getItem('hasUserActivity');
+      if (!hasUserActivity) {
+        console.log('🆕 처음 접속: 기존 설문 ID를 자동으로 불러오지 않습니다.');
+        return;
+      }
+
       // 현재 회사에 대한 기존 설문이 있는지 확인
       const existingSurveyKey = `surveyData_${companyId}`;
       const existingSurvey = localStorage.getItem(existingSurveyKey);
