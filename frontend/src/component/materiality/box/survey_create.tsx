@@ -558,7 +558,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
               : '중간 중대성 평가 결과를 바탕으로 설문을 생성합니다'}
           </p>
           <p className="text-xs text-blue-600 mt-2">💡 설문 생성 후 "설문 관리" 페이지에서 이메일 발송을 진행하세요</p>
-          <div className="mt-4 space-y-2">
+          <div className="mt-4">
             <button
               onClick={handlePreview}
               disabled={!generatedSurveyId}
@@ -572,31 +572,6 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
               설문 미리보기
-            </button>
-            
-            {/* 테스트용: 3개 설문 상태 시뮬레이션 버튼 */}
-            <button
-              onClick={() => {
-                simulateThreeSurveys(companyId);
-                const list = getSurveyList(companyId);
-                const activeSurvey = list.find(s => s.isActive) || list[0];
-                if (activeSurvey) {
-                  setGeneratedSurveyId(activeSurvey.id);
-                  setSurveyResult({
-                    survey_id: activeSurvey.id,
-                    content_hash: activeSurvey.contentHash,
-                    created_at: activeSurvey.timestamp,
-                    is_active: true,
-                  });
-                }
-                alert('✅ 3개 설문 상태를 시뮬레이션했습니다.\n\n이제 "설문 생성하기" 버튼을 눌러보세요!');
-              }}
-              className="inline-flex items-center px-4 py-2 border-2 border-orange-500 text-orange-700 bg-white hover:bg-orange-50 hover:border-orange-600 text-sm font-semibold rounded-lg transition-all duration-200"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-              테스트: 3개 설문 상태 만들기
             </button>
           </div>
         </div>

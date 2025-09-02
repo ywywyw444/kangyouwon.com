@@ -508,7 +508,7 @@ export default function MaterialityHomePage() {
           />
 
           {/* 설문 관리 섹션 */}
-          <SurveyManagement excelData={surveyUploadData} />
+          <SurveyManagement companyId={companyId || ''} excelData={surveyUploadData} />
 
           {/* 설문 결과 확인 */}
           <SurveyResult 
