@@ -189,19 +189,51 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
     }
   }, []);
 
-  // 컴포넌트 마운트 시 기존 설문 정보 확인 (사용자 활동이 있는 경우에만)
+  // 컴포넌트 마운트 시 기존 설문 정보 확인
   useEffect(() => {
     const checkExistingSurvey = async () => {
       if (typeof window === 'undefined') return;
 
-      const hasUserActivity = localStorage.getItem('hasUserActivity');
-      if (!hasUserActivity) {
-        setIsDataHidden(true);
-        console.log('🆕 처음 접속: 화면에 데이터를 표시하지 않습니다.');
-        return;
+      console.log('🔍 설문 정보 복원 시작:', { companyId });
+
+      // 1. 설문 리스트 기반 복원 (우선순위)
+      try {
+        const list = getSurveyList(companyId);
+        console.log('📋 저장된 설문 리스트:', list);
+        
+        if (list.length > 0) {
+          // hasUserActivity 상태와 관계없이 설문이 있으면 표시
+          const hasUserActivity = localStorage.getItem('hasUserActivity');
+          if (hasUserActivity) {
+            setIsDataHidden(false);
+          }
+          
+          const active = list.find((s) => s.isActive) || list[0];
+          console.log('🎯 활성 설문 선택:', active);
+          
+          setGeneratedSurveyId(active.id);
+          setSurveyResult({
+            survey_id: active.id,
+            content_hash: active.contentHash,
+            created_at: active.timestamp,
+            is_active: true,
+          });
+          
+          // 활성 설문을 localStorage에도 저장 (전역 상태 동기화)
+          localStorage.setItem('surveyResult', JSON.stringify({
+            survey_id: active.id,
+            content_hash: active.contentHash,
+            created_at: active.timestamp,
+            is_active: true,
+          }));
+          
+          return;
+        }
+      } catch (error) {
+        console.error('설문 리스트 복원 실패:', error);
       }
 
-      // (기존 호환 키) 현재 회사에 대한 기존 설문이 있는지 확인
+      // 2. 기존 호환 키 기반 복원 (fallback)
       const existingSurveyKey = `surveyData_${companyId}`;
       const existingSurvey = localStorage.getItem(existingSurveyKey);
       
@@ -209,8 +241,14 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         try {
           const surveyData = JSON.parse(existingSurvey);
           if (surveyData.surveyId) {
+            console.log('📋 기존 설문 ID 복원 (호환 키):', surveyData.surveyId);
+            
+            const hasUserActivity = localStorage.getItem('hasUserActivity');
+            if (hasUserActivity) {
+              setIsDataHidden(false);
+            }
+            
             setGeneratedSurveyId(surveyData.surveyId);
-            console.log('📋 기존 설문 ID 복원:', surveyData.surveyId);
 
             // 백엔드에서 설문 정보 가져오기
             try {
@@ -234,20 +272,12 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         }
       }
 
-      // 리스트 기반 복원: 활성 설문 우선
-      try {
-        const list = getSurveyList(companyId);
-        const active = list.find((s) => s.isActive) || list[0];
-        if (active) {
-          setGeneratedSurveyId(active.id);
-          setSurveyResult((prev) => ({
-            survey_id: active.id,
-            content_hash: active.contentHash,
-            created_at: prev?.created_at || active.timestamp,
-            is_active: true,
-          }));
-        }
-      } catch {}
+      // 3. 설문이 없으면 hasUserActivity 확인하여 초기 상태 결정
+      const hasUserActivity = localStorage.getItem('hasUserActivity');
+      if (!hasUserActivity) {
+        setIsDataHidden(true);
+        console.log('🆕 처음 접속: 화면에 데이터를 표시하지 않습니다.');
+      }
     };
     
     checkExistingSurvey();
@@ -496,20 +526,22 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         })
       );
 
-      // 리스트(최대 3) 업데이트: 현재 항목을 활성으로 업서트
+            // 리스트(최대 3) 업데이트: 현재 항목을 활성으로 업서트
       console.log('💾 설문 리스트에 저장할 정보:', {
         surveyId,
         categoryCount: selectedCategories.length,
         selectedCategories: selectedCategories
       });
       
-      upsertSurveyEntry(companyId, {
+      const surveyEntry = {
         id: surveyId,
         contentHash,
-          timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
         categoryCount: selectedCategories.length,
         isActive: true,
-      });
+      };
+      
+      upsertSurveyEntry(companyId, surveyEntry);
       
       // 설문 리스트 저장 후 확인
       const savedList = getSurveyList(companyId);
@@ -521,6 +553,12 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
       
       // 활성 상태 동기화
       markActiveSurvey(companyId, surveyId);
+      
+      // 화면에 데이터 표시
+      setIsDataHidden(false);
+      
+      // localStorage에 사용자 활동 저장
+      localStorage.setItem('hasUserActivity', 'true');
 
       // 링크 복사 & 알림
       const surveyLink = `${window.location.origin}/survey?id=${surveyId}`;
@@ -702,13 +740,18 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
                 <h4 className="font-medium text-gray-800 mb-3">설문 버전 관리</h4>
                 <div className="space-y-3">
                   {(() => {
-                    if (typeof window === 'undefined') {
-                      return <div className="text-sm text-gray-500 text-center py-3">이전에 생성한 설문이 없습니다</div>;
+                    // localStorage에서 설문 리스트 가져오기 (SSR 대응)
+                    let list: StoredSurvey[] = [];
+                    if (typeof window !== 'undefined') {
+                      try {
+                        list = getSurveyList(companyId)
+                          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                          .slice(0, 3);
+                        console.log('📋 설문 버전 관리 목록 로드:', list);
+                      } catch (error) {
+                        console.error('설문 리스트 로드 실패:', error);
+                      }
                     }
-
-                    const list = getSurveyList(companyId)
-                      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                      .slice(0, 3);
 
                     if (list.length === 0) {
                       return <div className="text-sm text-gray-500 text-center py-3">이전에 생성한 설문이 없습니다</div>;

@@ -95,39 +95,20 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
   }>>([]);
   const [customEmailBody, setCustomEmailBody] = useState('');
 
-  // 유효 이메일 계산 (설문 대상자 + 발송 완료된 명단)
+  // 유효 이메일 계산 (현재 설문 대상자 목록만)
   const validEmails = useMemo(() => {
     if (typeof window === 'undefined') return [];
     
-    // 설문 대상자 이메일
+    // 설문 대상자 이메일만 사용 (발송 완료된 명단 제외)
     const targetEmails = (excelData || [])
       .map((r) => r.email?.trim())
       .filter((e): e is string => !!e && e.includes('@'));
     
-    // 발송 완료된 명단 이메일
-    let sentEmails: string[] = [];
-    try {
-      const sentRecipients = localStorage.getItem('sentRecipients');
-      if (sentRecipients) {
-        const parsed = JSON.parse(sentRecipients);
-        sentEmails = parsed
-          .map((r: any) => r.email?.trim())
-          .filter((e: string) => !!e && e.includes('@'));
-      }
-    } catch (error) {
-      console.error('발송 완료된 명단 로드 실패:', error);
-    }
-    
-    // 중복 제거하여 전체 이메일 목록 반환
-    const allEmails = [...new Set([...targetEmails, ...sentEmails])];
-    
-    console.log('📧 이메일 계산:', {
-      targetEmails: targetEmails.length,
-      sentEmails: sentEmails.length,
-      totalEmails: allEmails.length
+    console.log('📧 이메일 계산 (대상자 목록만):', {
+      targetEmails: targetEmails.length
     });
     
-    return allEmails;
+    return targetEmails;
   }, [excelData]);
 
   // 발송 완료된 명단 수 (survey_upload.tsx와 동일한 데이터 소스 사용)
