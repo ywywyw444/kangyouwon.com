@@ -1,13 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { normalizeSurveyKey, generateSurveyKey } from '@/lib/surveyKey';
-
-interface ExcelRow {
-  email: string;
-  company?: string;
-  name?: string;
-  position?: string;
-  stakeholderType?: string;
-}
+import { ExcelRow } from '@/store/excelDataStore';
 
 interface SurveyManagementProps {
   excelData: ExcelRow[];
@@ -40,6 +33,9 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
 
   // 선택된 설문 URL 확인 및 업데이트
   useEffect(() => {
+    // 브라우저 환경이 아니면 실행하지 않음
+    if (typeof window === 'undefined') return;
+
     const checkSelectedSurvey = () => {
       // 브라우저 환경이 아니면 실행하지 않음
       if (typeof window === 'undefined') return;
@@ -92,6 +88,55 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
 
   // 이메일 발송 함수
   const handleSendEmails = async () => {
+    // 테스트용 이메일 발송 코드
+    const testEmail = 'test@example.com'; // 여기에 테스트용 이메일 주소를 입력하세요
+    
+    setIsLoading(true);
+
+    try {
+      console.log('📧 테스트 이메일 발송 시작:', {
+        to: testEmail,
+        surveyUrl,
+        companyName: companyName || '테스트 회사',
+      });
+
+      // Gmail API를 통한 테스트 이메일 발송
+      const response = await fetch('/api/v1/materiality-service/email/send-survey', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          to_emails: [testEmail],
+          survey_url: surveyUrl || 'http://localhost:3000/survey?id=test',
+          company_name: companyName || '테스트 회사',
+          survey_title: '[테스트] 중대성 평가 설문'
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`테스트 이메일 발송 실패: ${response.status} ${response.statusText}\n${errorData.message || ''}`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setSendStatus(prev => ({ ...prev, sent: 1 }));
+        alert(`✅ 테스트 이메일 발송 완료!\n\n📧 테스트 이메일(${testEmail})로 발송되었습니다.\n\n${result.message || ''}`);
+      } else {
+        throw new Error(result.message || '테스트 이메일 발송에 실패했습니다.');
+      }
+
+    } catch (error) {
+      console.error('테스트 이메일 발송 오류:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다';
+      alert(`❌ 테스트 이메일 발송에 실패했습니다.\n\n오류: ${errorMessage}\n\n다시 시도해주세요.`);
+    } finally {
+      setIsLoading(false);
+    }
+
+    /* 기존 코드 주석 처리
     // 1. 설문 URL 확인
     if (!surveyUrl) {
       alert('❌ 설문이 생성되지 않았습니다.\n\n먼저 "설문 생성하기" 버튼을 눌러 설문을 생성해주세요.');
@@ -172,6 +217,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
     } finally {
       setIsLoading(false);
     }
+    */
   };
 
   // 설문 응답 현황 확인 함수
@@ -293,6 +339,15 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
                   </h4>
                   <div className="space-y-2">
                     {(() => {
+                      // SSR 환경에서는 빈 배열 반환
+                      if (typeof window === 'undefined') {
+                        return (
+                          <div className="text-sm text-blue-600 text-center py-4">
+                            먼저 "설문 생성하기"에서 설문을 생성해주세요.
+                          </div>
+                        );
+                      }
+
                       const surveys = [];
                       for (let i = 0; i < localStorage.length; i++) {
                         const key = localStorage.key(i);
@@ -477,20 +532,13 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ excelData }) => {
               
               <button
                 onClick={handleSendEmails}
-                disabled={isLoading || !surveyUrl || !companyName.trim() || sendStatus.total === 0 || !localStorage.getItem('selectedSurveyId')}
+                disabled={isLoading}
                 className={`flex-1 font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center ${
-                  isLoading || !surveyUrl || !companyName.trim() || sendStatus.total === 0 || !localStorage.getItem('selectedSurveyId')
+                  isLoading
                     ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                     : 'bg-green-600 hover:bg-green-700 text-white'
                 }`}
-                title={
-                  isLoading ? '발송 중입니다...' :
-                  !surveyUrl ? '설문을 먼저 생성해주세요' :
-                  !localStorage.getItem('selectedSurveyId') ? '설문 버전을 선택해주세요' :
-                  !companyName.trim() ? '회사명을 입력해주세요' :
-                  sendStatus.total === 0 ? '이메일 목록을 업로드해주세요' :
-                  '모든 준비가 완료되었습니다'
-                }
+                title={isLoading ? '발송 중입니다...' : '테스트 이메일 발송하기'}
               >
                 {isLoading ? (
                   <>

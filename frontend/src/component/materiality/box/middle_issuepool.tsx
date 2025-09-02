@@ -90,6 +90,12 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   React.useEffect(() => {
+    // SSR 환경에서는 빈 화면으로 시작
+    if (typeof window === 'undefined') {
+      setIsDataHidden(true);
+      return;
+    }
+
     // 처음 접속 시에는 항상 빈 화면으로 시작
     const hasUserActivity = localStorage.getItem('hasUserActivity');
     if (hasUserActivity === 'true') {
@@ -102,7 +108,9 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
 
   // 사용자 활동 추적 함수
   const markUserActivity = () => {
-    localStorage.setItem('hasUserActivity', 'true');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hasUserActivity', 'true');
+    }
     setIsDataHidden(false);
     console.log('✅ 사용자 활동 기록됨');
   };
@@ -146,26 +154,28 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
         };
         
         // localStorage 용량 확인 및 정리
-        try {
-          localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
-          markUserActivity(); // 사용자 활동 기록
-          console.log('💾 중대성 평가 결과 저장 완료:', dataToSave);
-          console.log('📋 저장된 카테고리 수:', categories.length);
-          console.log('📋 Base Issue Pool이 설정된 카테고리 수:', categories.filter((cat: any) => cat.selected_base_issue_pool).length);
-          alert(`✅ 중대성 평가 결과가 성공적으로 저장되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n📋 Base Issue Pool 설정: ${categories.filter((cat: any) => cat.selected_base_issue_pool).length}개`);
-        } catch (storageError: any) {
-          if (storageError.name === 'QuotaExceededError') {
-            // localStorage 용량 부족 시 기존 데이터 정리
-            console.log('⚠️ localStorage 용량 부족, 기존 데이터 정리 중...');
-            localStorage.clear();
-            
-            // 다시 저장 시도
+        if (typeof window !== 'undefined') {
+          try {
             localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
             markUserActivity(); // 사용자 활동 기록
-            console.log('💾 중대성 평가 결과 저장 완료 (용량 정리 후):', dataToSave);
+            console.log('💾 중대성 평가 결과 저장 완료:', dataToSave);
+            console.log('📋 저장된 카테고리 수:', categories.length);
+            console.log('📋 Base Issue Pool이 설정된 카테고리 수:', categories.filter((cat: any) => cat.selected_base_issue_pool).length);
             alert(`✅ 중대성 평가 결과가 성공적으로 저장되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n📋 Base Issue Pool 설정: ${categories.filter((cat: any) => cat.selected_base_issue_pool).length}개`);
-          } else {
-            throw storageError;
+          } catch (storageError: any) {
+            if (storageError.name === 'QuotaExceededError') {
+              // localStorage 용량 부족 시 기존 데이터 정리
+              console.log('⚠️ localStorage 용량 부족, 기존 데이터 정리 중...');
+              localStorage.clear();
+              
+              // 다시 저장 시도
+              localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+              markUserActivity(); // 사용자 활동 기록
+              console.log('💾 중대성 평가 결과 저장 완료 (용량 정리 후):', dataToSave);
+              alert(`✅ 중대성 평가 결과가 성공적으로 저장되었습니다!\n\n📊 총 ${categories.length}개 카테고리\n📋 Base Issue Pool 설정: ${categories.filter((cat: any) => cat.selected_base_issue_pool).length}개`);
+            } else {
+              throw storageError;
+            }
           }
         }
       } catch (error) {
@@ -179,6 +189,12 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
 
   useEffect(() => {
     const loadAssessmentResultFromStorage = () => {
+      // SSR 환경에서는 빈 화면으로 시작
+      if (typeof window === 'undefined') {
+        setIsDataHidden(true);
+        return;
+      }
+
       // 처음 접속 시에는 데이터를 화면에 표시하지 않음
       const hasUserActivity = localStorage.getItem('hasUserActivity');
       if (!hasUserActivity) {
@@ -217,6 +233,11 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
 
   useEffect(() => {
     const loadSearchResultFromStorage = () => {
+      // SSR 환경에서는 실행하지 않음
+      if (typeof window === 'undefined') {
+        return;
+      }
+
       // 사용자 활동 상태 확인
       const hasUserActivity = localStorage.getItem('hasUserActivity');
       
@@ -399,7 +420,9 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                       categories_with_base_issue_pool: 0,
                       display_category_count: displayCategoryCount
                     };
-                    localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+                    }
                     console.log('💾 중대성 평가 결과 자동 저장 완료');
                   } catch (storageError) {
                     console.error('❌ 자동 저장 실패:', storageError);
@@ -426,7 +449,9 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                       categories_with_base_issue_pool: 0,
                       display_category_count: displayCategoryCount
                     };
-                    localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+                    }
                     console.log('💾 빈 중대성 평가 결과 자동 저장 완료');
                   } catch (storageError) {
                     console.error('❌ 빈 결과 자동 저장 실패:', storageError);
@@ -494,7 +519,9 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                setAssessmentResult(null);
                
                if (!keepData) {
-                 localStorage.removeItem('hasUserActivity');
+                 if (typeof window !== 'undefined') {
+                   localStorage.removeItem('hasUserActivity');
+                 }
                  setIsDataHidden(true);
                  console.log('🔄 완전 초기화 완료: 다음 로그인 시 빈 화면으로 시작됩니다.');
                  alert('✅ 완전 초기화가 완료되었습니다.\n\n다음 로그인 시에는 빈 화면으로 시작됩니다.');

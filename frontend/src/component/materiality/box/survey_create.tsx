@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { normalizeSurveyKey, generateSurveyKey } from '@/lib/surveyKey';
+import { ExcelRow } from '@/store/excelDataStore';
 
 interface Category {
   category: string;
@@ -9,14 +10,6 @@ interface Category {
   esg_classification?: string;
   final_score?: number;
   rank: number;
-}
-
-interface ExcelRow {
-  name?: string;
-  position?: string;
-  company?: string;
-  stakeholderType?: string;
-  email: string;
 }
 
 // 설문 내용의 해시값을 생성하는 함수
@@ -518,6 +511,15 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({ companyId, assessmentResult
                 <div className="space-y-3">
                   {/* 이전 설문들을 localStorage에서 가져와서 표시 */}
                   {(() => {
+                    // SSR 환경에서는 빈 목록 반환
+                    if (typeof window === 'undefined') {
+                      return (
+                        <div className="text-sm text-gray-500 text-center py-3">
+                          이전 설문이 없습니다
+                        </div>
+                      );
+                    }
+
                     const previousSurveys = [];
                     for (let i = 0; i < localStorage.length; i++) {
                       const key = localStorage.key(i);

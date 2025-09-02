@@ -3,7 +3,9 @@ import axios from 'axios';
 // 요청 인터셉터: X-Request-ID 추가
 axios.interceptors.request.use((config) => {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-  config.headers = { ...config.headers, 'X-Request-ID': id };
+  if (config.headers) {
+    config.headers.set('X-Request-ID', id);
+  }
   return config;
 });
 

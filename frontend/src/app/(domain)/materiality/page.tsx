@@ -54,29 +54,29 @@ export default function MaterialityHomePage() {
   const [isFullResultCollapsed, setIsFullResultCollapsed] = useState(true);
 
   // 엑셀 파일 관련 상태 (Zustand store 사용)
-  const { 
+  const {
     excelData,
     isValid: isExcelValid,
     fileName: excelFilename,
     base64Data: excelBase64,
-    // 설문 대상 업로드 데이터만을 위한 상태
+
+    // 설문 대상 업로드 전용
     surveyUploadData,
-    surveyUploadFileName,
-    surveyUploadBase64,
     surveyUploadIsValid,
+
+    // setter들
     setExcelData,
     setIsValid: setIsExcelValid,
-    setFileName: setExcelFilename,
-    setBase64Data: setExcelBase64,
-    // 설문 대상 업로드 데이터 설정 메서드
+    setExcelFilename,
+    setExcelBase64,
+
     setSurveyUploadData,
-    setSurveyUploadFileName,
-    setSurveyUploadBase64,
-    setSurveyUploadIsValid,
-    updateRow,
-    deleteRow,
+    setSurveyUploadsValid,
+
+    // 행 관리
     updateSurveyUploadRow,
     deleteSurveyUploadRow,
+
     reset,
     loadFromStorage,
     saveToLocalStorage,
@@ -89,6 +89,8 @@ export default function MaterialityHomePage() {
   
   // 사용자 활동 감지하여 데이터 표시
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const hasUserActivity = localStorage.getItem('hasUserActivity');
     if (hasUserActivity) {
       setIsDataHidden(false);
@@ -119,6 +121,8 @@ export default function MaterialityHomePage() {
   
   // 세션 스토리지 관련 함수들
   const saveToSessionStorage = (key: string, data: any) => {
+    if (typeof window === 'undefined') return;
+
     try {
       sessionStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
@@ -127,6 +131,8 @@ export default function MaterialityHomePage() {
   };
   
   const loadFromSessionStorage = (key: string) => {
+    if (typeof window === 'undefined') return null;
+
     try {
       const data = sessionStorage.getItem(key);
       return data ? JSON.parse(data) : null;
@@ -157,6 +163,8 @@ export default function MaterialityHomePage() {
   // 로그인한 사용자의 기업 정보 가져오기
   useEffect(() => {
     const getUserCompany = () => {
+      if (typeof window === 'undefined') return;
+
       try {
         const userData = localStorage.getItem('user');
         if (userData) {
@@ -177,11 +185,14 @@ export default function MaterialityHomePage() {
 
   // 페이지 로드 시 설문 대상 업로드 데이터만 자동 불러오기
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     loadSurveyUploadData();
   }, []); // loadSurveyUploadData는 Zustand store에서 가져오므로 의존성 배열에서 제외
 
   // 페이지 로드 시 설문 결과 데이터 로드
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     try {
       const savedSurveyResult = localStorage.getItem('surveyResult');
       if (savedSurveyResult) {
@@ -220,12 +231,14 @@ export default function MaterialityHomePage() {
           console.log(`✅ ${companyNames.length}개 기업 목록을 성공적으로 가져왔습니다.`);
           
           // 로그인된 사용자의 기업이 목록에 있는지 확인하고, 없다면 추가
-          const userData = localStorage.getItem('user');
-          if (userData) {
-            const user = JSON.parse(userData);
-            if (user.company_id && !companyNames.includes(user.company_id)) {
-              setCompanies(prev => [user.company_id, ...prev]);
-              console.log('✅ 사용자 기업을 목록 맨 앞에 추가:', user.company_id);
+          if (typeof window !== 'undefined') {
+            const userData = localStorage.getItem('user');
+            if (userData) {
+              const user = JSON.parse(userData);
+              if (user.company_id && !companyNames.includes(user.company_id)) {
+                setCompanies(prev => [user.company_id, ...prev]);
+                console.log('✅ 사용자 기업을 목록 맨 앞에 추가:', user.company_id);
+              }
             }
           }
         } else {
@@ -410,8 +423,8 @@ export default function MaterialityHomePage() {
             setSearchPeriod={setSearchPeriod}
             setIsCompanyDropdownOpen={setIsCompanyDropdownOpen}
             setSearchResult={setSearchResult}
-            setExcelFilename={setExcelFilename}
-            setExcelBase64={setExcelBase64}
+            setExcelFilename={(name) => setExcelFilename(name ?? null)}
+            setExcelBase64={(b64) => setExcelBase64(b64 ?? null)}
             setLoading={setLoading}
           />
   
@@ -421,8 +434,8 @@ export default function MaterialityHomePage() {
               searchResult={searchResult}
               isSearchResultCollapsed={isSearchResultCollapsed}
               isFullResultCollapsed={isFullResultCollapsed}
-              excelFilename={excelFilename}
-              excelBase64={excelBase64}
+              excelFilename={excelFilename ?? null}
+              excelBase64={excelBase64 ?? null}
               setIsSearchResultCollapsed={setIsSearchResultCollapsed}
               setIsFullResultCollapsed={setIsFullResultCollapsed}
               setCompanyId={setCompanyId}
@@ -481,17 +494,17 @@ export default function MaterialityHomePage() {
           <SurveyUpload
             excelData={surveyUploadData}
             isExcelValid={surveyUploadIsValid}
-            excelFilename={surveyUploadFileName}
-            excelBase64={surveyUploadBase64}
+            excelFilename={excelFilename ?? null}
+            excelBase64={excelBase64 ?? null}
             isDataHidden={isDataHidden}
-            setIsExcelValid={(valid: boolean | null) => setSurveyUploadIsValid(valid || false)}
-            setExcelFilename={setSurveyUploadFileName}
-            setExcelBase64={setSurveyUploadBase64}
+            setIsExcelValid={(valid) => setSurveyUploadsValid(!!valid)}
+            setExcelFilename={(name) => setExcelFilename(name ?? null)}
+            setExcelBase64={(b64) => setExcelBase64(b64 ?? null)}
             setExcelData={setSurveyUploadData}
             setIsDataHidden={setIsDataHidden}
+            loadUploadedExcelData={loadSurveyUploadData}
             updateRow={updateSurveyUploadRow}
             deleteRow={deleteSurveyUploadRow}
-            loadUploadedExcelData={loadSurveyUploadData}
           />
 
           {/* 설문 관리 섹션 */}
@@ -835,8 +848,10 @@ export default function MaterialityHomePage() {
                                 categories_with_base_issue_pool: updatedCategories.filter((cat: any) => cat.selected_base_issue_pool).length
                               };
                               
-                              localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
-                              console.log('💾 Base Issue Pool 선택 후 자동 저장 완료:', dataToSave);
+                              if (typeof window !== 'undefined') {
+                                localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
+                                console.log('💾 Base Issue Pool 선택 후 자동 저장 완료:', dataToSave);
+                              }
                             } catch (error) {
                               console.error('❌ 자동 저장 실패:', error);
                             }
