@@ -334,9 +334,11 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       backendResponses: backendResponses,
       stats: stats,
       excelData: excelData,
-      sentSurveyInfo: sentSurveyInfo
+      sentSurveyInfo: sentSurveyInfo,
+      isDataHidden: isDataHidden,
+      loading: loading
     });
-  }, [surveyResult, backendResponses, stats, excelData, sentSurveyInfo]);
+  }, [surveyResult, backendResponses, stats, excelData, sentSurveyInfo, isDataHidden, loading]);
 
   // 사용자 활동을 표시하는 함수
   const markUserActivity = () => {
@@ -465,8 +467,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
         📊 설문 결과 확인
       </h2>
       
-      {stats && (
-        <div className="space-y-6">
+      <div className="space-y-6">
                      {/* 기본 정보 */}
            <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
              <h3 className="text-lg font-semibold text-blue-800 mb-4">📋 설문 기본 정보</h3>
@@ -506,11 +507,11 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                )}
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">총 응답자:</span>
-                 <span className="text-gray-900">{stats.total}명</span>
+                 <span className="text-gray-900">{stats?.total || 0}명</span>
                </div>
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">설문 항목:</span>
-                 <span className="text-gray-900">{stats.totalResponses}개</span>
+                 <span className="text-gray-900">{stats?.totalResponses || 0}개</span>
                </div>
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">생성 시간:</span>
@@ -521,7 +522,8 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
              </div>
            </div>
 
-          {/* 응답 현황 */}
+          {/* 응답 현황 - stats가 있을 때만 표시 */}
+          {stats && (
           <div className="bg-green-50 rounded-lg p-6 border border-green-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-green-800">📊 응답 현황</h3>
@@ -570,8 +572,10 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
               </div>
             </div>
           </div>
+          )}
 
-          {/* 평균 점수 */}
+          {/* 평균 점수 - stats가 있을 때만 표시 */}
+          {stats && (
           <div className="bg-purple-50 rounded-lg p-6 border border-purple-200">
             <h3 className="text-lg font-semibold text-purple-800 mb-4">📊 평균 점수</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -585,8 +589,10 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
               </div>
             </div>
           </div>
+          )}
 
-          {/* 점수 분포 */}
+          {/* 점수 분포 - stats가 있을 때만 표시 */}
+          {stats && (
           <div className="bg-orange-50 rounded-lg p-6 border border-orange-200">
             <h3 className="text-lg font-semibold text-orange-800 mb-4">📈 점수 분포</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -658,8 +664,10 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
               </div>
             </div>
           </div>
+          )}
 
-          {/* 상위 카테고리 */}
+          {/* 상위 카테고리 - stats가 있을 때만 표시 */}
+          {stats && (
           <div className="bg-indigo-50 rounded-lg p-6 border border-indigo-200">
             <h3 className="text-lg font-semibold text-indigo-800 mb-4">🏆 상위 카테고리 (점수 합계 기준)</h3>
             <div className="space-y-3">
@@ -684,10 +692,19 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
               ))}
             </div>
           </div>
+          )}
 
+          {/* stats가 없을 때 안내 메시지 */}
+          {!stats && (
+            <div className="bg-yellow-50 rounded-lg p-6 border border-yellow-200">
+              <h3 className="text-lg font-semibold text-yellow-800 mb-4">⚠️ 통계 정보 없음</h3>
+              <p className="text-yellow-700">
+                설문 응답 데이터가 아직 없습니다. 설문을 완료한 후 다시 확인해주세요.
+              </p>
+            </div>
+          )}
 
         </div>
-      )}
     </div>
   );
 };
