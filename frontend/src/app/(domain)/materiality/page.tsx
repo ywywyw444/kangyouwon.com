@@ -75,6 +75,8 @@ export default function MaterialityHomePage() {
     setSurveyUploadIsValid,
     updateRow,
     deleteRow,
+    updateSurveyUploadRow,
+    deleteSurveyUploadRow,
     reset,
     loadFromStorage,
     saveToLocalStorage,
@@ -487,8 +489,8 @@ export default function MaterialityHomePage() {
             setExcelBase64={setSurveyUploadBase64}
             setExcelData={setSurveyUploadData}
             setIsDataHidden={setIsDataHidden}
-            updateRow={updateRow}
-            deleteRow={deleteRow}
+            updateRow={updateSurveyUploadRow}
+            deleteRow={deleteSurveyUploadRow}
             loadUploadedExcelData={loadSurveyUploadData}
           />
 

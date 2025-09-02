@@ -29,6 +29,8 @@ interface ExcelDataStore {
   setSurveyUploadIsValid: (isValid: boolean) => void;
   updateRow: (index: number, updatedData: ExcelRow) => void;
   deleteRow: (index: number) => void;
+  updateSurveyUploadRow: (index: number, updatedData: ExcelRow) => void;
+  deleteSurveyUploadRow: (index: number) => void;
   reset: () => void;
   loadFromStorage: () => void;
   saveToLocalStorage: () => void;
@@ -185,9 +187,27 @@ export const useExcelDataStore = create<ExcelDataStore>((set, get) => {
 
     deleteRow: (index: number) => {
       const currentData = [...get().excelData];
+      console.log('🗑️ deleteRow 호출:', { index, beforeLength: currentData.length, dataToDelete: currentData[index] });
       currentData.splice(index, 1);
+      console.log('🗑️ deleteRow 완료:', { afterLength: currentData.length, remainingData: currentData });
       set({ excelData: currentData });
       saveToLocalStorage({ ...get(), excelData: currentData });
+    },
+
+    updateSurveyUploadRow: (index: number, updatedData: ExcelRow) => {
+      const currentData = [...get().surveyUploadData];
+      currentData[index] = updatedData;
+      set({ surveyUploadData: currentData });
+      saveSurveyUploadData({ ...get(), surveyUploadData: currentData });
+    },
+
+    deleteSurveyUploadRow: (index: number) => {
+      const currentData = [...get().surveyUploadData];
+      console.log('🗑️ deleteSurveyUploadRow 호출:', { index, beforeLength: currentData.length, dataToDelete: currentData[index] });
+      currentData.splice(index, 1);
+      console.log('🗑️ deleteSurveyUploadRow 완료:', { afterLength: currentData.length, remainingData: currentData });
+      set({ surveyUploadData: currentData });
+      saveSurveyUploadData({ ...get(), surveyUploadData: currentData });
     },
 
     reset: () => {

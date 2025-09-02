@@ -368,38 +368,42 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
             <h3 className="text-lg font-semibold text-orange-800 mb-4">📈 점수 분포</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Outside Score Distribution */}
-              <div>
+              <div className="min-w-0"> {/* min-w-0 추가로 오버플로우 방지 */}
                 <h4 className="text-md font-semibold text-orange-700 mb-3">기업 재무 중요도 (Outside-in)</h4>
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((score) => (
-                    <div key={score} className="flex items-center">
-                      <span className="w-8 text-sm text-orange-600">{score}점</span>
-                      <div className="flex-1 mx-3 bg-orange-200 rounded-full h-2">
+                    <div key={score} className="flex items-center min-w-0"> {/* min-w-0 추가 */}
+                      <span className="w-8 text-sm text-orange-600 flex-shrink-0">{score}점</span>
+                      <div className="flex-1 mx-3 bg-orange-200 rounded-full h-2 min-w-0 overflow-hidden"> {/* overflow-hidden 추가 */}
                         <div 
-                          className="bg-orange-500 h-2 rounded-full" 
-                          style={{ width: `${stats.scoreDistribution.outside[score] > 0 ? (stats.scoreDistribution.outside[score] / stats.total) * 100 : 0}%` }}
+                          className="bg-orange-500 h-2 rounded-full transition-all duration-300" 
+                          style={{ 
+                            width: `${Math.min(100, stats.scoreDistribution.outside[score] > 0 ? (stats.scoreDistribution.outside[score] / Math.max(stats.total, 1)) * 100 : 0)}%` 
+                          }}
                         ></div>
                       </div>
-                      <span className="w-8 text-sm text-orange-600">{stats.scoreDistribution.outside[score]}</span>
+                      <span className="w-8 text-sm text-orange-600 flex-shrink-0 text-right">{stats.scoreDistribution.outside[score]}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Inside Score Distribution */}
-              <div>
+              <div className="min-w-0"> {/* min-w-0 추가로 오버플로우 방지 */}
                 <h4 className="text-md font-semibold text-orange-700 mb-3">환경/사회 중요도 (Inside-out)</h4>
                 <div className="space-y-2">
                   {[1, 2, 3, 4, 5].map((score) => (
-                    <div key={score} className="flex items-center">
-                      <span className="w-8 text-sm text-orange-600">{score}점</span>
-                      <div className="flex-1 mx-3 bg-orange-200 rounded-full h-2">
+                    <div key={score} className="flex items-center min-w-0"> {/* min-w-0 추가 */}
+                      <span className="w-8 text-sm text-orange-600 flex-shrink-0">{score}점</span>
+                      <div className="flex-1 mx-3 bg-orange-200 rounded-full h-2 min-w-0 overflow-hidden"> {/* overflow-hidden 추가 */}
                         <div 
-                          className="bg-orange-500 h-2 rounded-full" 
-                          style={{ width: `${stats.scoreDistribution.inside[score] > 0 ? (stats.scoreDistribution.inside[score] / stats.total) * 100 : 0}%` }}
+                          className="bg-orange-500 h-2 rounded-full transition-all duration-300" 
+                          style={{ 
+                            width: `${Math.min(100, stats.scoreDistribution.inside[score] > 0 ? (stats.scoreDistribution.inside[score] / Math.max(stats.total, 1)) * 100 : 0)}%` 
+                          }}
                         ></div>
                       </div>
-                      <span className="w-8 text-sm text-orange-600">{stats.scoreDistribution.inside[score]}</span>
+                      <span className="w-8 text-sm text-orange-600 flex-shrink-0 text-right">{stats.scoreDistribution.inside[score]}</span>
                     </div>
                   ))}
                 </div>

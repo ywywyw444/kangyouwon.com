@@ -196,7 +196,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
                     const parsedData = JSON.parse(savedData);
                     console.log('파싱된 데이터:', parsedData);
                     
-                    // Zustand store에 직접 설정
+                    // Zustand store에 직접 설정 (설문 대상 업로드 데이터용)
                     setExcelData(parsedData.excelData || []);
                     setIsExcelValid(parsedData.isValid || false);
                     setExcelFilename(parsedData.fileName || null);
@@ -468,7 +468,9 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
                         <button 
                           onClick={() => {
                             if (confirm('정말 삭제하시겠습니까?')) {
+                              console.log('🗑️ 삭제 버튼 클릭:', { index, totalRows: excelData.length });
                               deleteRow(index);
+                              console.log('🗑️ 삭제 후 데이터:', excelData.length - 1, '개 행');
                             }
                           }}
                           className="text-red-600 hover:text-red-900"
@@ -557,7 +559,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
                 // 화면 표시 상태 복원
                 setIsDataHidden(false);
                 
-                // localStorage도 명시적으로 업데이트
+                // localStorage도 명시적으로 업데이트 (설문 대상 업로드 데이터용)
                 const dataToSave = {
                   excelData: updatedData,
                   isValid: isExcelValid,

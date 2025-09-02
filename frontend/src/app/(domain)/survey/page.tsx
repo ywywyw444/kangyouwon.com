@@ -16,7 +16,11 @@ interface SurveyItem {
 }
 
 interface SurveyData {
-  company_id: string;
+  survey_id: string;
+  corporation_id: string; // 백엔드에서 반환하는 필드명에 맞춤
+  content_hash?: string;
+  timestamp: string;
+  total_categories: number;
   categories: Array<{
     question_number?: number;
     rank: number;
@@ -25,6 +29,7 @@ interface SurveyData {
     esg_classification: string;
     final_score: number;
   }>;
+  excel_data?: any;
 }
 
 export default function SurveyPage() {
@@ -278,7 +283,7 @@ export default function SurveyPage() {
 
       // 설문 결과 데이터 생성
       const surveyResult: any = {
-        company_id: surveyData?.company_id,
+        corporation_id: surveyData?.corporation_id,
         respondent_type: respondentType,
         timestamp: new Date().toISOString(),
         total_items: allResponses.length,
@@ -303,11 +308,12 @@ export default function SurveyPage() {
               email: participantInfo.email.toLowerCase().trim() // 이메일 소문자 변환 및 공백 제거
             },
             responses: allResponses,
-            corporation_id: '1' // 실제 corporation 테이블의 id 사용
+            corporation_id: surveyData?.corporation_id || '1' // 설문 데이터에서 가져온 corporation_id 사용
           };
 
           console.log('📤 설문 응답 전송:', {
             survey_id: surveyId,
+            corporation_id: responseRequest.corporation_id,
             participant_email: responseRequest.participant.email,
             total_responses: allResponses.length
           });
@@ -449,29 +455,7 @@ export default function SurveyPage() {
     return stats;
   };
 
-  // JSON 데이터 다운로드
-  const downloadSurveyResult = () => {
-    try {
-      const surveyResult = localStorage.getItem('surveyResult');
-      if (surveyResult) {
-        const dataStr = JSON.stringify(JSON.parse(surveyResult), null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `survey_result_${surveyData?.company_id || 'company'}_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-        
-        alert('✅ 설문 결과가 JSON 파일로 다운로드되었습니다.');
-      }
-    } catch (error) {
-      console.error('❌ JSON 다운로드 실패:', error);
-      alert('❌ JSON 다운로드에 실패했습니다.');
-    }
-  };
+
 
   // JSON 데이터 클립보드 복사
   const copySurveyResult = async () => {
@@ -945,35 +929,7 @@ export default function SurveyPage() {
                     )}
                   </p>
                  
-                 {/* 설문 결과 확인 버튼 */}
-                 <div className="mb-6">
-                   <button
-                     onClick={() => {
-                       // 설문 결과를 새 창에서 열거나 다운로드
-                       const surveyResult = localStorage.getItem('surveyResult');
-                       if (surveyResult) {
-                         const dataStr = JSON.stringify(JSON.parse(surveyResult), null, 2);
-                         const blob = new Blob([dataStr], { type: 'application/json' });
-                         const url = URL.createObjectURL(blob);
-                         const link = document.createElement('a');
-                         link.href = url;
-                         link.download = `설문결과_${surveyData?.company_id || 'company'}_${new Date().toISOString().split('T')[0]}.json`;
-                         document.body.appendChild(link);
-                         link.click();
-                         document.body.removeChild(link);
-                         URL.revokeObjectURL(url);
-                         
-                         alert('✅ 설문 결과가 JSON 파일로 다운로드되었습니다.');
-                       }
-                     }}
-                     className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors duration-200"
-                   >
-                     <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                     </svg>
-                     설문 결과 확인
-                   </button>
-                 </div>
+
                  
                                    {/* SurveyResult 컴포넌트 표시 */}
                   <SurveyResult 
