@@ -641,7 +641,7 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
 
               {/* 이전 설문 목록 (활성 포함, 최대 3개) */}
               <div className="bg-gray-100 rounded-lg p-4 border border-gray-300">
-                <h4 className="font-medium text-gray-800 mb-3">설문 버전 관리리</h4>
+                <h4 className="font-medium text-gray-800 mb-3">설문 버전 관리</h4>
                 <div className="space-y-3">
                   {(() => {
                     if (typeof window === 'undefined') {

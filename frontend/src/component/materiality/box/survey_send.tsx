@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { normalizeSurveyKey } from '@/lib/surveyKey';
 import { ExcelRow } from '@/store/excelDataStore';
 
 type StoredSurvey = {
@@ -222,37 +221,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     }
   };
 
-  // 응답 현황 확인
-  const checkSurveyResponses = async () => {
-    if (!surveyUrl) {
-      alert('❌ 설문 링크가 선택되지 않았습니다.');
-      return;
-    }
-    try {
-      const rawSurveyId = surveyUrl.split('id=')[1];
-      if (!rawSurveyId) throw new Error('설문 ID를 찾을 수 없습니다.');
-      const surveyId = normalizeSurveyKey(rawSurveyId);
 
-      const response = await fetch(
-        `/api/v1/materiality-service/surveys/${encodeURIComponent(surveyId)}/responses`
-      );
-      if (!response.ok) throw new Error(`응답 현황 조회 실패: ${response.status}`);
-
-      const data = await response.json();
-      const responseCount = Array.isArray(data.responses) ? data.responses.length : 0;
-      setSendStatus((p) => ({ ...p, responded: responseCount }));
-
-      alert(
-        `📊 설문 응답 현황\n\n• 총 발송: ${sendStatus.sent}명\n• 응답 완료: ${responseCount}명\n• 응답률: ${
-          sendStatus.total > 0 ? Math.round((responseCount / sendStatus.total) * 100) : 0
-        }%`
-      );
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '알 수 없는 오류가 발생했습니다';
-      alert(`❌ 응답 현황 조회 실패\n\n오류: ${msg}`);
-      console.error(e);
-    }
-  };
 
   // 설문 버전 선택 UI(회사별 리스트 ≤ 3개, 없으면 단건 키 fallback)
   const renderSurveyVersionPicker = () => {
@@ -490,11 +459,11 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
             </div>
             
             {/* 액션 버튼 */}
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex justify-center">
               <button
                 onClick={handleSendEmails}
                 disabled={isLoading || !isSendReady}
-                className={`flex-1 font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center ${
+                className={`w-full max-w-md font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center ${
                   isLoading || !isSendReady ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'
                 }`}
                 title={
@@ -521,19 +490,6 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                     설문 발송하기
                   </>
                 )}
-                              </button>
-              
-              <button
-                onClick={checkSurveyResponses}
-                disabled={!surveyUrl}
-                className={`flex-1 font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center ${
-                  !surveyUrl ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'
-                }`}
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                응답 현황 확인
               </button>
             </div>
             
