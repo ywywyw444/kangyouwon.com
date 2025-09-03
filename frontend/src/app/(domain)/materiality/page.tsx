@@ -754,7 +754,7 @@ export default function MaterialityHomePage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setIsResetModalOpen(true)}
-                  className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+                  className="px-6 py-3 bg-white hover:bg-red-50 text-gray-600 font-semibold rounded-lg transition-all duration-200 border-2 border-gray-300 hover:border-red-200 hover:text-red-500"
                 >
                   🔄 미디어 검색 다시하기
                 </button>
