@@ -1,9 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { handleViewReport } from '../handle_view_report';
 import { loadAssessmentResult } from '../load_assessment_result';
 import { fetchAllCategories } from '../fetch_all_categories';
 import { addNewCategory } from '../add_new_category';
+import { WeightConfig, DEFAULT_WEIGHTS } from '../../../types/weights';
+import WeightSettingsPanel from './WeightSettingsPanel';
 
 // 뉴스 데이터에서 추출된 카테고리를 기존 API와 연결하는 함수
 const connectWithExistingCategories = async (rawCategories: any[]) => {
@@ -179,6 +181,8 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
   excelData
 }) => {
   const [isDataHidden, setIsDataHidden] = React.useState(true);
+  const [weights, setWeights] = React.useState<WeightConfig>(DEFAULT_WEIGHTS);
+  const [isWeightUpdateLoading, setIsWeightUpdateLoading] = React.useState(false);
 
   // 컴포넌트 마운트 시 사용자 활동 여부 확인
   React.useEffect(() => {
@@ -206,6 +210,72 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
     setIsDataHidden(false);
     console.log('✅ 사용자 활동 기록됨');
   };
+
+  // 가중치 변경 핸들러
+  const handleWeightChange = async (newWeights: WeightConfig) => {
+    try {
+      setIsWeightUpdateLoading(true);
+      setWeights(newWeights);
+
+      // 가중치 설정을 localStorage에 저장
+      localStorage.setItem('materialityWeights', JSON.stringify(newWeights));
+
+      // 백엔드 API 호출하여 새로운 가중치로 결과 업데이트
+      const response = await axios.post(
+        `/api/v1/materiality-service/middleissue/assessment/weights`,
+        {
+          weights: {
+            frequency_weight: newWeights.frequency.value,
+            relevance_weight: newWeights.relevance.value,
+            recent_weight: newWeights.recent.value,
+            rank_weight: newWeights.rank.value,
+            negative_weight: newWeights.negative.value,
+            negative_boost: {
+              frequency: newWeights.negative.boost.frequency,
+              relevance: newWeights.negative.boost.relevance
+            }
+          }
+        }
+      );
+
+      if (response.data.success) {
+        // 결과 업데이트
+        setAssessmentResult(response.data.data);
+        console.log('✅ 가중치 업데이트 및 결과 반영 완료');
+      } else {
+        throw new Error(response.data.message || '가중치 업데이트 실패');
+      }
+    } catch (error) {
+      console.error('❌ 가중치 업데이트 중 오류:', error);
+      alert('가중치 업데이트 중 오류가 발생했습니다.');
+    } finally {
+      setIsWeightUpdateLoading(false);
+    }
+  };
+
+  // 가중치 초기화 핸들러
+  const handleWeightReset = () => {
+    setWeights(DEFAULT_WEIGHTS);
+    localStorage.removeItem('materialityWeights');
+    handleWeightChange(DEFAULT_WEIGHTS);
+  };
+
+  // 저장된 가중치 불러오기
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedWeights = localStorage.getItem('materialityWeights');
+      if (savedWeights) {
+        try {
+          const parsedWeights = JSON.parse(savedWeights);
+          setWeights(parsedWeights);
+          console.log('💾 저장된 가중치 설정 로드됨');
+        } catch (error) {
+          console.error('❌ 저장된 가중치 파싱 실패:', error);
+          localStorage.removeItem('materialityWeights');
+        }
+      }
+    }
+  }, []);
 
   const saveAssessmentResult = () => {
     if (assessmentResult) {
@@ -830,6 +900,14 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
           </div>
         )}
       </div>
+
+      {/* 가중치 설정 패널 */}
+      <WeightSettingsPanel
+        weights={weights}
+        onChange={handleWeightChange}
+        onReset={handleWeightReset}
+        isLoading={isWeightUpdateLoading}
+      />
 
       {/* 세 번째 섹션: 1차 중대성 평가 결과 */}
       <div className="bg-gray-50 rounded-xl border border-gray-200 p-6">
