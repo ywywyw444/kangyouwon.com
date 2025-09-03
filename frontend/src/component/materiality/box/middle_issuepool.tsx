@@ -333,13 +333,18 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
         
         <button
           onClick={async () => {
-            // 1. 데이터 검증 강화
+            // 1. 기존 데이터 비우기
+            setAssessmentResult(null);
+            setIssuepoolData(null);
+            console.log('🧹 기존 데이터 비우기 완료');
+
+            // 2. 데이터 검증 강화
             if (!searchResult?.data) {
               alert('먼저 미디어 검색을 완료해주세요.');
               return;
             }
 
-            // 2. articles 데이터 존재 여부 확인
+            // 3. articles 데이터 존재 여부 확인
             if (!searchResult.data.articles || searchResult.data.articles.length === 0) {
               alert('검색된 기사가 없습니다. 미디어 검색을 먼저 완료해주세요.');
               return;
