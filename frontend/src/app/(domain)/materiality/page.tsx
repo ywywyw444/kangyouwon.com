@@ -464,7 +464,7 @@ export default function MaterialityHomePage() {
       <NavigationTabs />
       <IndexBar />
   
-      <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-6 pt-40"> {/* BG */}
+      <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-6 pt-36"> {/* BG */}
         <div className="max-w-7xl mx-auto"> {/* CONTAINER */}
   
           {/* 헤더 */}
