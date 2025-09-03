@@ -231,7 +231,7 @@ export default function IndexBar() {
                         {item.title}
                       </div>
                       <div className="text-xs text-gray-400 mt-1">
-                        {isActive ? '진행 중' : isCompleted ? '완료' : '대기 중'}
+                        {isActive ? '진행 중' : isCompleted ? '완료' : '대기'}
                       </div>
                     </div>
                   </div>

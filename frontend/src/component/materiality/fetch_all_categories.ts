@@ -25,13 +25,19 @@ export const fetchAllCategories = async (setAllCategories: any) => {
       const categories = response.data.categories || [];
       console.log(`✅ ${categories.length}개 카테고리를 성공적으로 가져왔습니다.`);
       
-      // API 응답 구조를 프론트엔드에서 사용하는 구조로 변환
-      const transformedCategories = categories.map((cat: any) => ({
-        name: cat.category_name,
-        esg_classification: cat.esg_classification?.esg || '미분류',
-        base_issue_pools: cat.base_issue_pools?.map((pool: any) => pool.base_issue_pool) || []
-      }));
+      // API 응답 구조를 프론트엔드에서 사용하는 구조로 변환하고 '미분류' 카테고리 제외
+      const transformedCategories = categories
+        .map((cat: any) => ({
+          name: cat.category_name,
+          esg_classification: cat.esg_classification?.esg || '미분류',
+          base_issue_pools: cat.base_issue_pools?.map((pool: any) => pool.base_issue_pool) || []
+        }))
+        .filter((cat: any) => 
+          cat.name !== '미분류' && 
+          cat.esg_classification !== '미분류'
+        );
       
+      console.log(`🔍 미분류 제외 후 카테고리 수: ${transformedCategories.length}개`);
       setAllCategories(transformedCategories);
     } else {
       console.error('❌ API 응답 실패:', response.data.message);

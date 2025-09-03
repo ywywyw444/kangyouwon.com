@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import NavigationTabs from '@/component/NavigationTabs';
-import SurveyResult from '@/component/materiality/box/survey_result';
 
 interface SurveyItem {
   id: string;
@@ -488,18 +487,7 @@ export default function SurveyPage() {
       <NavigationTabs />
       
       <div className="max-w-5xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-        {/* 뒤로가기 버튼 */}
-        <div className="mb-8">
-          <a
-            href="/materiality"
-            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            중대성 평가 페이지로 돌아가기
-          </a>
-        </div>
+
 
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           {/* 헤더 */}
@@ -608,7 +596,7 @@ export default function SurveyPage() {
                                   name="internalPosition"
                                   value="임원"
                                   checked={internalPosition === '임원'}
-                                  onChange={(e) => setInternalPosition(e.target.value)}
+                                  onChange={() => setInternalPosition('임원')}
                                   className="text-blue-600 focus:ring-blue-500"
                                 />
                                 <span className="text-sm text-gray-700">{position}</span>
@@ -628,7 +616,7 @@ export default function SurveyPage() {
                                   name="internalPosition"
                                   value="중간관리자"
                                   checked={internalPosition === '중간관리자'}
-                                  onChange={(e) => setInternalPosition(e.target.value)}
+                                  onChange={() => setInternalPosition('중간관리자')}
                                   className="text-blue-600 focus:ring-blue-500"
                                 />
                                 <span className="text-sm text-gray-700">{position}</span>
@@ -648,7 +636,7 @@ export default function SurveyPage() {
                                   name="internalPosition"
                                   value="실무리더"
                                   checked={internalPosition === '실무리더'}
-                                  onChange={(e) => setInternalPosition(e.target.value)}
+                                  onChange={() => setInternalPosition('실무리더')}
                                   className="text-blue-600 focus:ring-blue-500"
                                 />
                                 <span className="text-sm text-gray-700">{position}</span>
@@ -668,7 +656,7 @@ export default function SurveyPage() {
                                   name="internalPosition"
                                   value="주니어"
                                   checked={internalPosition === '주니어'}
-                                  onChange={(e) => setInternalPosition(e.target.value)}
+                                  onChange={() => setInternalPosition('주니어')}
                                   className="text-blue-600 focus:ring-blue-500"
                                 />
                                 <span className="text-sm text-gray-700">{position}</span>
@@ -992,7 +980,7 @@ export default function SurveyPage() {
                              </div>
              )}
 
-                           {/* 단계 5: 설문 결과 확인 */}
+                           {/* 단계 5: 설문 완료 */}
               {currentStep === 5 && (
                 <div className="mb-8">
                   <h2 className="text-xl font-semibold text-gray-900 mb-4">
@@ -1001,12 +989,6 @@ export default function SurveyPage() {
                   <p className="text-gray-600 mb-6">
                     설문이 성공적으로 제출되었습니다.
                   </p>
-                 
-                  {/* SurveyResult 컴포넌트 표시 */}
-                  <SurveyResult 
-                    excelData={[]} 
-                    surveyResult={JSON.parse(localStorage.getItem('surveyResult') || '{}')}
-                  />
                 </div>
               )}
 

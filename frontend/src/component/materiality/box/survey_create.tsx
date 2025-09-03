@@ -623,11 +623,22 @@ const SurveyCreate: React.FC<SurveyCreateProps> = ({
         })()
       : surveyResult?.content_hash?.substring(0, 4) || '0000';
 
-  // 현재 문항수 표기
-  const currentQuestionCount =
-    displayCategoryCount ||
-    (assessmentResult?.data?.matched_categories || assessmentResult?.matched_categories || []).length ||
-    0;
+  // 현재 문항수 표기 (설문 생성 시점의 정보 사용)
+  const currentQuestionCount = (() => {
+    // 설문이 생성된 경우, 해당 설문의 categoryCount 사용
+    if (generatedSurveyId && surveyResult) {
+      const list = getSurveyList(companyId);
+      const activeSurvey = list.find(s => s.id === generatedSurveyId);
+      if (activeSurvey) {
+        return activeSurvey.categoryCount;
+      }
+    }
+    
+    // 설문이 생성되지 않은 경우, 현재 displayCategoryCount 또는 전체 카테고리 수 사용
+    return displayCategoryCount ||
+      (assessmentResult?.data?.matched_categories || assessmentResult?.matched_categories || []).length ||
+      0;
+  })();
 
   return (
     <div id="survey-create" className="bg-white rounded-xl shadow-lg p-6 mb-6">
