@@ -5,6 +5,98 @@ import { loadAssessmentResult } from '../load_assessment_result';
 import { fetchAllCategories } from '../fetch_all_categories';
 import { addNewCategory } from '../add_new_category';
 
+// 뉴스 데이터에서 추출된 카테고리를 기존 API와 연결하는 함수
+const connectWithExistingCategories = async (rawCategories: any[]) => {
+  try {
+    console.log('🔗 뉴스 카테고리를 기존 API와 연결 시작');
+    
+    // 1. 기존 카테고리 API에서 모든 카테고리 정보 가져오기
+    const gatewayUrl = 'https://gateway-production-4c8b.up.railway.app';
+    const response = await fetch(`${gatewayUrl}/api/v1/materiality-service/category/categories/all`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        include_base_issue_pools: true,
+        include_esg_classification: true
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API 호출 실패: ${response.status}`);
+    }
+
+    const apiData = await response.json();
+    if (!apiData.success) {
+      throw new Error(`API 응답 실패: ${apiData.message}`);
+    }
+
+    const existingCategories = apiData.categories || [];
+    console.log('🔍 기존 카테고리 수:', existingCategories.length);
+
+    // 2. 뉴스 카테고리와 기존 카테고리 매칭
+    const matchedCategories = [];
+    
+    for (const newsCategory of rawCategories) {
+      const categoryName = newsCategory.category;
+      
+      // 기존 카테고리에서 매칭되는 것 찾기
+      const matchedExisting = existingCategories.find((existing: any) => 
+        existing.category_name === categoryName
+      );
+
+      if (matchedExisting) {
+        // 매칭된 경우: 기존 카테고리 정보 사용
+        const connectedCategory = {
+          ...newsCategory, // 뉴스 데이터의 점수 정보 유지
+          esg_classification: matchedExisting.esg_classification?.esg || '미분류',
+          esg_classification_id: matchedExisting.esg_classification?.id,
+          base_issuepools: matchedExisting.base_issue_pools?.map((pool: any) => ({
+            id: pool.id,
+            base_issue_pool: pool.base_issue_pool,
+            issue_pool: pool.issue_pool,
+            ranking: pool.ranking,
+            esg_classification_id: matchedExisting.esg_classification?.id,
+            esg_classification_name: matchedExisting.esg_classification?.esg || '미분류'
+          })) || [],
+          total_issuepools: matchedExisting.base_issue_pools?.length || 0
+        };
+        
+        matchedCategories.push(connectedCategory);
+        console.log(`✅ 매칭 성공: ${categoryName} -> ESG: ${connectedCategory.esg_classification}, IssuePools: ${connectedCategory.total_issuepools}개`);
+      } else {
+        // 매칭되지 않은 경우: 기본값으로 설정
+        const defaultCategory = {
+          ...newsCategory, // 뉴스 데이터의 점수 정보 유지
+          esg_classification: '미분류',
+          esg_classification_id: null,
+          base_issuepools: [],
+          total_issuepools: 0
+        };
+        
+        matchedCategories.push(defaultCategory);
+        console.log(`⚠️ 매칭 실패: ${categoryName} -> 기본값 사용`);
+      }
+    }
+
+    console.log(`🔗 연결 완료: ${matchedCategories.length}개 카테고리 처리`);
+    return matchedCategories;
+
+  } catch (error) {
+    console.error('❌ 카테고리 연결 실패:', error);
+    
+    // 오류 발생 시 원본 카테고리 정보만 반환 (기본값으로)
+    return rawCategories.map(category => ({
+      ...category,
+      esg_classification: '미분류',
+      esg_classification_id: null,
+      base_issuepools: [],
+      total_issuepools: 0
+    }));
+  }
+};
+
 interface FirstAssessmentProps {
   companyId: string;
   searchResult: any;
@@ -331,25 +423,17 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
           )}
         </button>
         
-        <button
+        <button // 새로운 중대성 평가 시작 버튼 
+        id="start-materiality-assessment"
+          
           onClick={async () => {
-            // 1. 기존 데이터 비우기
-            setAssessmentResult(null);
-            setIssuepoolData(null);
-            console.log('🧹 기존 데이터 비우기 완료');
-            
-            // categories.length가 0이 되도록 빈 배열로 설정
-            setAssessmentResult({
-              matched_categories: []
-            });
-
-            // 2. 데이터 검증 강화
+            // 1. 데이터 검증 강화
             if (!searchResult?.data) {
               alert('먼저 미디어 검색을 완료해주세요.');
               return;
             }
 
-            // 3. articles 데이터 존재 여부 확인
+            // 2. articles 데이터 존재 여부 확인
             if (!searchResult.data.articles || searchResult.data.articles.length === 0) {
               alert('검색된 기사가 없습니다. 미디어 검색을 먼저 완료해주세요.');
               return;
@@ -412,8 +496,12 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                 console.log('🔍 사용할 응답 데이터:', responseData);
                 
                 // 매칭된 카테고리 정보 확인
-                const matchedCategories = responseData.matched_categories || [];
-                console.log('🔍 matched_categories:', matchedCategories);
+                const rawCategories = responseData.matched_categories || [];
+                console.log('🔍 원본 matched_categories:', rawCategories);
+                
+                // 뉴스 데이터에서 추출된 카테고리 정보를 기존 API와 연결
+                const matchedCategories = await connectWithExistingCategories(rawCategories);
+                console.log('🔍 연결된 matched_categories:', matchedCategories);
                 
                 if (matchedCategories && matchedCategories.length > 0) {
                   console.log('✅ 중대성 평가 완료 - 매칭된 카테고리:', matchedCategories);
@@ -882,17 +970,6 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                         : `총 ${categories.length}개 항목`
                       }
                     </div>
-                  </div>
-                );
-              } else {
-                // 카테고리가 없을 때 빈 화면 표시
-                return (
-                  <div className="text-center py-8">
-                    <div className="text-4xl text-gray-300 mb-4">📊</div>
-                    <h4 className="text-lg font-medium text-gray-900 mb-2">중대성 평가 결과 없음</h4>
-                    <p className="text-gray-500 text-sm">
-                      새로운 중대성 평가를 시작하면 여기에 결과가 표시됩니다.
-                    </p>
                   </div>
                 );
               }

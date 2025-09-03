@@ -764,14 +764,13 @@ async def start_assessment(request: MiddleIssueRequest) -> Dict[str, Any]:
         ranking_time = (datetime.now() - ranking_start).total_seconds()
         logger.info(f"⏱️ 카테고리 랭킹 완료: {ranking_time:.2f}초")
 
-        # 8) 카테고리별 ESG 분류 및 이슈풀 매칭 (배치 처리로 성능 향상)
+        # 8) 카테고리별 ESG 분류 및 이슈풀 매칭 생략 - 프론트엔드에서 처리
         matching_start = datetime.now()
-        logger.info("🔗 카테고리별 ESG 분류 및 이슈풀 매칭 시작 (배치 처리)")
-        matched_categories = await match_categories_with_esg_and_issuepool(
-            ranked_categories
-        )
+        logger.info("🔗 카테고리별 ESG 분류 및 이슈풀 매칭 생략 - 프론트엔드에서 처리")
+        # 기존 매칭 로직 제거하고 랭킹된 카테고리만 반환
+        matched_categories = ranked_categories
         matching_time = (datetime.now() - matching_start).total_seconds()
-        logger.info(f"⏱️ ESG/이슈풀 매칭 완료: {matching_time:.2f}초")
+        logger.info(f"⏱️ 카테고리 랭킹만 완료: {matching_time:.2f}초")
 
         # 9) 통계/로깅
         negative_count = sum(1 for a in labeled_articles if a["sentiment"] == "negative")
