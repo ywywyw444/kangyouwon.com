@@ -506,20 +506,8 @@ const FinalIssuepool: React.FC = () => {
       console.log('🔄 topN 파라미터 변경됨:', newTopN);
       setParams({ topN: newTopN });
       
-      // topN이 변경되면 기존 결과가 있다면 새로 계산
-      if (finalTop && finalTop.length > 0) {
-        console.log('🔄 topN 변경으로 인한 자동 재계산');
-        setTimeout(() => {
-          // 미디어 데이터와 설문 데이터가 모두 있는 경우에만 재계산
-          const { mediaRanked, surveyResponses } = useAssessmentStore.getState();
-          if (mediaRanked && mediaRanked.length > 0 && surveyResponses && surveyResponses.length > 0) {
-            console.log('🔄 topN 변경 자동 재계산 실행');
-            computeAll();
-          } else {
-            console.log('⚠️ topN 변경 자동 재계산 건너뜀 - 데이터 부족');
-          }
-        }, 100);
-      }
+      // 자동 재계산 제거 - 사용자가 "최종 이슈풀 계산하기" 버튼을 눌렀을 때만 계산
+      console.log('📝 topN 파라미터만 변경됨. "최종 이슈풀 계산하기" 버튼을 눌러서 결과를 확인하세요.');
     }
   };
 
@@ -543,19 +531,8 @@ const FinalIssuepool: React.FC = () => {
       gammaMedia: 0.4
     });
     
-    // 기존 결과가 있다면 새로 계산
-    if (finalTop && finalTop.length > 0) {
-      console.log('🔄 리셋 후 자동 재계산');
-      setTimeout(() => {
-        const { mediaRanked, surveyResponses } = useAssessmentStore.getState();
-        if (mediaRanked && mediaRanked.length > 0 && surveyResponses && surveyResponses.length > 0) {
-          console.log('🔄 리셋 후 자동 재계산 실행');
-          computeAll();
-        } else {
-          console.log('⚠️ 리셋 후 자동 재계산 건너뜀 - 데이터 부족');
-        }
-      }, 100);
-    }
+    // 자동 재계산 제거 - 사용자가 "최종 이슈풀 계산하기" 버튼을 눌렀을 때만 계산
+    console.log('📝 파라미터만 리셋됨. "최종 이슈풀 계산하기" 버튼을 눌러서 결과를 확인하세요.');
   };
 
   // 데이터가 숨겨진 상태일 때 표시
@@ -626,20 +603,8 @@ const FinalIssuepool: React.FC = () => {
           console.log('🔄 설문 가중치 변경됨:', next);
           setParams({ baseWeights: next });
           
-          // 가중치가 변경되면 기존 결과가 있다면 새로 계산
-          if (finalTop && finalTop.length > 0) {
-            console.log('🔄 가중치 변경으로 인한 자동 재계산');
-            setTimeout(() => {
-              // 미디어 데이터와 설문 데이터가 모두 있는 경우에만 재계산
-              const { mediaRanked, surveyResponses } = useAssessmentStore.getState();
-              if (mediaRanked && mediaRanked.length > 0 && surveyResponses && surveyResponses.length > 0) {
-                console.log('🔄 자동 재계산 실행');
-                computeAll();
-              } else {
-                console.log('⚠️ 자동 재계산 건너뜀 - 데이터 부족');
-              }
-            }, 100);
-          }
+          // 자동 재계산 제거 - 사용자가 "최종 이슈풀 계산하기" 버튼을 눌렀을 때만 계산
+          console.log('📝 설문 가중치만 변경됨. "최종 이슈풀 계산하기" 버튼을 눌러서 결과를 확인하세요.');
         }}
         onResetAll={resetAllToDefaults}
       />
@@ -657,6 +622,13 @@ const FinalIssuepool: React.FC = () => {
         >
           {isLoading ? "계산 중..." : "🎯 최종 이슈풀 계산하기"}
         </button>
+        
+        {/* 파라미터 변경 안내 메시지 */}
+        <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-sm text-yellow-800">
+            💡 <strong>안내:</strong> 파라미터를 조정한 후에는 "최종 이슈풀 계산하기" 버튼을 눌러서 새로운 결과를 확인하세요.
+          </p>
+        </div>
       </div>
 
       {/* Results */}

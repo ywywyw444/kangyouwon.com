@@ -17,6 +17,7 @@ import SurveyUpload from '@/component/materiality/box/survey_upload';
 import SurveyCreate from '@/component/materiality/box/survey_create';
 import SurveyManagement from '@/component/materiality/box/survey_send';
 import SurveyResult from '@/component/materiality/box/survey_result';
+import Finish from '@/component/materiality/box/finish';
 import { handleViewReport } from '@/component/materiality/handle_view_report';
 import { loadAssessmentResult } from '@/component/materiality/load_assessment_result';
 import { fetchAllCategories } from '@/component/materiality/fetch_all_categories';
@@ -119,6 +120,9 @@ export default function MaterialityHomePage() {
   const [newCategoryRank, setNewCategoryRank] = useState<string>('');
   const [newBaseIssuePool, setNewBaseIssuePool] = useState<string>('');
   
+  // 리셋 확인 모달 상태
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  
   // 세션 스토리지 관련 함수들
   const saveToSessionStorage = (key: string, data: any) => {
     if (typeof window === 'undefined') return;
@@ -156,7 +160,8 @@ export default function MaterialityHomePage() {
     'survey-upload',
     'survey-send',
     'survey-results',
-    'final-issuepool'
+    'final-issuepool',
+    'finish'
   ];
 
   // 현재 상태 저장 함수
@@ -241,6 +246,118 @@ export default function MaterialityHomePage() {
       }
     } catch (error) {
       console.error('❌ 상태 복원 실패:', error);
+    }
+  };
+
+  // 모든 데이터 리셋 함수
+  const resetAllData = () => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      // localStorage의 모든 중대성 평가 관련 데이터 삭제
+      const keysToRemove = [
+        // 기본 진행 상태 및 결과
+        'materialityProgressState',
+        'materialityAssessmentResult',
+        'surveyResult',
+        'excelUploadData',
+        'surveyUploadData',
+        'savedMediaSearch',
+        'hasUserActivity',
+        
+        // 설문 관련 데이터
+        'sentSurveyInfo',
+        'surveyStatsInfo',
+        'sentRecipients',
+        'surveyResponses',
+        'backendSurveyResponses',
+        'materialitySearchResult',
+        
+        // 동적으로 생성되는 설문 키들 (companyId 기반)
+        ...(companyId ? [
+          `surveyList_${companyId}`,
+          `surveyData_${companyId}`,
+          `selectedSurveyId_${companyId}`
+        ] : [])
+      ];
+      
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+      });
+      
+      // 동적으로 생성되는 키들도 삭제 (companyId가 없는 경우를 대비)
+      if (companyId) {
+        // 특정 companyId 기반 키들
+        const dynamicKeys = [
+          `surveyList_${companyId}`,
+          `surveyData_${companyId}`,
+          `selectedSurveyId_${companyId}`
+        ];
+        dynamicKeys.forEach(key => {
+          localStorage.removeItem(key);
+        });
+      }
+      
+      // 모든 surveyList_ 및 surveyData_ 키 삭제 (companyId 무관)
+      const allKeys = Object.keys(localStorage);
+      allKeys.forEach(key => {
+        if (key.startsWith('surveyList_') || 
+            key.startsWith('surveyData_') || 
+            key.startsWith('selectedSurveyId_')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // sessionStorage의 모든 중대성 평가 관련 데이터 삭제
+      const sessionKeysToRemove = [
+        'materiality_searchResult',
+        'materiality_previousAssessments',
+        'materiality_searchResultCollapsed',
+        'materiality_fullResultCollapsed',
+        'materiality_previousAssessmentsCollapsed'
+      ];
+      
+      sessionKeysToRemove.forEach(key => {
+        sessionStorage.removeItem(key);
+      });
+      
+      // Zustand store 초기화
+      reset(); // excelDataStore reset
+      resetMediaSearch(); // mediaStore reset
+      
+      // 컴포넌트 상태 초기화
+      setVisibleSection('media-search');
+      setCompletedSteps([]);
+      setMaxReachedStep('media-search');
+      setSearchResult(null);
+      setAssessmentResult({
+        matched_categories: [],
+        total_articles: 0,
+        negative_articles: 0,
+        negative_ratio: 0,
+        total_categories: 0
+      });
+      setSurveyResult(null);
+      setDisplayCategoryCount(0);
+      setIsDataHidden(true);
+      
+      // IndexBar에 상태 변경 이벤트 발생
+      const sectionChangeEvent = new CustomEvent('sectionChange', { 
+        detail: { 
+          sectionId: 'media-search',
+          completedSteps: [],
+          maxReachedStep: 'media-search'
+        } 
+      });
+      window.dispatchEvent(sectionChangeEvent);
+      
+      console.log('🔄 모든 데이터 리셋 완료');
+      console.log('🗑️ 삭제된 localStorage 키들:', keysToRemove);
+      alert('✅ 모든 데이터가 초기화되었습니다. 미디어 검색부터 다시 시작하세요.');
+      
+    } catch (error) {
+      console.error('❌ 데이터 리셋 실패:', error);
+      alert('❌ 데이터 리셋 중 오류가 발생했습니다.');
     }
   };
 
@@ -588,17 +705,25 @@ export default function MaterialityHomePage() {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h1 className="text-4xl font-bold text-gray-900">중대성 평가 자동화 플랫폼</h1>
-              <button
-                onClick={() => {
-                  // 현재 상태 저장
-                  saveCurrentState();
-                  // 다음 단계로 이동
-                  moveToNextStep();
-                }}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
-              >
-                다음 →
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setIsResetModalOpen(true)}
+                  className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+                >
+                  🔄 미디어 검색 다시하기
+                </button>
+                <button
+                  onClick={() => {
+                    // 현재 상태 저장
+                    saveCurrentState();
+                    // 다음 단계로 이동
+                    moveToNextStep();
+                  }}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+                >
+                  다음 →
+                </button>
+              </div>
             </div>
             <p className="text-lg text-gray-600">기업의 중대성 이슈를 자동으로 추천합니다</p>
           </div>
@@ -726,6 +851,11 @@ export default function MaterialityHomePage() {
           {/* 최종 이슈풀 확인하기 */}
           {visibleSection === 'final-issuepool' && (
             <FinalIssuepool />
+          )}
+
+          {/* 완료 섹션 */}
+          {visibleSection === 'finish' && (
+            <Finish />
           )}
   
           {/* 중대성 평가 상세 정보 모달 */}
@@ -1362,6 +1492,81 @@ export default function MaterialityHomePage() {
                       ✅ 카테고리 추가하기
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 리셋 확인 모달 */}
+          {isResetModalOpen && (
+            <div className="fixed inset-0 flex items-center justify-center z-50">
+              {/* 배경 오버레이 */}
+              <div className="absolute inset-0 bg-black bg-opacity-50" onClick={() => setIsResetModalOpen(false)}></div>
+              
+              {/* 모달 내용 */}
+              <div className="relative bg-white rounded-xl shadow-2xl max-w-md w-full mx-4">
+                {/* 모달 헤더 */}
+                <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                  <h3 className="text-xl font-bold text-gray-900">⚠️ 데이터 초기화 확인</h3>
+                  <button
+                    onClick={() => setIsResetModalOpen(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                {/* 모달 바디 */}
+                <div className="p-6">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-3xl">⚠️</span>
+                    </div>
+                    
+                    <h4 className="text-lg font-semibold text-gray-900 mb-3">
+                      모든 메모리가 삭제됩니다
+                    </h4>
+                    
+                    <p className="text-gray-600 mb-6 leading-relaxed">
+                      이 작업을 수행하면 다음 데이터가 <strong className="text-red-600">완전히 삭제</strong>됩니다:
+                    </p>
+                    
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-left">
+                      <ul className="text-sm text-red-700 space-y-1">
+                        <li>• 미디어 검색 결과</li>
+                        <li>• 중대성 평가 결과</li>
+                        <li>• 설문 생성 및 발송 데이터</li>
+                        <li>• 설문 결과 및 응답</li>
+                        <li>• 업로드된 엑셀 파일</li>
+                        <li>• 진행 상황 및 설정</li>
+                      </ul>
+                    </div>
+                    
+                    <p className="text-sm text-gray-500 mb-6">
+                      이 작업은 되돌릴 수 없습니다. 정말로 계속하시겠습니까?
+                    </p>
+                  </div>
+                </div>
+                
+                {/* 모달 푸터 */}
+                <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+                  <button
+                    onClick={() => setIsResetModalOpen(false)}
+                    className="px-6 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsResetModalOpen(false);
+                      resetAllData();
+                    }}
+                    className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors duration-200"
+                  >
+                    확인
+                  </button>
                 </div>
               </div>
             </div>

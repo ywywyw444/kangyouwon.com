@@ -16,6 +16,7 @@ const indexItems: IndexItem[] = [
   { id: 'survey-send', title: '설문 발송', icon: '📝' },
   { id: 'survey-results', title: '설문 결과 확인', icon: '📊' },
   { id: 'final-issuepool', title: '최종 이슈풀 확인하기', icon: '📋' },
+  { id: 'finish', title: '완료', icon: '🎉' },
 ];
 
 export default function IndexBar() {
