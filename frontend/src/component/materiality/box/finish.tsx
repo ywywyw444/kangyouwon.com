@@ -213,8 +213,8 @@ export default function Finish() {
                 </div>
               </div>
 
-              {/* 설문 결과 바로가기 버튼 */}
-              <div className="flex justify-center">
+              {/* 설문 관리 버튼들 */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
                   onClick={() => {
                     // 현재 페이지에서 설문 결과 섹션으로 이동
@@ -223,12 +223,79 @@ export default function Finish() {
                     });
                     window.dispatchEvent(sectionChangeEvent);
                   }}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl flex items-center"
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl flex items-center justify-center"
                 >
                   <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                   설문 결과 자세히 보기
+                </button>
+
+                <button
+                  onClick={async () => {
+                    if (!sentSurveyInfo?.surveyId) return;
+                    
+                    if (confirm('⚠️ 경고: 이 작업은 되돌릴 수 없습니다.\n\n설문 응답 데이터를 완전히 삭제하시겠습니까?')) {
+                      try {
+                        const response = await fetch(`/api/v1/materiality-service/surveys/${sentSurveyInfo.surveyId}/responses`, {
+                          method: 'DELETE'
+                        });
+
+                        if (response.ok) {
+                          // localStorage에서도 응답 데이터 삭제
+                          localStorage.removeItem('backendSurveyResponses');
+                          setSurveyResponses([]);
+                          alert('✅ 설문 응답 데이터가 성공적으로 삭제되었습니다.');
+                        } else {
+                          throw new Error(`응답 코드: ${response.status}`);
+                        }
+                      } catch (error) {
+                        console.error('설문 응답 삭제 실패:', error);
+                        alert(`❌ 설문 응답 삭제 중 오류가 발생했습니다.\n\n${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+                      }
+                    }
+                  }}
+                  className="px-6 py-3 bg-white hover:bg-red-50 text-red-600 font-semibold rounded-lg transition-all duration-200 border-2 border-red-200 hover:border-red-300 flex items-center justify-center"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  설문 응답 삭제
+                </button>
+
+                <button
+                  onClick={async () => {
+                    if (!sentSurveyInfo?.surveyId) return;
+                    
+                    if (confirm('⚠️ 경고: 이 작업은 되돌릴 수 없습니다.\n\n설문과 모든 응답 데이터를 완전히 삭제하시겠습니까?')) {
+                      try {
+                        const response = await fetch(`/api/v1/materiality-service/surveys/${sentSurveyInfo.surveyId}`, {
+                          method: 'DELETE'
+                        });
+
+                        if (response.ok) {
+                          // localStorage에서 관련 데이터 모두 삭제
+                          localStorage.removeItem('backendSurveyResponses');
+                          localStorage.removeItem('surveyResult');
+                          localStorage.removeItem('sentSurveyInfo');
+                          setSurveyResponses([]);
+                          setSentSurveyInfo(null);
+                          alert('✅ 설문과 응답 데이터가 성공적으로 삭제되었습니다.');
+                        } else {
+                          throw new Error(`응답 코드: ${response.status}`);
+                        }
+                      } catch (error) {
+                        console.error('설문 삭제 실패:', error);
+                        alert(`❌ 설문 삭제 중 오류가 발생했습니다.\n\n${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+                      }
+                    }
+                  }}
+                  className="px-6 py-3 bg-white hover:bg-red-50 text-red-600 font-semibold rounded-lg transition-all duration-200 border-2 border-red-200 hover:border-red-300 flex items-center justify-center"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  설문 삭제
                 </button>
               </div>
             </div>
