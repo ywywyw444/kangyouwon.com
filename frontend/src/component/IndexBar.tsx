@@ -118,7 +118,7 @@ export default function IndexBar() {
     // 기존 스크롤 기능 유지
     const element = document.getElementById(id);
     if (element) {
-      const navbarHeight = 144; // 네비게이션 바 + 인덱스 바 높이
+      const navbarHeight = 136; // 네비게이션 바 + 인덱스 바 높이 (조정됨)
       const additionalOffset = 20; // 추가 여유 공간
       const offset = element.offsetTop - navbarHeight - additionalOffset; // 네비게이션 바 높이와 여유 공간 고려
       window.scrollTo({
@@ -185,7 +185,7 @@ export default function IndexBar() {
       </div>
 
       {/* 새로운 스텝 진행률 네비게이션 */}
-      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-16 z-30">
+      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-14 z-30">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             {indexItems.map((item, index) => {

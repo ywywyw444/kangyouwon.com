@@ -342,8 +342,34 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     return `[${companyName}] 중대성 평가 설문`;
   }, [companyName]);
 
-  // 기본 메일 본문 템플릿 생성
+  // 기본 메일 본문 템플릿 생성 (편집용 - URL과 마감일 제외)
   const generateDefaultEmailBody = useMemo(() => {
+    return [
+      '{이름}님께,',
+      '',
+      '안녕하세요. ESG 중대성 평가 설문에 참여 부탁드립니다.',
+      '',
+      '• 설문 링크: [자동 삽입]',
+      '• 응답 마감: [자동 삽입]',
+      '',
+      '※ 메일을 전송받은 이메일로 응답하실 수 있습니다.',
+      '바쁘시겠지만 소중한 의견 부탁드립니다. 감사합니다.',
+    ].join('\n');
+  }, []);
+
+  // 사용자 정의 메일 본문 초기화 및 설문 링크 자동 업데이트
+  useEffect(() => {
+    if (!customEmailBody && generateDefaultEmailBody) {
+      setCustomEmailBody(generateDefaultEmailBody);
+    }
+  }, [generateDefaultEmailBody, customEmailBody]);
+
+
+
+  // 미리보기용 메일 본문 생성 (URL과 마감일 자동 삽입)
+  const generatePreviewEmailBody = useMemo(() => {
+    if (!customEmailBody) return '';
+    
     const deadlineText = deadline
       ? new Date(deadline).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
       : '미정';
@@ -358,71 +384,24 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       }
     }
     
-    return [
-      '{이름}님께,',
-      '',
-      '안녕하세요. ESG 중대성 평가 설문에 참여 부탁드립니다.',
-      '',
-      `• 설문 링크: ${currentSurveyUrl || '(미선택)'}`,
-      `• 응답 마감: ${deadlineText}`,
-      '',
-      '※ 메일을 전송받은 이메일로 응답하실 수 있습니다.',
-      '바쁘시겠지만 소중한 의견 부탁드립니다. 감사합니다.',
-    ].join('\n');
-  }, [deadline, surveyUrl, companyId]);
-
-  // 사용자 정의 메일 본문 초기화 및 설문 링크 자동 업데이트
-  useEffect(() => {
-    if (!customEmailBody && generateDefaultEmailBody) {
-      setCustomEmailBody(generateDefaultEmailBody);
-    }
-  }, [generateDefaultEmailBody, customEmailBody]);
-
-  // 설문 URL이나 마감일이 변경될 때 메일 본문의 해당 부분 자동 업데이트
-  useEffect(() => {
-    if (customEmailBody) {
-      let updatedBody = customEmailBody;
-      let hasChanges = false;
-      
-      // 설문 링크 업데이트
-      if (surveyUrl) {
-        const linkPattern = /• 설문 링크: .*/;
-        const newLinkLine = `• 설문 링크: ${surveyUrl}`;
-        
-        if (linkPattern.test(updatedBody)) {
-          updatedBody = updatedBody.replace(linkPattern, newLinkLine);
-          hasChanges = true;
-        }
-      }
-      
-      // 응답 마감일 업데이트
-      const deadlineText = deadline
-        ? new Date(deadline).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
-        : '미정';
-      
-      const deadlinePattern = /• 응답 마감: .*/;
-      const newDeadlineLine = `• 응답 마감: ${deadlineText}`;
-      
-      if (deadlinePattern.test(updatedBody)) {
-        updatedBody = updatedBody.replace(deadlinePattern, newDeadlineLine);
-        hasChanges = true;
-      }
-      
-      if (hasChanges && updatedBody !== customEmailBody) {
-        setCustomEmailBody(updatedBody);
-      }
-    }
-  }, [surveyUrl, deadline, customEmailBody]);
+    let previewBody = customEmailBody;
+    
+    // [자동 삽입] 부분을 실제 값으로 교체
+    previewBody = previewBody.replace('• 설문 링크: [자동 삽입]', `• 설문 링크: ${currentSurveyUrl || '(미선택)'}`);
+    previewBody = previewBody.replace('• 응답 마감: [자동 삽입]', `• 응답 마감: ${deadlineText}`);
+    
+    return previewBody;
+  }, [customEmailBody, deadline, surveyUrl, companyId]);
 
   // 메일 본문 미리보기 (첫 번째 수신자 기준)
   const emailBodyPreview = useMemo(() => {
-    if (!customEmailBody || validEmails.length === 0) return '';
+    if (!generatePreviewEmailBody || validEmails.length === 0) return '';
     
     const firstRecipient = excelData.find(row => row.email === validEmails[0]);
     const previewName = firstRecipient?.name || '담당자';
     
-    return customEmailBody.replace('{이름}', previewName);
-  }, [customEmailBody, validEmails, excelData]);
+    return generatePreviewEmailBody.replace('{이름}', previewName);
+  }, [generatePreviewEmailBody, validEmails, excelData]);
 
   const isSendReady = !!surveyUrl && validEmails.length > 0;
 
@@ -434,11 +413,11 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     }
     setIsLoading(true);
     try {
-      // 개인화된 메일 본문 생성 (사용자 정의 본문 사용)
+      // 개인화된 메일 본문 생성 (미리보기용 본문 사용)
       const personalizedEmails = validEmails.map(email => {
         const recipient = excelData.find(row => row.email === email);
         const recipientName = recipient?.name || '담당자';
-        const personalizedBody = customEmailBody.replace('{이름}', recipientName);
+        const personalizedBody = generatePreviewEmailBody.replace('{이름}', recipientName);
         
         return {
           email: email,
@@ -722,6 +701,57 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                   {renderSurveyVersionPicker()}
                 </div>
 
+                {/* 메일 본문 편집 및 미리보기 */}
+                <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
+                  <label className="block text-sm font-bold text-amber-900 mb-1">✉️ 메일 본문 편집</label>
+                  <div className="text-sm font-medium text-amber-800 mb-2">
+                    메일 본문을 수정할 수 있습니다. {`{이름}`}은 각 수신자 이름으로 자동 치환됩니다.
+                    <br />
+                    <span className="text-amber-700 font-semibold">※ "[자동 삽입]" 부분은 실제 URL과 마감일로 자동 교체됩니다.</span>
+                  </div>
+                  
+                  {/* 자동 업데이트되는 항목들 표시 */}
+                  <div className="mb-3 space-y-2">
+                    {/* 설문 링크 정보 */}
+                    <div className="p-2 bg-blue-50 border border-blue-200 rounded">
+                      <div className="text-xs text-blue-800 font-medium mb-1">🔗 "[자동 삽입]" → 실제 설문 링크:</div>
+                      <div className="text-xs font-mono text-blue-700 break-all bg-white p-2 rounded border">
+                        {surveyUrl || '(설문을 선택해주세요)'}
+                      </div>
+                    </div>
+                    
+                    {/* 응답 마감일 정보 */}
+                    <div className="p-2 bg-green-50 border border-green-200 rounded">
+                      <div className="text-xs text-green-800 font-medium mb-1">📅 "[자동 삽입]" → 실제 응답 마감일:</div>
+                      <div className="text-xs font-mono text-green-700 bg-white p-2 rounded border">
+                        {deadline 
+                          ? new Date(deadline).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
+                          : '미정'
+                        }
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <textarea 
+                    value={customEmailBody}
+                    onChange={(e) => setCustomEmailBody(e.target.value)}
+                    className="w-full h-40 text-sm font-medium text-gray-900 bg-white border-2 border-amber-300 rounded p-3 leading-relaxed resize-y"
+                    placeholder="메일 본문을 입력하세요..."
+                  />
+                  
+                  {/* 미리보기 섹션 */}
+                  {validEmails.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-amber-300">
+                      <div className="text-sm font-medium text-amber-800 mb-2">
+                        📋 미리보기 (첫 번째 수신자: {excelData.find(row => row.email === validEmails[0])?.name || '담당자'})
+                      </div>
+                      <div className="bg-white border border-amber-300 rounded p-3 text-sm text-gray-700 whitespace-pre-wrap max-h-32 overflow-y-auto">
+                        {emailBodyPreview}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* 선택된 설문 URL */}
                 {surveyUrl && (
                   <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
@@ -762,57 +792,6 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                   <div className="bg-white border-2 border-blue-300 rounded p-3">
                     <div className="text-sm font-bold text-gray-900">{emailSubject}</div>
                   </div>
-                </div>
-
-                {/* 메일 본문 편집 및 미리보기 */}
-                <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
-                  <label className="block text-sm font-bold text-amber-900 mb-1">✉️ 메일 본문 편집</label>
-                  <div className="text-sm font-medium text-amber-800 mb-2">
-                    메일 본문을 수정할 수 있습니다. {`{이름}`}은 각 수신자 이름으로 자동 치환됩니다.
-                    <br />
-                    <span className="text-amber-700 font-semibold">※ 아래 두 항목은 자동으로 업데이트되며 편집할 수 없습니다.</span>
-                  </div>
-                  
-                  {/* 자동 업데이트되는 항목들 표시 */}
-                  <div className="mb-3 space-y-2">
-                    {/* 설문 링크 정보 */}
-                    <div className="p-2 bg-blue-50 border border-blue-200 rounded">
-                      <div className="text-xs text-blue-800 font-medium mb-1">🔗 자동 포함될 설문 링크:</div>
-                      <div className="text-xs font-mono text-blue-700 break-all bg-white p-2 rounded border">
-                        {surveyUrl || '(설문을 선택해주세요)'}
-                      </div>
-                    </div>
-                    
-                    {/* 응답 마감일 정보 */}
-                    <div className="p-2 bg-green-50 border border-green-200 rounded">
-                      <div className="text-xs text-green-800 font-medium mb-1">📅 자동 포함될 응답 마감일:</div>
-                      <div className="text-xs font-mono text-green-700 bg-white p-2 rounded border">
-                        {deadline 
-                          ? new Date(deadline).toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })
-                          : '미정'
-                        }
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <textarea 
-                    value={customEmailBody}
-                    onChange={(e) => setCustomEmailBody(e.target.value)}
-                    className="w-full h-40 text-sm font-medium text-gray-900 bg-white border-2 border-amber-300 rounded p-3 leading-relaxed resize-y"
-                    placeholder="메일 본문을 입력하세요..."
-                  />
-                  
-                  {/* 미리보기 섹션 */}
-                  {validEmails.length > 0 && (
-                    <div className="mt-3 pt-3 border-t border-amber-300">
-                      <div className="text-sm font-medium text-amber-800 mb-2">
-                        📋 미리보기 (첫 번째 수신자: {excelData.find(row => row.email === validEmails[0])?.name || '담당자'})
-                      </div>
-                      <div className="bg-white border border-amber-300 rounded p-3 text-sm text-gray-700 whitespace-pre-wrap max-h-32 overflow-y-auto">
-                        {emailBodyPreview}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
