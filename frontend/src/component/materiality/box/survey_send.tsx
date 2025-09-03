@@ -534,17 +534,30 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       const updatedSentRecipients = [...existingSentRecipients, ...newRecipients];
       localStorage.setItem('sentRecipients', JSON.stringify(updatedSentRecipients));
       
+      // 발송된 대상자들을 설문 대상자 목록에서 제거
+      const remainingRecipients = excelData.filter((row: any) => 
+        !validEmails.includes(row.email)
+      );
+      localStorage.setItem('excelData', JSON.stringify(remainingRecipients));
+      
       console.log('💾 발송 완료 명단 저장:', {
         기존: existingSentRecipients.length,
         새로추가: newRecipients.length,
         총합: updatedSentRecipients.length
+      });
+      
+      console.log('🔄 설문 대상자 목록 업데이트:', {
+        발송전: excelData.length,
+        발송된수: validEmails.length,
+        남은수: remainingRecipients.length
       });
 
       // 설문 발송 완료 이벤트 발생
       const surveySentEvent = new CustomEvent('surveySent', {
         detail: {
           sentEmails: validEmails,
-          excelData: excelData,
+          excelData: remainingRecipients, // 업데이트된 설문 대상자 목록
+          originalExcelData: excelData, // 원본 데이터 (참고용)
           surveyUrl: surveyUrl,
           companyId: companyId,
           sentSurveyInfo: sentSurveyInfo,
@@ -621,6 +634,28 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                 setSurveyUrl(url);
                 setSelectedId(companyId, survey.id); // ✅ 회사별 선택 반영(+전역키 동기화)
                 markActiveSurvey(companyId, survey.id); // ✅ 활성 플래그 갱신
+                
+                // survey_result.tsx에서 사용할 수 있도록 설문 결과 정보 업데이트
+                const updatedSurveyResult = {
+                  survey_id: survey.id,
+                  content_hash: survey.contentHash,
+                  created_at: survey.timestamp,
+                  categoryCount: survey.categoryCount,
+                  isActive: true
+                };
+                
+                // localStorage에 저장하여 survey_result.tsx에서 사용할 수 있도록 함
+                localStorage.setItem('surveyResult', JSON.stringify(updatedSurveyResult));
+                console.log('🔄 설문 결과 정보 업데이트:', updatedSurveyResult);
+                
+                // survey_result.tsx에 변경 알림을 위한 커스텀 이벤트 발생
+                const surveySelectedEvent = new CustomEvent('surveySelected', {
+                  detail: {
+                    surveyId: survey.id,
+                    surveyResult: updatedSurveyResult
+                  }
+                });
+                window.dispatchEvent(surveySelectedEvent);
               }}
               className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                 isSelected ? 'bg-blue-100 border-blue-300' : 'bg-white border-gray-200 hover:bg-blue-50'
@@ -631,7 +666,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                   <input type="radio" checked={isSelected} onChange={() => {}} className="text-blue-600" />
                   <div>
                     <div className="text-sm font-medium text-gray-900">
-                      {survey.isActive ? `${currentQuestionCount}개 문항` : `${survey.categoryCount}개 문항`}
+                      {survey.categoryCount}개 문항
                     </div>
                     <div className="text-xs text-gray-500">
                       {new Date(survey.timestamp).toLocaleDateString('ko-KR', {

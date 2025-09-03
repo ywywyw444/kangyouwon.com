@@ -91,13 +91,32 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     loadSentSurveyInfo();
     checkSurveyResult();
     
+    // survey_send.tsx에서 설문 선택 시 발생하는 이벤트 리스너
+    const handleSurveySelected = (event: CustomEvent) => {
+      console.log('🔄 설문 선택 이벤트 감지:', event.detail);
+      const { surveyId, surveyResult } = event.detail;
+      
+      // 설문 결과 정보 업데이트
+      if (surveyResult) {
+        // surveyResult prop이 업데이트되도록 강제 리렌더링 트리거
+        setIsDataHidden(false);
+        console.log('📊 설문 선택으로 인한 결과 정보 업데이트:', surveyResult);
+      }
+    };
+    
+    // 이벤트 리스너 등록
+    window.addEventListener('surveySelected', handleSurveySelected as EventListener);
+    
     // 주기적으로 발송된 설문 정보 및 설문 결과 확인 (5초마다) - 주석처리
     // const intervalId = setInterval(() => {
     //   loadSentSurveyInfo();
     //   checkSurveyResult();
     // }, 5000);
     
-    // return () => clearInterval(intervalId);
+    return () => {
+      window.removeEventListener('surveySelected', handleSurveySelected as EventListener);
+      // clearInterval(intervalId);
+    };
   }, []);
 
   // 백엔드에서 설문 응답 데이터 로드 (동일한 내용의 설문들 포함) - 전체 주석처리
@@ -189,11 +208,24 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     // 브라우저 환경이 아니면 빈 통계 반환
     if (typeof window === 'undefined') return null;
 
+    // 현재 선택된 설문 ID 가져오기 (localStorage에서 실시간으로)
+    let currentSurveyId = null;
+    try {
+      const surveyResultData = localStorage.getItem('surveyResult');
+      if (surveyResultData) {
+        const parsed = JSON.parse(surveyResultData);
+        currentSurveyId = parsed.survey_id;
+      }
+    } catch (error) {
+      console.error('설문 결과 파싱 실패:', error);
+    }
+
     // 발송된 설문 정보 사용 (상태로 관리되는 정보)
     const sentSurveyId = sentSurveyInfo?.surveyId;
     const sentSurveyUrl = sentSurveyInfo?.surveyUrl;
     
-    console.log('🔍 통계 계산 시작 (발송된 설문 기준):', {
+    console.log('🔍 통계 계산 시작 (현재 선택된 설문 기준):', {
+      currentSurveyId,
       sentSurveyId,
       sentSurveyUrl,
       sentSurveyInfo,
@@ -203,12 +235,17 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       allBackendResponses: backendResponses
     });
     
-    // 발송된 설문의 응답만 필터링 (발송된 설문이 없으면 전체 응답 사용)
-    const filteredResponses = sentSurveyId 
-      ? backendResponses.filter(response => response.survey_id === sentSurveyId)
+    // 현재 선택된 설문 ID를 우선적으로 사용, 없으면 발송된 설문 ID 사용
+    const targetSurveyId = currentSurveyId || sentSurveyId;
+    
+    // 선택된 설문의 응답만 필터링 (선택된 설문이 없으면 전체 응답 사용)
+    const filteredResponses = targetSurveyId 
+      ? backendResponses.filter(response => response.survey_id === targetSurveyId)
       : backendResponses;
     
     console.log('🔍 필터링된 응답:', {
+      targetSurveyId,
+      currentSurveyId,
       sentSurveyId,
       filteredResponsesLength: filteredResponses.length,
       filteredResponses: filteredResponses
@@ -358,8 +395,19 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
 
   // 설문 응답 데이터 수동 로드 함수
   const loadSurveyResponses = async () => {
-    // 발송된 설문 ID를 우선적으로 사용
-    const targetSurveyId = sentSurveyInfo?.surveyId || surveyResult?.survey_id;
+    // 현재 선택된 설문 ID를 우선적으로 사용
+    let currentSurveyId = null;
+    try {
+      const surveyResultData = localStorage.getItem('surveyResult');
+      if (surveyResultData) {
+        const parsed = JSON.parse(surveyResultData);
+        currentSurveyId = parsed.survey_id;
+      }
+    } catch (error) {
+      console.error('설문 결과 파싱 실패:', error);
+    }
+    
+    const targetSurveyId = currentSurveyId || sentSurveyInfo?.surveyId || surveyResult?.survey_id;
     
     if (!targetSurveyId) {
       alert('❌ 설문 ID가 없습니다.');
@@ -370,6 +418,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       setLoading(true);
       console.log('🔍 설문 응답 데이터 수동 로드 시작:', {
         targetSurveyId,
+        currentSurveyId,
         sentSurveyId: sentSurveyInfo?.surveyId,
         surveyResultId: surveyResult?.survey_id
       });
@@ -561,12 +610,39 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">설문 ID:</span>
                  <span className="text-gray-900">
-                   {sentSurveyInfo?.surveyId || surveyResult?.survey_id || '없음'}
-                   {sentSurveyInfo?.surveyId && sentSurveyInfo.surveyId !== surveyResult?.survey_id && (
-                     <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
-                       발송된 설문
-                     </span>
-                   )}
+                   {(() => {
+                     // 현재 선택된 설문 ID를 우선적으로 표시
+                     let currentSurveyId = null;
+                     try {
+                       const surveyResultData = localStorage.getItem('surveyResult');
+                       if (surveyResultData) {
+                         const parsed = JSON.parse(surveyResultData);
+                         currentSurveyId = parsed.survey_id;
+                       }
+                     } catch (error) {
+                       console.error('설문 결과 파싱 실패:', error);
+                     }
+                     
+                     const displayId = currentSurveyId || sentSurveyInfo?.surveyId || surveyResult?.survey_id || '없음';
+                     const isSentSurvey = sentSurveyInfo?.surveyId && sentSurveyInfo.surveyId === displayId;
+                     const isCurrentSelected = currentSurveyId && currentSurveyId === displayId;
+                     
+                     return (
+                       <>
+                         {displayId}
+                         {isSentSurvey && (
+                           <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                             발송된 설문
+                           </span>
+                         )}
+                         {isCurrentSelected && !isSentSurvey && (
+                           <span className="ml-2 text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
+                             현재 선택
+                           </span>
+                         )}
+                       </>
+                     );
+                   })()}
                  </span>
                </div>
                <div className="flex items-center">
