@@ -503,41 +503,59 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                 const matchedCategories = await connectWithExistingCategories(rawCategories);
                 console.log('🔍 연결된 matched_categories:', matchedCategories);
                 
-                if (matchedCategories && matchedCategories.length > 0) {
-                  console.log('✅ 중대성 평가 완료 - 매칭된 카테고리:', matchedCategories);
+                // 미분류 카테고리 제외
+                const filteredCategories = matchedCategories.filter(category => 
+                  category.category !== '미분류' && 
+                  category.esg_classification !== '미분류'
+                );
+                console.log('🔍 미분류 제외 후 카테고리:', filteredCategories);
+                
+                if (filteredCategories && filteredCategories.length > 0) {
+                  console.log('✅ 중대성 평가 완료 - 필터링된 카테고리:', filteredCategories);
                   
-                  // 5. 통일된 데이터 구조로 상태 저장
-                  setAssessmentResult(responseData);
-                  console.log('🔍 assessmentResult 상태 설정:', responseData);
+                  // 5. 통일된 데이터 구조로 상태 저장 (필터링된 카테고리 사용)
+                  const filteredResponseData = {
+                    ...responseData,
+                    matched_categories: filteredCategories
+                  };
+                  setAssessmentResult(filteredResponseData);
+                  console.log('🔍 assessmentResult 상태 설정 (미분류 제외):', filteredResponseData);
                   
-                  // localStorage에 자동 저장
+                  // localStorage에 자동 저장 (필터링된 카테고리 사용)
                   try {
                     const dataToSave = {
                       assessment_result: {
                         company_id: searchResult.data.company_id,
                         search_period: searchResult.data.search_period,
-                        matched_categories: matchedCategories
+                        matched_categories: filteredCategories
                       },
                       company_id: searchResult.data.company_id,
                       timestamp: new Date().toISOString(),
-                      total_categories: matchedCategories.length,
+                      total_categories: filteredCategories.length,
                       categories_with_base_issue_pool: 0,
                       display_category_count: displayCategoryCount
                     };
                     if (typeof window !== 'undefined') {
                       localStorage.setItem('materialityAssessmentResult', JSON.stringify(dataToSave));
                     }
-                    console.log('💾 중대성 평가 결과 자동 저장 완료');
+                    console.log('💾 중대성 평가 결과 자동 저장 완료 (미분류 제외)');
                   } catch (storageError) {
                     console.error('❌ 자동 저장 실패:', storageError);
                   }
                   
                   // 간단한 완료 메시지만 표시
-                  alert('✅ 중간 중대성 평가 완료');
+                  alert(`✅ 중간 중대성 평가 완료\n\n📊 유효한 카테고리: ${filteredCategories.length}개\n🚫 미분류 제외: ${matchedCategories.length - filteredCategories.length}개`);
                 } else {
-                  console.log('⚠️ matched_categories가 비어있음');
+                  console.log('⚠️ 필터링 후 유효한 카테고리가 없음');
+                  console.log(`🔍 원본 카테고리 수: ${matchedCategories.length}개`);
+                  console.log(`🔍 미분류 제외 후: ${filteredCategories.length}개`);
+                  
                   // 6. 빈 결과도 상태에 저장하여 UI에서 처리할 수 있도록 함
-                  setAssessmentResult(responseData);
+                  const emptyResponseData = {
+                    ...responseData,
+                    matched_categories: []
+                  };
+                  setAssessmentResult(emptyResponseData);
                   
                   // 빈 결과도 localStorage에 자동 저장
                   try {
@@ -561,7 +579,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                     console.error('❌ 빈 결과 자동 저장 실패:', storageError);
                   }
                   
-                  alert('✅ 중간 중대성 평가 완료\n\n매칭된 카테고리가 없습니다.');
+                  alert(`✅ 중간 중대성 평가 완료\n\n📊 원본 카테고리: ${matchedCategories.length}개\n🚫 미분류 제외: ${matchedCategories.length}개\n\n유효한 카테고리가 없습니다.`);
                 }
               } else {
                 console.log('❌ 응답 실패:', response.data);
