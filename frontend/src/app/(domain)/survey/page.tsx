@@ -35,11 +35,10 @@ interface SurveyData {
 export default function SurveyPage() {
   // 응답자 정보
   const [respondentType, setRespondentType] = useState<string>('');
+  const [internalPosition, setInternalPosition] = useState<string>(''); // 임직원 세부 직급
   const [participantInfo, setParticipantInfo] = useState({
     name: '',
-    company: '',
-    position: '',
-    email: ''
+    company: ''
   });
   
   // 현재 단계
@@ -213,13 +212,18 @@ export default function SurveyPage() {
     // 현재 단계에 따른 유효성 검사
     if (currentStep === 0) {
       // 응답자 정보 입력 단계 (설문 링크로 접근한 경우)
-      if (!participantInfo.name || !participantInfo.company || !participantInfo.position || !participantInfo.email) {
-        alert('참여자 정보를 모두 입력해주세요.');
+      if (!participantInfo.name || !participantInfo.company) {
+        alert('이름과 소속을 모두 입력해주세요.');
         return;
       }
     } else if (currentStep === 1) {
       if (!respondentType) {
         alert('응답자 정보를 선택해주세요.');
+        return;
+      }
+      // 임직원인 경우 세부 직급도 선택해야 함
+      if (respondentType === '임직원' && !internalPosition) {
+        alert('임직원의 경우 직급을 선택해주세요.');
         return;
       }
     } else if (currentStep === 2) {
@@ -281,10 +285,17 @@ export default function SurveyPage() {
         }))
       ];
 
+      // 내부/외부 관계자 분류
+      const isInternal = respondentType === '임직원';
+      const finalPosition = isInternal ? internalPosition : respondentType;
+
       // 설문 결과 데이터 생성
       const surveyResult: any = {
         corporation_id: surveyData?.corporation_id,
         respondent_type: respondentType,
+        internal_position: internalPosition, // 임직원 세부 직급
+        is_internal: isInternal, // 내부/외부 관계자 구분
+        final_position: finalPosition, // 최종 분류된 직급/소속
         timestamp: new Date().toISOString(),
         total_items: allResponses.length,
         responses: allResponses,
@@ -294,18 +305,15 @@ export default function SurveyPage() {
       // 설문 링크로 접근한 경우 응답자 정보 포함
       if (surveyId && participantInfo.name) {
         try {
-          // 이메일 주소 유효성 검사
-          if (!participantInfo.email || !participantInfo.email.includes('@')) {
-            alert('❌ 유효한 이메일 주소를 입력해주세요.');
-            return;
-          }
-
           // 백엔드로 설문 응답 전송
           const responseRequest = {
             survey_id: surveyId,
             participant: {
               ...participantInfo,
-              email: participantInfo.email.toLowerCase().trim() // 이메일 소문자 변환 및 공백 제거
+              email: `${participantInfo.name}@${participantInfo.company}.com`, // 임시 이메일 생성
+              position: finalPosition, // 최종 분류된 직급/소속
+              is_internal: isInternal, // 내부/외부 관계자 구분
+              internal_position: internalPosition // 임직원 세부 직급
             },
             responses: allResponses,
             corporation_id: surveyData?.corporation_id || '1' // 설문 데이터에서 가져온 corporation_id 사용
@@ -333,7 +341,7 @@ export default function SurveyPage() {
               
               // 이메일 중복 응답 에러 처리
               if (errorData.detail && errorData.detail.includes('이미')) {
-                alert(`⚠️ 이미 이 설문에 응답하셨습니다.\n\n이메일: ${participantInfo.email}\n\n같은 이메일 주소로는 한 번만 응답할 수 있습니다.`);
+                alert(`⚠️ 이미 이 설문에 응답하셨습니다.\n\n참여자: ${participantInfo.name} (${participantInfo.company})\n\n다른 이름이나 소속으로 다시 시도해주세요.`);
               } else {
                 alert(`⚠️ ${errorData.detail}`);
               }
@@ -523,7 +531,7 @@ export default function SurveyPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-bold text-gray-900 mb-2">회사 *</label>
+                      <label className="block text-sm font-bold text-gray-900 mb-2">소속 *</label>
                       <input
                         type="text"
                         value={participantInfo.company}
@@ -531,30 +539,6 @@ export default function SurveyPage() {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="회사명을 입력하세요"
                       />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-900 mb-2">직책 *</label>
-                      <input
-                        type="text"
-                        value={participantInfo.position}
-                        onChange={(e) => setParticipantInfo(prev => ({ ...prev, position: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="직책을 입력하세요"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-900 mb-2">이메일 *</label>
-                      <input
-                        type="email"
-                        value={participantInfo.email}
-                        onChange={(e) => setParticipantInfo(prev => ({ ...prev, email: e.target.value }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="이메일을 입력하세요"
-                        required
-                      />
-                      <p className="text-xs text-gray-600 mt-1 font-medium">
-                        💡 같은 이메일 주소로는 한 번만 응답할 수 있습니다.
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -589,7 +573,13 @@ export default function SurveyPage() {
                             name="respondentType"
                             value={type}
                             checked={respondentType === type}
-                            onChange={(e) => setRespondentType(e.target.value)}
+                            onChange={(e) => {
+                              setRespondentType(e.target.value);
+                              // 임직원이 아닌 경우 세부 직급 초기화
+                              if (e.target.value !== '임직원') {
+                                setInternalPosition('');
+                              }
+                            }}
                             className="text-blue-600 focus:ring-blue-500"
                             required
                           />
@@ -598,6 +588,97 @@ export default function SurveyPage() {
                       ))}
                     </div>
                   </div>
+
+                  {/* 임직원 세부 직급 선택 */}
+                  {respondentType === '임직원' && (
+                    <div className="mb-8 p-6 bg-blue-50 rounded-lg border border-blue-200">
+                      <h3 className="text-lg font-semibold text-blue-800 mb-4">
+                        직급을 선택해 주시기 바랍니다.
+                        <span className="text-red-500 ml-1">*</span>
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* 임원 */}
+                        <div className="bg-white p-4 rounded-lg border border-blue-200">
+                          <h4 className="font-semibold text-gray-800 mb-3">임원 (Executives)</h4>
+                          <div className="space-y-2">
+                            {['경영진', 'CEO', '사장', '부사장', '전무', '상무', '이사', '본부장'].map((position) => (
+                              <label key={position} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                <input
+                                  type="radio"
+                                  name="internalPosition"
+                                  value="임원"
+                                  checked={internalPosition === '임원'}
+                                  onChange={(e) => setInternalPosition(e.target.value)}
+                                  className="text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">{position}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 중간관리자 */}
+                        <div className="bg-white p-4 rounded-lg border border-blue-200">
+                          <h4 className="font-semibold text-gray-800 mb-3">중간관리자 (Middle Managers)</h4>
+                          <div className="space-y-2">
+                            {['부장', '차장', '팀장', '부서장'].map((position) => (
+                              <label key={position} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                <input
+                                  type="radio"
+                                  name="internalPosition"
+                                  value="중간관리자"
+                                  checked={internalPosition === '중간관리자'}
+                                  onChange={(e) => setInternalPosition(e.target.value)}
+                                  className="text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">{position}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 실무리더 */}
+                        <div className="bg-white p-4 rounded-lg border border-blue-200">
+                          <h4 className="font-semibold text-gray-800 mb-3">실무리더 (Working-level Leaders)</h4>
+                          <div className="space-y-2">
+                            {['과장', '대리'].map((position) => (
+                              <label key={position} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                <input
+                                  type="radio"
+                                  name="internalPosition"
+                                  value="실무리더"
+                                  checked={internalPosition === '실무리더'}
+                                  onChange={(e) => setInternalPosition(e.target.value)}
+                                  className="text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">{position}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* 주니어 */}
+                        <div className="bg-white p-4 rounded-lg border border-blue-200">
+                          <h4 className="font-semibold text-gray-800 mb-3">주니어 (Juniors)</h4>
+                          <div className="space-y-2">
+                            {['사원', '인턴'].map((position) => (
+                              <label key={position} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                <input
+                                  type="radio"
+                                  name="internalPosition"
+                                  value="주니어"
+                                  checked={internalPosition === '주니어'}
+                                  onChange={(e) => setInternalPosition(e.target.value)}
+                                  className="text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-sm text-gray-700">{position}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* 안내 문구 */}
                   <div className="mb-8 p-6 bg-blue-50 rounded-lg border border-blue-200">
@@ -919,76 +1000,13 @@ export default function SurveyPage() {
                   </h2>
                   <p className="text-gray-600 mb-6">
                     설문이 성공적으로 제출되었습니다.
-                    {surveyId && (
-                      <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                        <p className="text-sm text-green-800">
-                          💡 <strong>이 설문 링크는 다른 사람들과 공유하여 추가 응답을 받을 수 있습니다.</strong>
-                        </p>
-                        <p className="text-xs text-green-700 mt-2">
-                          • 같은 이메일 주소로는 한 번만 응답 가능합니다.<br/>
-                          • 다른 사람이 참여하려면 다른 이메일 주소를 사용해야 합니다.
-                        </p>
-                      </div>
-                    )}
                   </p>
                  
-
-                 
-                                   {/* SurveyResult 컴포넌트 표시 */}
+                  {/* SurveyResult 컴포넌트 표시 */}
                   <SurveyResult 
                     excelData={[]} 
                     surveyResult={JSON.parse(localStorage.getItem('surveyResult') || '{}')}
                   />
-                  
-                  {/* 설문 링크로 접근한 경우 재시작 옵션 */}
-                  {surveyId && (
-                    <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      <h3 className="text-lg font-semibold text-blue-800 mb-2">
-                        🔄 설문 재시작
-                      </h3>
-                      <p className="text-blue-700 text-sm mb-3">
-                        다른 사람이 이 설문에 참여할 수 있도록 설문을 다시 시작할 수 있습니다.
-                      </p>
-                      <button
-                        onClick={() => {
-                          if (confirm('설문을 다시 시작하시겠습니까?\n\n이전 응답 데이터는 모두 초기화됩니다.')) {
-                            // 설문 상태 초기화
-                            setCurrentStep(0); // 응답자 정보 입력 단계로 돌아가기
-                            setParticipantInfo({
-                              name: '',
-                              company: '',
-                              position: '',
-                              email: ''
-                            });
-                            setRespondentType('');
-                            
-                            // 응답 데이터 초기화
-                            setEnvironmentalItems(prev => 
-                              prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
-                            );
-                            setSocialItems(prev => 
-                              prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
-                            );
-                            setGovernanceItems(prev => 
-                              prev.map(item => ({ ...item, outsideScore: null, insideScore: null }))
-                            );
-                            
-                            // localStorage에서 이전 설문 결과 제거
-                            localStorage.removeItem('surveyResult');
-                            
-                            console.log('🔄 설문 재시작 - 모든 데이터 초기화 완료');
-                            alert('✅ 설문이 다시 시작되었습니다.\n\n새로운 응답자 정보를 입력해주세요.');
-                          }
-                        }}
-                        className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
-                      >
-                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        설문 다시 시작
-                      </button>
-                    </div>
-                  )}
                 </div>
               )}
 

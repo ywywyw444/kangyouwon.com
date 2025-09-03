@@ -265,7 +265,7 @@ const FinalIssuepool: React.FC = () => {
           const surveyResponses: SurveyResponse[] = responses.map((response: any) => ({
             respondentId:
               response.participant?.email || response.participant_id || `respondent_${Date.now()}_${Math.random()}`,
-            group: mapPositionToGroup(response.participant?.position || "기타"),
+            group: mapPositionToGroup(response),
             understanding: 3, // Default understanding level
             answers: (response.responses || []).reduce((acc: any, resp: any) => {
               acc[resp.category] = {
@@ -304,7 +304,7 @@ const FinalIssuepool: React.FC = () => {
             const surveyResponses: SurveyResponse[] = responses.map((response: any) => ({
               respondentId:
                 response.participant?.email || response.participant_id || `respondent_${Date.now()}_${Math.random()}`,
-              group: mapPositionToGroup(response.participant?.position || "기타"),
+              group: mapPositionToGroup(response),
               understanding: 3, // Default understanding level
               answers: (response.responses || []).reduce((acc: any, resp: any) => {
                 acc[resp.category] = {
@@ -376,8 +376,35 @@ const FinalIssuepool: React.FC = () => {
   //   return () => clearInterval(intervalId);
   // }, [setSurveyResponses]);
 
-  // Map position to group
-  const mapPositionToGroup = (position: string): GroupId => {
+  // Map position to group (새로운 분류 시스템 사용)
+  const mapPositionToGroup = (response: any): GroupId => {
+    // 새로운 분류 시스템이 있는 경우 우선 사용
+    if (response.participant?.is_internal !== undefined) {
+      if (response.participant.is_internal) {
+        // 내부 관계자 (임직원)
+        const internalPosition = response.participant.internal_position || response.participant.position;
+        if (internalPosition === '임원') return "임원";
+        if (internalPosition === '중간관리자') return "중간관리자";
+        if (internalPosition === '실무리더') return "실무리더";
+        if (internalPosition === '주니어') return "주니어";
+        return "기타";
+      } else {
+        // 외부 관계자
+        const externalType = response.participant.position || response.participant.respondent_type;
+        if (externalType === '고객') return "고객";
+        if (externalType === '정부/자자체/유관기관') return "정부/자자체/유관기관";
+        if (externalType === '지역사회') return "지역사회";
+        if (externalType === '협력회사') return "협력회사";
+        if (externalType === '전문가/전문기관(대학, 연구소)') return "전문가/전문기관";
+        if (externalType === '투자자/투자기관') return "투자자/투자기관";
+        if (externalType === '주주') return "주주";
+        if (externalType === '언론/미디어') return "언론/미디어";
+        return "기타";
+      }
+    }
+    
+    // 기존 방식 (하위 호환)
+    const position = response.participant?.position || "기타";
     const pos = position.toLowerCase();
     if (pos.includes("임원") || pos.includes("ceo") || pos.includes("대표")) return "임원";
     if (pos.includes("부장") || pos.includes("팀장") || pos.includes("과장")) return "중간관리자";
