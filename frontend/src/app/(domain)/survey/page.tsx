@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import NavigationTabs from '@/component/NavigationTabs';
 
 interface SurveyItem {
   id: string;
@@ -484,8 +483,6 @@ export default function SurveyPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <NavigationTabs />
-      
       <div className="max-w-5xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
 
 

@@ -86,7 +86,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
       // 설문 대상자 목록 업데이트
       setExcelData(remainingData);
       
-      // localStorage도 업데이트
+      // localStorage도 업데이트 (excelUploadData 키 사용)
       const dataToSave = {
         excelData: remainingData,
         isValid: isExcelValid,
@@ -118,7 +118,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
     const updated = [...excelData, recipient];
     setExcelData(updated);
     
-    // localStorage도 업데이트
+    // localStorage도 업데이트 (excelUploadData 키 사용)
     const dataToSave = {
       excelData: updated,
       isValid: isExcelValid,
@@ -643,7 +643,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
                     const updatedData = [...excelData, newRow];
                     setExcelData(updatedData);
                     
-                    // localStorage도 명시적으로 업데이트 (설문 대상 업로드 데이터용)
+                    // localStorage도 명시적으로 업데이트 (excelUploadData 키 사용)
                     const dataToSave = {
                       excelData: updatedData,
                       isValid: isExcelValid,
@@ -802,7 +802,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
                 // 화면 표시 상태 복원
                 setIsDataHidden(false);
                 
-                // localStorage도 명시적으로 업데이트 (설문 대상 업로드 데이터용)
+                // localStorage도 명시적으로 업데이트 (excelUploadData 키 사용)
                 const dataToSave = {
                   excelData: updatedData,
                   isValid: isExcelValid,

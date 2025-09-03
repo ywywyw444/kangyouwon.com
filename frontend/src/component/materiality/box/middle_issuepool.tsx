@@ -901,10 +901,21 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                               // 실제 데이터에서 base issue pool 옵션 가져오기
                               const baseIssuePools = cat.base_issuepools || [];
                               if (baseIssuePools.length > 0) {
-                                // base_issue_pool 필드가 있는 경우 해당 값들을 사용
-                                const options = baseIssuePools.map((item: any) => 
-                                  item.base_issue_pool || item.issue || '항목명 없음'
-                                );
+                                // base_issue_pool 필드가 있는 경우 해당 값들을 사용하고 중복 제거
+                                const options = baseIssuePools
+                                  .map((item: any) => 
+                                    item.base_issue_pool || item.issue || '항목명 없음'
+                                  )
+                                  .filter((option: string, index: number, array: string[]) => 
+                                    // 중복 제거: 띄어쓰기 포함하여 완전히 동일한 문자열만 제거
+                                    array.indexOf(option) === index
+                                  )
+                                  .filter((option: string) => 
+                                    // 빈 문자열이나 공백만 있는 항목 제거
+                                    option.trim() !== ''
+                                  );
+                                
+                                console.log('🔍 Base Issue Pool 옵션 (중복 제거 후):', options);
                                 setBaseIssuePoolOptions(options);
                               } else {
                                 // base_issuepools가 없는 경우 기본 옵션 제공

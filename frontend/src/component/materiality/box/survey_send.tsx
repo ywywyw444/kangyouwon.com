@@ -285,12 +285,20 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
     // return () => clearInterval(id);
   }, [companyId, selectedSurveyId, surveyUrl]);
 
-  // 발송 상태 계산 (sentSurveys 기반)
+  // 발송 상태 계산 (현재 활성 설문 ID 기반)
   useEffect(() => {
-    const totalSent = sentSurveys.reduce((sum, survey) => sum + survey.totalSent, 0);
+    // 현재 활성 설문 ID와 일치하는 설문의 발송 개수만 계산
+    const currentSurveySent = sentSurveys.find(s => s.surveyId === selectedSurveyId);
+    const totalSent = currentSurveySent ? currentSurveySent.totalSent : 0;
+    
     setSendStatus((p) => ({ ...p, sent: totalSent }));
-    console.log('📊 발송 상태 업데이트:', { totalSent, sentSurveys });
-  }, [sentSurveys]);
+    console.log('📊 발송 상태 업데이트 (현재 활성 설문 기준):', { 
+      selectedSurveyId, 
+      totalSent, 
+      currentSurveySent,
+      allSurveys: sentSurveys.length 
+    });
+  }, [sentSurveys, selectedSurveyId]);
 
   // 선택된 설문 ID가 변경될 때 발송 현황 업데이트
   useEffect(() => {
@@ -497,21 +505,38 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       localStorage.setItem('surveyStatsInfo', JSON.stringify(surveyStatsInfo));
       console.log('💾 설문 통계 정보 저장 (final_issuepool.tsx용):', surveyStatsInfo);
       
-      // 발송된 설문 정보를 상태에 추가 (누적 관리)
+      // 발송된 설문 정보를 상태에 추가 (ID별 누적 관리)
       setSentSurveys(prev => {
         const existingIndex = prev.findIndex(s => s.surveyId === currentSurveyId);
         if (existingIndex >= 0) {
-          // 기존 설문이 있으면 이메일 목록 업데이트
+          // 기존 설문이 있으면 발송 개수 누적
           const updated = [...prev];
+          const existingEmails = updated[existingIndex].sentEmails;
+          const newEmails = validEmails.filter(email => !existingEmails.includes(email)); // 중복 제거
+          
           updated[existingIndex] = {
             ...updated[existingIndex],
-            sentEmails: [...new Set([...updated[existingIndex].sentEmails, ...validEmails])], // 중복 제거
-            totalSent: [...new Set([...updated[existingIndex].sentEmails, ...validEmails])].length
+            sentEmails: [...existingEmails, ...newEmails], // 새로운 이메일만 추가
+            totalSent: existingEmails.length + newEmails.length, // 누적 카운트
+            sentAt: sentSurveyInfo.sentAt // 최신 발송 시간으로 업데이트
           };
+          
+          console.log('📊 기존 설문 발송 개수 누적:', {
+            surveyId: currentSurveyId,
+            기존발송: existingEmails.length,
+            새로발송: newEmails.length,
+            총발송: updated[existingIndex].totalSent
+          });
+          
           return updated;
         } else {
-          // 새로운 설문 추가
-          return [...prev, {
+          // 새로운 설문 추가 (기존 설문들 초기화)
+          console.log('📊 새로운 설문 추가, 기존 설문들 초기화:', {
+            newSurveyId: currentSurveyId,
+            previousSurveys: prev.length
+          });
+          
+          return [{
             surveyId: currentSurveyId,
             sentAt: sentSurveyInfo.sentAt,
             sentEmails: validEmails,
@@ -538,7 +563,15 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       const remainingRecipients = excelData.filter((row: any) => 
         !validEmails.includes(row.email)
       );
-      localStorage.setItem('excelData', JSON.stringify(remainingRecipients));
+      
+      // excelUploadData 키로 저장 (survey_upload.tsx와 동일한 키 사용)
+      const dataToSave = {
+        excelData: remainingRecipients,
+        isValid: true, // 발송이 성공했으므로 유효한 데이터
+        fileName: 'survey_recipients',
+        base64Data: null
+      };
+      localStorage.setItem('excelUploadData', JSON.stringify(dataToSave));
       
       console.log('💾 발송 완료 명단 저장:', {
         기존: existingSentRecipients.length,
@@ -855,7 +888,10 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
               <h4 className="font-medium text-gray-800 mb-2">📊 발송 현황</h4>
               <div className="text-sm text-gray-600 space-y-1">
                 <p>• 대상 이메일: {sendStatus.total}개</p>
-                <p>• 발송 완료: {sentRecipientsCount}개</p>
+                <p>• 현재 활성 설문 발송: {sendStatus.sent}개</p>
+                {selectedSurveyId && (
+                  <p className="text-xs text-blue-600 font-mono">• 활성 설문 ID: {selectedSurveyId}</p>
+                )}
               </div>
               
               {/* 발송된 설문별 누적 현황 */}
@@ -865,6 +901,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                   <div className="space-y-2">
                     {sentSurveys.map((survey, index) => {
                       const isCurrentSurvey = survey.surveyId === selectedSurveyId;
+                      const isActiveSurvey = survey.surveyId === selectedSurveyId;
                       return (
                         <div key={survey.surveyId} className={`rounded p-3 text-xs ${
                           isCurrentSurvey ? 'bg-blue-50 border-2 border-blue-300' : 'bg-gray-50'
@@ -877,6 +914,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                                 }`}>
                                   설문 {index + 1}
                                   {isCurrentSurvey && <span className="ml-2 text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full">현재 선택</span>}
+                                  {isActiveSurvey && !isCurrentSurvey && <span className="ml-2 text-xs bg-green-200 text-green-800 px-2 py-1 rounded-full">활성 설문</span>}
                                 </span>
                               </div>
                               <span className={`px-2 py-1 rounded-full flex-shrink-0 ${
@@ -890,7 +928,7 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
                                 <div className={`font-mono break-all ${
                                   isCurrentSurvey ? 'text-blue-600' : 'text-gray-600'
                                 }`}>
-                                  {survey.surveyId}
+                                  ID: {survey.surveyId}
                                 </div>
                               </div>
                               <span className={`ml-2 flex-shrink-0 ${
