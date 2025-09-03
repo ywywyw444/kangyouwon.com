@@ -337,6 +337,11 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
             setAssessmentResult(null);
             setIssuepoolData(null);
             console.log('🧹 기존 데이터 비우기 완료');
+            
+            // categories.length가 0이 되도록 빈 배열로 설정
+            setAssessmentResult({
+              matched_categories: []
+            });
 
             // 2. 데이터 검증 강화
             if (!searchResult?.data) {
@@ -877,6 +882,17 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                         : `총 ${categories.length}개 항목`
                       }
                     </div>
+                  </div>
+                );
+              } else {
+                // 카테고리가 없을 때 빈 화면 표시
+                return (
+                  <div className="text-center py-8">
+                    <div className="text-4xl text-gray-300 mb-4">📊</div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-2">중대성 평가 결과 없음</h4>
+                    <p className="text-gray-500 text-sm">
+                      새로운 중대성 평가를 시작하면 여기에 결과가 표시됩니다.
+                    </p>
                   </div>
                 );
               }
