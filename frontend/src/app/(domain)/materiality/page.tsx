@@ -250,7 +250,7 @@ export default function MaterialityHomePage() {
   };
 
   // 모든 데이터 리셋 함수
-  const resetAllData = () => {
+  const resetAllData = async () => {
     if (typeof window === 'undefined') return;
     
     try {
@@ -353,7 +353,53 @@ export default function MaterialityHomePage() {
       
       console.log('🔄 모든 데이터 리셋 완료');
       console.log('🗑️ 삭제된 localStorage 키들:', keysToRemove);
-      alert('✅ 모든 데이터가 초기화되었습니다. 미디어 검색부터 다시 시작하세요.');
+
+      // DB에서 설문 데이터 다시 로드
+      try {
+        if (companyId) {
+          // 1. 설문 목록 조회
+          const surveysResponse = await fetch(`/api/v1/materiality-service/surveys/company/${companyId}`);
+          if (surveysResponse.ok) {
+            const surveysData = await surveysResponse.json();
+            if (surveysData.surveys && surveysData.surveys.length > 0) {
+              // 가장 최근 설문을 현재 설문으로 설정
+              const latestSurvey = surveysData.surveys[0];
+              setSurveyResult({
+                survey_id: latestSurvey.id,
+                content_hash: latestSurvey.content_hash,
+                created_at: latestSurvey.created_at,
+                categoryCount: latestSurvey.category_count
+              });
+
+              // 2. 최근 설문의 응답 데이터 조회
+              const responsesResponse = await fetch(`/api/v1/materiality-service/surveys/${latestSurvey.id}/responses`);
+              if (responsesResponse.ok) {
+                const responsesData = await responsesResponse.json();
+                // backendSurveyResponses 키에 저장 (final_issuepool.tsx에서 사용)
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem('backendSurveyResponses', JSON.stringify(responsesData.responses || []));
+                }
+              }
+
+              alert(
+                '✅ 로컬 데이터가 초기화되었습니다.\n\n' +
+                '💡 기존에 생성된 설문 데이터는 유지됩니다:\n' +
+                `• 최근 설문 ID: ${latestSurvey.id}\n` +
+                `• 생성일: ${new Date(latestSurvey.created_at).toLocaleDateString()}\n` +
+                `• 문항 수: ${latestSurvey.category_count}개\n\n` +
+                '이제 미디어 검색부터 다시 시작하세요.'
+              );
+            } else {
+              alert('✅ 모든 데이터가 초기화되었습니다. 미디어 검색부터 다시 시작하세요.');
+            }
+          }
+        } else {
+          alert('✅ 모든 데이터가 초기화되었습니다. 미디어 검색부터 다시 시작하세요.');
+        }
+      } catch (loadError) {
+        console.error('❌ DB 데이터 로드 실패:', loadError);
+        alert('✅ 모든 데이터가 초기화되었습니다. 미디어 검색부터 다시 시작하세요.');
+      }
       
     } catch (error) {
       console.error('❌ 데이터 리셋 실패:', error);
@@ -1530,7 +1576,7 @@ export default function MaterialityHomePage() {
                     </h4>
                     
                     <p className="text-gray-600 mb-6 leading-relaxed">
-                      이 작업을 수행하면 다음 데이터가 <strong className="text-red-600">완전히 삭제</strong>됩니다:
+                      이 작업을 수행하면 다음 <strong className="text-red-600">로컬 데이터가 삭제</strong>됩니다:
                     </p>
                     
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-left">
@@ -1538,14 +1584,22 @@ export default function MaterialityHomePage() {
                         <li>• 미디어 검색 결과</li>
                         <li>• 중대성 평가 결과</li>
                         <li>• 설문 생성 및 발송 데이터</li>
-                        <li>• 설문 결과 및 응답</li>
                         <li>• 업로드된 엑셀 파일</li>
                         <li>• 진행 상황 및 설정</li>
                       </ul>
                     </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
+                      <p className="text-sm text-blue-700 font-medium mb-2">💡 다음 데이터는 유지됩니다:</p>
+                      <ul className="text-sm text-blue-600 space-y-1">
+                        <li>• DB에 저장된 설문 내용</li>
+                        <li>• 설문 응답 결과</li>
+                        <li>• 설문 ID 및 메타데이터</li>
+                      </ul>
+                    </div>
                     
                     <p className="text-sm text-gray-500 mb-6">
-                      이 작업은 되돌릴 수 없습니다. 정말로 계속하시겠습니까?
+                      로컬 데이터 초기화 후 DB에서 설문 데이터를 자동으로 다시 불러옵니다. 계속하시겠습니까?
                     </p>
                   </div>
                 </div>
@@ -1559,9 +1613,9 @@ export default function MaterialityHomePage() {
                     취소
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       setIsResetModalOpen(false);
-                      resetAllData();
+                      await resetAllData();
                     }}
                     className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors duration-200"
                   >
