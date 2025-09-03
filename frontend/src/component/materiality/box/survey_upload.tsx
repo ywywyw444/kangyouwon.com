@@ -65,11 +65,23 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
   // 설문 발송 완료 이벤트 리스너
   React.useEffect(() => {
     const handleSurveySent = (event: CustomEvent) => {
-      const { sentEmails, sentRecipientsData } = event.detail;
+      const { sentEmails, sentRecipientsData, excelData: remainingExcelData } = event.detail;
       console.log('📧 설문 발송 완료 이벤트 수신:', {
-        sentEmails,
-        sentRecipientsData: sentRecipientsData?.length || 0
+        발송된이메일: sentEmails?.length || 0,
+        발송완료명단: sentRecipientsData?.length || 0,
+        남은대상자: remainingExcelData?.length || 0,
+        발송전명단: excelData.length
       });
+      
+      // 데이터 검증
+      if (!Array.isArray(remainingExcelData)) {
+        console.error('❌ 남은 대상자 목록이 배열이 아님:', remainingExcelData);
+        return;
+      }
+      if (!Array.isArray(sentRecipientsData)) {
+        console.error('❌ 발송 완료 명단이 배열이 아님:', sentRecipientsData);
+        return;
+      }
       
       // 발송된 대상자들을 발송 완료 명단에 추가
       if (sentRecipientsData) {
@@ -80,17 +92,17 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
         });
       }
       
-      // 설문 대상자 목록을 비움
-      setExcelData([]);
+      // 설문 대상자 목록을 남은 대상자들로 업데이트
+      setExcelData(remainingExcelData || []);
       
       console.log('📊 명단 업데이트:', {
         발송완료: sentEmails.length,
-        남은명단: 0
+        남은명단: remainingExcelData?.length || 0
       });
       
       // localStorage도 업데이트 (excelUploadData 키 사용)
       const dataToSave = {
-        excelData: [], // 빈 배열로 설정
+        excelData: remainingExcelData || [], // 남은 대상자 목록으로 설정
         isValid: isExcelValid,
         fileName: excelFilename,
         base64Data: excelBase64

@@ -744,35 +744,37 @@ export default function MaterialityHomePage() {
       <NavigationTabs />
       <IndexBar />
   
-      <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-6 pt-32"> {/* BG */}
+      <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-6 pt-40"> {/* BG */}
         <div className="max-w-7xl mx-auto"> {/* CONTAINER */}
   
           {/* 헤더 */}
           <div className="mb-8">
-                          <div className="mb-4">
-                <h1 className="text-4xl font-bold text-gray-900">중대성 평가 자동화 플랫폼</h1>
-                <p className="text-lg text-gray-600 mt-2">기업의 중대성 이슈를 자동으로 추천합니다</p>
-              </div>
-              
-              {/* 고정된 버튼 컨테이너 */}
-              <div className="fixed bottom-8 right-8 flex gap-3 z-40">
-                <button
-                  onClick={() => setIsResetModalOpen(true)}
-                  className="px-6 py-3 bg-white hover:bg-red-50 text-gray-600 font-semibold rounded-lg transition-all duration-200 border-2 border-gray-300 hover:border-red-200 hover:text-red-500 shadow-lg hover:shadow-xl"
-                >
-                  🔄 미디어 검색 다시하기
-                </button>
-                <button
-                  onClick={() => {
-                    // 현재 상태 저장
-                    saveCurrentState();
-                    // 다음 단계로 이동
-                    moveToNextStep();
-                  }}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
-                >
-                  다음 →
-                </button>
+                          <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h1 className="text-4xl font-bold text-gray-900">중대성 평가 자동화 플랫폼</h1>
+                  <p className="text-lg text-gray-600 mt-2">기업의 중대성 이슈를 자동으로 추천합니다</p>
+                </div>
+                
+                {/* 상단 고정 버튼 컨테이너 */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setIsResetModalOpen(true)}
+                    className="px-6 py-3 bg-white hover:bg-red-50 text-gray-600 font-semibold rounded-lg transition-all duration-200 border-2 border-gray-300 hover:border-red-200 hover:text-red-500 shadow-lg hover:shadow-xl"
+                  >
+                    🔄 미디어 검색 다시하기
+                  </button>
+                  <button
+                    onClick={() => {
+                      // 현재 상태 저장
+                      saveCurrentState();
+                      // 다음 단계로 이동
+                      moveToNextStep();
+                    }}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+                  >
+                    다음 →
+                  </button>
+                </div>
               </div>
           </div>
   
@@ -1045,23 +1047,12 @@ export default function MaterialityHomePage() {
                 
                 {/* 모달 푸터 */}
                 <div className="flex justify-end p-6 border-t border-gray-200 bg-white sticky bottom-0 z-10">
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={() => {
-                        // 여기에 저장 기능 추가 가능
-                        alert('저장 기능을 구현합니다.');
-                      }}
-                      className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200"
-                    >
-                      저장
-                    </button>
-                    <button
-                      onClick={() => setIsDetailModalOpen(false)}
-                      className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
-                    >
-                      닫기
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setIsDetailModalOpen(false)}
+                    className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors duration-200"
+                  >
+                    닫기
+                  </button>
                 </div>
               </div>
             </div>

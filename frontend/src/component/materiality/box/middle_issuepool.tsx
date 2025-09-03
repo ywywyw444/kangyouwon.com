@@ -903,17 +903,22 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
                               if (baseIssuePools.length > 0) {
                                 // base_issue_pool 필드가 있는 경우 해당 값들을 사용하고 중복 제거
                                 const options = baseIssuePools
-                                  .map((item: any) => 
-                                    item.base_issue_pool || item.issue || '항목명 없음'
+                                  .map((item: { base_issue_pool?: string; issue?: string }) => 
+                                    (item.base_issue_pool || item.issue || '항목명 없음').trim()
                                   )
-                                  .filter((option: string, index: number, array: string[]) => 
-                                    // 중복 제거: 띄어쓰기 포함하여 완전히 동일한 문자열만 제거
-                                    array.indexOf(option) === index
-                                  )
-                                  .filter((option: string) => 
-                                    // 빈 문자열이나 공백만 있는 항목 제거
-                                    option.trim() !== ''
-                                  );
+                                  // 빈 문자열이나 공백만 있는 항목 제거
+                                  .filter((option: string): boolean => option !== '')
+                                  // 중복 제거: 대소문자 무시하고 공백 정규화하여 비교
+                                  .filter((option: string, index: number, array: string[]) => {
+                                    // 현재 항목을 정규화 (대소문자 무시, 연속된 공백을 하나로)
+                                    const normalizedOption: string = option.toLowerCase().replace(/\s+/g, ' ');
+                                    // 이전 항목들 중에 정규화했을 때 같은 것이 있는지 확인
+                                    return array.findIndex((item: string): boolean => 
+                                      item.toLowerCase().replace(/\s+/g, ' ') === normalizedOption
+                                    ) === index;
+                                  })
+                                  // 알파벳 순으로 정렬
+                                  .sort((a: string, b: string): number => a.localeCompare(b));
                                 
                                 console.log('🔍 Base Issue Pool 옵션 (중복 제거 후):', options);
                                 setBaseIssuePoolOptions(options);

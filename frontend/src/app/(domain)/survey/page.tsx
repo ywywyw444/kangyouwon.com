@@ -590,8 +590,8 @@ export default function SurveyPage() {
                               <label key={position} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                                 <input
                                   type="radio"
-                                  name="internalPosition_executives"
-                                  value={position}
+                                  name="internalPosition"
+                                  value="임원"
                                   checked={internalPosition === '임원'}
                                   onChange={() => setInternalPosition('임원')}
                                   className="text-blue-600 focus:ring-blue-500"
@@ -610,8 +610,8 @@ export default function SurveyPage() {
                               <label key={position} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                                 <input
                                   type="radio"
-                                  name="internalPosition_managers"
-                                  value={position}
+                                  name="internalPosition"
+                                  value="중간관리자"
                                   checked={internalPosition === '중간관리자'}
                                   onChange={() => setInternalPosition('중간관리자')}
                                   className="text-blue-600 focus:ring-blue-500"
@@ -630,8 +630,8 @@ export default function SurveyPage() {
                               <label key={position} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                                 <input
                                   type="radio"
-                                  name="internalPosition_leaders"
-                                  value={position}
+                                  name="internalPosition"
+                                  value="실무리더"
                                   checked={internalPosition === '실무리더'}
                                   onChange={() => setInternalPosition('실무리더')}
                                   className="text-blue-600 focus:ring-blue-500"
@@ -650,8 +650,8 @@ export default function SurveyPage() {
                               <label key={position} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                                 <input
                                   type="radio"
-                                  name="internalPosition_juniors"
-                                  value={position}
+                                  name="internalPosition"
+                                  value="주니어"
                                   checked={internalPosition === '주니어'}
                                   onChange={() => setInternalPosition('주니어')}
                                   className="text-blue-600 focus:ring-blue-500"
