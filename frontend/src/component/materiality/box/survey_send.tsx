@@ -522,6 +522,24 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
       
       // 발송 상태는 useEffect에서 sentSurveys 기반으로 자동 업데이트됨
       
+      // 발송 완료된 명단을 localStorage에 저장
+      const sentRecipientsData = excelData.filter((row: any) => 
+        validEmails.includes(row.email)
+      );
+      
+      // 기존 발송 완료 명단에 추가 (중복 제거)
+      const existingSentRecipients = JSON.parse(localStorage.getItem('sentRecipients') || '[]');
+      const existingEmails = existingSentRecipients.map((r: any) => r.email);
+      const newRecipients = sentRecipientsData.filter((r: any) => !existingEmails.includes(r.email));
+      const updatedSentRecipients = [...existingSentRecipients, ...newRecipients];
+      localStorage.setItem('sentRecipients', JSON.stringify(updatedSentRecipients));
+      
+      console.log('💾 발송 완료 명단 저장:', {
+        기존: existingSentRecipients.length,
+        새로추가: newRecipients.length,
+        총합: updatedSentRecipients.length
+      });
+
       // 설문 발송 완료 이벤트 발생
       const surveySentEvent = new CustomEvent('surveySent', {
         detail: {
@@ -529,7 +547,8 @@ const SurveyManagement: React.FC<SurveyManagementProps> = ({ companyId, excelDat
           excelData: excelData,
           surveyUrl: surveyUrl,
           companyId: companyId,
-          sentSurveyInfo: sentSurveyInfo
+          sentSurveyInfo: sentSurveyInfo,
+          sentRecipientsData: sentRecipientsData
         }
       });
       window.dispatchEvent(surveySentEvent);

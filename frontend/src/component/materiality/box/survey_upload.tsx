@@ -65,30 +65,40 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
   // 설문 발송 완료 이벤트 리스너
   React.useEffect(() => {
     const handleSurveySent = (event: CustomEvent) => {
-      const { sentEmails, excelData } = event.detail;
-      console.log('📧 설문 발송 완료 이벤트 수신:', sentEmails);
-      
-      // 발송된 이메일 주소에 해당하는 명단 찾기
-      const sentRecipientsData = excelData.filter((row: any) => 
-        sentEmails.includes(row.email)
-      );
-      
-      // 기존 발송 완료 명단에 추가 (중복 제거)
-      setSentRecipients((prev: any[]) => {
-        const existing = prev.map((r: any) => r.email);
-        const newRecipients = sentRecipientsData.filter((r: any) => !existing.includes(r.email));
-        const updated = [...prev, ...newRecipients];
-        saveSentRecipients(updated);
-        return updated;
+      const { sentEmails, excelData, sentRecipientsData } = event.detail;
+      console.log('📧 설문 발송 완료 이벤트 수신:', {
+        sentEmails,
+        sentRecipientsData: sentRecipientsData?.length || 0,
+        currentExcelData: excelData?.length || 0
       });
       
       // 발송된 명단을 설문 대상자 목록에서 제거
       const remainingData = excelData.filter((row: any) => 
         !sentEmails.includes(row.email)
       );
+      
+      console.log('📊 명단 업데이트:', {
+        기존: excelData.length,
+        발송완료: sentEmails.length,
+        남은명단: remainingData.length
+      });
+      
+      // 설문 대상자 목록 업데이트
       setExcelData(remainingData);
       
-      console.log('✅ 발송 완료된 명단 처리:', sentRecipientsData.length, '명');
+      // localStorage도 업데이트
+      const dataToSave = {
+        excelData: remainingData,
+        isValid: isExcelValid,
+        fileName: excelFilename,
+        base64Data: excelBase64
+      };
+      localStorage.setItem('excelUploadData', JSON.stringify(dataToSave));
+      
+      // 발송 완료 명단 상태 업데이트 (localStorage에서 다시 로드)
+      loadSentRecipients();
+      
+      console.log('✅ 발송 완료된 명단 처리 완료');
     };
 
     // 커스텀 이벤트 리스너 등록
@@ -100,7 +110,7 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
     return () => {
       window.removeEventListener('surveySent', handleSurveySent as EventListener);
     };
-  }, []);
+  }, [isExcelValid, excelFilename, excelBase64]);
 
   // 발송 완료된 명단을 다시 설문 대상자 목록에 추가
   const addBackToRecipients = (recipient: any) => {
@@ -124,7 +134,12 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
       return updated;
     });
     
-    console.log('✅ 발송 완료 명단을 설문 대상자 목록에 추가:', recipient.name);
+    console.log('✅ 발송 완료 명단을 설문 대상자 목록에 추가:', {
+      name: recipient.name,
+      email: recipient.email,
+      기존명단수: excelData.length,
+      업데이트후명단수: updated.length
+    });
   };
 
   // 사용자 활동 추적 함수
