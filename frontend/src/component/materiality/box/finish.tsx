@@ -350,43 +350,6 @@ export default function Finish() {
           </div>
         )}
 
-
-        {/* 액션 버튼들 */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button
-            onClick={() => {
-              // 새로운 평가 시작 - 모든 상태 초기화
-              if (typeof window !== 'undefined') {
-                // localStorage 초기화
-                localStorage.removeItem('materialityProgressState');
-                localStorage.removeItem('materialityAssessmentResult');
-                localStorage.removeItem('surveyResult');
-                localStorage.removeItem('excelUploadData');
-                localStorage.removeItem('surveyUploadData');
-                
-                // 페이지 새로고침으로 초기 상태로 돌아가기
-                window.location.reload();
-              }
-            }}
-            className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
-          >
-            🔄 새로운 평가 시작
-          </button>
-          
-          <button
-            onClick={() => {
-              // 현재 페이지에서 첫 번째 단계로 이동
-              const sectionChangeEvent = new CustomEvent('sectionChange', { 
-                detail: { sectionId: 'media-search' } 
-              });
-              window.dispatchEvent(sectionChangeEvent);
-            }}
-            className="px-8 py-3 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
-          >
-            📋 결과 다시 보기
-          </button>
-        </div>
-
         {/* 완료 축하 메시지 */}
         <div className="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
           <p className="text-yellow-800 font-medium">

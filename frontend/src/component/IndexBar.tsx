@@ -176,7 +176,7 @@ export default function IndexBar() {
                     }`}
                   >
                     <span className="mr-2">{item.icon}</span>
-                    <span className="text-sm whitespace-nowrap">{item.title}</span>
+                    <span className="text-sm break-keep">{item.title}</span>
                   </button>
                 ))}
               </div>
@@ -220,7 +220,7 @@ export default function IndexBar() {
                     {/* 스텝 제목 */}
                     <div className="ml-3 hidden md:block">
                       <div
-                        className={`text-sm font-medium transition-colors duration-200 cursor-pointer ${
+                        className={`text-sm font-medium transition-colors duration-200 cursor-pointer break-keep ${
                           isActive
                             ? 'text-blue-600'
                             : isCompleted

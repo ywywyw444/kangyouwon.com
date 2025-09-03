@@ -65,30 +65,32 @@ const SurveyUpload: React.FC<SurveyUploadProps> = ({
   // 설문 발송 완료 이벤트 리스너
   React.useEffect(() => {
     const handleSurveySent = (event: CustomEvent) => {
-      const { sentEmails, excelData, sentRecipientsData } = event.detail;
+      const { sentEmails, sentRecipientsData } = event.detail;
       console.log('📧 설문 발송 완료 이벤트 수신:', {
         sentEmails,
-        sentRecipientsData: sentRecipientsData?.length || 0,
-        currentExcelData: excelData?.length || 0
+        sentRecipientsData: sentRecipientsData?.length || 0
       });
       
-      // 발송된 명단을 설문 대상자 목록에서 제거
-      const remainingData = excelData.filter((row: any) => 
-        !sentEmails.includes(row.email)
-      );
+      // 발송된 대상자들을 발송 완료 명단에 추가
+      if (sentRecipientsData) {
+        setSentRecipients(prev => {
+          const updated = [...prev, ...sentRecipientsData];
+          saveSentRecipients(updated);
+          return updated;
+        });
+      }
+      
+      // 설문 대상자 목록을 비움
+      setExcelData([]);
       
       console.log('📊 명단 업데이트:', {
-        기존: excelData.length,
         발송완료: sentEmails.length,
-        남은명단: remainingData.length
+        남은명단: 0
       });
-      
-      // 설문 대상자 목록 업데이트
-      setExcelData(remainingData);
       
       // localStorage도 업데이트 (excelUploadData 키 사용)
       const dataToSave = {
-        excelData: remainingData,
+        excelData: [], // 빈 배열로 설정
         isValid: isExcelValid,
         fileName: excelFilename,
         base64Data: excelBase64

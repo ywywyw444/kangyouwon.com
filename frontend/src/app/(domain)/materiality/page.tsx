@@ -749,12 +749,16 @@ export default function MaterialityHomePage() {
   
           {/* 헤더 */}
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-4xl font-bold text-gray-900">중대성 평가 자동화 플랫폼</h1>
-              <div className="flex gap-3">
+                          <div className="mb-4">
+                <h1 className="text-4xl font-bold text-gray-900">중대성 평가 자동화 플랫폼</h1>
+                <p className="text-lg text-gray-600 mt-2">기업의 중대성 이슈를 자동으로 추천합니다</p>
+              </div>
+              
+              {/* 고정된 버튼 컨테이너 */}
+              <div className="fixed bottom-8 right-8 flex gap-3 z-40">
                 <button
                   onClick={() => setIsResetModalOpen(true)}
-                  className="px-6 py-3 bg-white hover:bg-red-50 text-gray-600 font-semibold rounded-lg transition-all duration-200 border-2 border-gray-300 hover:border-red-200 hover:text-red-500"
+                  className="px-6 py-3 bg-white hover:bg-red-50 text-gray-600 font-semibold rounded-lg transition-all duration-200 border-2 border-gray-300 hover:border-red-200 hover:text-red-500 shadow-lg hover:shadow-xl"
                 >
                   🔄 미디어 검색 다시하기
                 </button>
@@ -770,8 +774,6 @@ export default function MaterialityHomePage() {
                   다음 →
                 </button>
               </div>
-            </div>
-            <p className="text-lg text-gray-600">기업의 중대성 이슈를 자동으로 추천합니다</p>
           </div>
   
           {/* 선택 옵션 */}

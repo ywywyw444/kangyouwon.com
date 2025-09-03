@@ -472,25 +472,57 @@ const FinalIssuepool: React.FC = () => {
         });
       });
       
-      // 계산 실행
+      // 계산 실행 및 결과 저장
       computeAll();
       
-      // 계산 후 상태 확인
-      setTimeout(() => {
-        const { finalTop, groupWeights, surveyScores } = useAssessmentStore.getState();
+      // 계산 결과를 localStorage에도 저장
+      const { finalTop, groupWeights, surveyScores, finalScores } = useAssessmentStore.getState();
+      
+      if (finalTop && finalTop.length > 0) {
+        // materialityAssessmentResult 업데이트
+        try {
+          const savedResult = localStorage.getItem('materialityAssessmentResult');
+          if (savedResult) {
+            const parsedResult = JSON.parse(savedResult);
+            
+            // 기존 데이터 구조 유지하면서 final_score 업데이트
+            const updatedCategories = parsedResult.assessment_result?.data?.matched_categories.map((cat: any) => {
+              const finalItem = finalTop.find(item => item.category === cat.category);
+              return {
+                ...cat,
+                final_score: finalItem ? finalItem.score : cat.final_score
+              };
+            }) || [];
+            
+            // 업데이트된 데이터 저장
+            const updatedResult = {
+              ...parsedResult,
+              assessment_result: {
+                ...parsedResult.assessment_result,
+                data: {
+                  ...parsedResult.assessment_result?.data,
+                  matched_categories: updatedCategories
+                }
+              }
+            };
+            
+            localStorage.setItem('materialityAssessmentResult', JSON.stringify(updatedResult));
+            console.log('💾 최종 점수 저장 완료:', updatedResult);
+          }
+        } catch (error) {
+          console.error('❌ 최종 점수 저장 실패:', error);
+        }
+        
         console.log('✅ 최종 이슈풀 계산 완료');
         console.log('📊 최종 결과:', finalTop);
         console.log('📊 그룹 가중치:', groupWeights);
         console.log('📊 설문 점수:', surveyScores);
-        
-        // 결과 검증
-        if (finalTop && finalTop.length > 0) {
-          console.log('🎉 최종 이슈풀 계산 성공!');
-          console.log('📈 상위 3개 카테고리:', finalTop.slice(0, 3));
-        } else {
-          console.warn('⚠️ 최종 결과가 비어있습니다.');
-        }
-      }, 100);
+        console.log('📊 최종 점수:', finalScores);
+        console.log('🎉 최종 이슈풀 계산 성공!');
+        console.log('📈 상위 3개 카테고리:', finalTop.slice(0, 3));
+      } else {
+        console.warn('⚠️ 최종 결과가 비어있습니다.');
+      }
       
     } catch (error) {
       console.error("❌ 계산 중 오류 발생:", error);
