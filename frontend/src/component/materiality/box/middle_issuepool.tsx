@@ -350,6 +350,10 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
             setIsAssessmentStarting(true);
             markUserActivity(); // 사용자 활동 기록
 
+            console.log('🔍 searchResult.data:', searchResult.data);
+
+
+
             try {
               // 3. 기사 데이터 구조 검증 및 안전한 매핑
               const formattedArticles = searchResult.data.articles.map((article: any) => {
@@ -512,6 +516,9 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
             </>
           )}
         </button>
+
+
+
         
                  {/* 내용 지우기 버튼 */}
          <button
@@ -761,7 +768,7 @@ const FirstAssessment: React.FC<FirstAssessmentProps> = ({
               
               if (categories.length > 0) {
                 return (
-                  <div className="space-y-2">
+                  <div id="middle_issuepool" className="space-y-2">
                     {displayCategories.map((cat: any, index: number) => (
                       <div key={index} className="flex items-center text-sm group">
                         <span className="w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-xs font-medium mr-3">

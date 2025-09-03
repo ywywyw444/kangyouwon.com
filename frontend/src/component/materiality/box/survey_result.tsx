@@ -406,6 +406,10 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
       setBackendResponses(newResponses);
       console.log(`📊 설문 응답 데이터 로드 완료: ${newResponses.length}개`);
 
+      // 데이터 표시 활성화
+      setIsDataHidden(false);
+      markUserActivity();
+
       // final_issuepool.tsx에서 사용할 수 있도록 localStorage에 저장
       localStorage.setItem('backendSurveyResponses', JSON.stringify(newResponses));
       console.log('💾 final_issuepool.tsx용 설문 데이터 저장 완료');
@@ -448,8 +452,8 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
 
 
 
-  // 데이터가 숨겨진 상태일 때 표시 (설문 결과가 없는 경우에만)
-  if (isDataHidden && !surveyResult) {
+  // 데이터가 숨겨진 상태일 때 표시 (설문 결과가 없고 백엔드 응답도 없는 경우에만)
+  if (isDataHidden && !surveyResult && backendResponses.length === 0) {
     return (
       <div id="survey-results" className="bg-white rounded-xl shadow-lg p-6 mb-12">
         <h2 className="text-2xl font-semibold text-gray-800 mb-6">
@@ -462,7 +466,10 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
           <p className="text-gray-500 mb-6">설문 응답 결과를 확인하고 분석할 수 있는 공간입니다.</p>
           
           <button
-            onClick={markUserActivity}
+            onClick={() => {
+              markUserActivity();
+              loadSurveyResponses();
+            }}
             className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -491,7 +498,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
     );
   }
 
-  if (!surveyResult) {
+  if (!surveyResult && backendResponses.length === 0) {
     return (
       <div id="survey-results" className="bg-white rounded-xl shadow-lg p-6 mb-12">
         <h2 className="text-2xl font-semibold text-gray-800 mb-6">
@@ -504,7 +511,10 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
           <p className="text-gray-500 mb-6">설문 응답 결과를 확인하고 분석할 수 있는 공간입니다.</p>
           
           <button
-            onClick={markUserActivity}
+            onClick={() => {
+              markUserActivity();
+              loadSurveyResponses();
+            }}
             className="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
           >
             <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -530,9 +540,9 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                <h3 className="text-lg font-semibold text-blue-800">📋 설문 기본 정보</h3>
                <button
                  onClick={loadSurveyResponses}
-                 disabled={!surveyResult?.survey_id || loading}
+                 disabled={(!surveyResult?.survey_id && !sentSurveyInfo?.surveyId) || loading}
                  className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center ${
-                   !surveyResult?.survey_id || loading
+                   (!surveyResult?.survey_id && !sentSurveyInfo?.surveyId) || loading
                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
                      : 'bg-blue-600 hover:bg-blue-700 text-white'
                  }`}
@@ -551,8 +561,8 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">설문 ID:</span>
                  <span className="text-gray-900">
-                   {sentSurveyInfo?.surveyId || surveyResult.survey_id}
-                   {sentSurveyInfo?.surveyId && sentSurveyInfo.surveyId !== surveyResult.survey_id && (
+                   {sentSurveyInfo?.surveyId || surveyResult?.survey_id || '없음'}
+                   {sentSurveyInfo?.surveyId && sentSurveyInfo.surveyId !== surveyResult?.survey_id && (
                      <span className="ml-2 text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
                        발송된 설문
                      </span>
@@ -562,7 +572,7 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                <div className="flex items-center">
                  <span className="text-gray-700 font-medium w-32">설문 버전:</span>
                  <span className="text-gray-900">
-                   {surveyResult.content_hash ? (
+                   {surveyResult?.content_hash ? (
                      <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
                        {surveyResult.content_hash.substring(0, 8)}
                      </span>
@@ -599,12 +609,14 @@ const SurveyResult: React.FC<SurveyResultProps> = ({ excelData, surveyResult }) 
                    })()}개
                  </span>
                </div>
-               <div className="flex items-center">
-                 <span className="text-gray-700 font-medium w-32">생성 시간:</span>
-                 <span className="text-gray-900">
-                   {new Date(surveyResult.created_at).toLocaleString('ko-KR')}
-                 </span>
-               </div>
+               {surveyResult?.created_at && (
+                 <div className="flex items-center">
+                   <span className="text-gray-700 font-medium w-32">생성 시간:</span>
+                   <span className="text-gray-900">
+                     {new Date(surveyResult.created_at).toLocaleString('ko-KR')}
+                   </span>
+                 </div>
+               )}
              </div>
            </div>
 
