@@ -22,6 +22,52 @@ export default function IndexBar() {
   const [activeSection, setActiveSection] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
   const [visibleSection, setVisibleSection] = useState('media-search'); // 기본적으로 미디어 검색 섹션 표시
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]); // 완료된 단계들
+  const [maxReachedStep, setMaxReachedStep] = useState<string>('media-search'); // 최대 도달한 단계
+
+  // 저장된 상태 복원
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const savedState = localStorage.getItem('materialityProgressState');
+      if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        setVisibleSection(parsedState.visibleSection || 'media-search');
+        setCompletedSteps(parsedState.completedSteps || []);
+        setMaxReachedStep(parsedState.maxReachedStep || 'media-search');
+        console.log('🔄 IndexBar 상태 복원 완료:', parsedState);
+      }
+    } catch (error) {
+      console.error('❌ IndexBar 상태 복원 실패:', error);
+    }
+  }, []);
+
+  // 섹션 변경 이벤트 감지
+  useEffect(() => {
+    const handleSectionChange = (event: CustomEvent) => {
+      const sectionId = event.detail?.sectionId;
+      const completedSteps = event.detail?.completedSteps;
+      const maxReachedStep = event.detail?.maxReachedStep;
+      
+      if (sectionId) {
+        setVisibleSection(sectionId);
+      }
+      if (completedSteps) {
+        setCompletedSteps(completedSteps);
+      }
+      if (maxReachedStep) {
+        setMaxReachedStep(maxReachedStep);
+      }
+    };
+
+    // 커스텀 이벤트 리스너 등록
+    window.addEventListener('sectionChange', handleSectionChange as EventListener);
+
+    return () => {
+      window.removeEventListener('sectionChange', handleSectionChange as EventListener);
+    };
+  }, []);
 
   // 스크롤 위치에 따라 현재 섹션 업데이트
   useEffect(() => {
@@ -144,8 +190,8 @@ export default function IndexBar() {
           <div className="flex items-center justify-between">
             {indexItems.map((item, index) => {
               const isActive = visibleSection === item.id;
-              const isCompleted = index < indexItems.findIndex(i => i.id === visibleSection);
-              const isPending = index > indexItems.findIndex(i => i.id === visibleSection);
+              const isCompleted = completedSteps.includes(item.id);
+              const isPending = !isCompleted && !isActive && index > indexItems.findIndex(i => i.id === maxReachedStep);
               
               return (
                 <div key={item.id} className="flex items-center flex-1">
@@ -214,14 +260,14 @@ export default function IndexBar() {
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm font-medium text-gray-700">전체 진행률</span>
               <span className="text-sm font-bold text-blue-600">
-                {Math.round(((indexItems.findIndex(i => i.id === visibleSection) + 1) / indexItems.length) * 100)}%
+                {Math.round((completedSteps.length / indexItems.length) * 100)}%
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-500"
                 style={{
-                  width: `${((indexItems.findIndex(i => i.id === visibleSection) + 1) / indexItems.length) * 100}%`
+                  width: `${(completedSteps.length / indexItems.length) * 100}%`
                 }}
               />
             </div>

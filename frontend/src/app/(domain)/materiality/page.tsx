@@ -145,6 +145,104 @@ export default function MaterialityHomePage() {
   const [customBaseIssuePoolText, setCustomBaseIssuePoolText] = useState<string>('');
   const [displayCategoryCount, setDisplayCategoryCount] = useState<number>(0);
   const [visibleSection, setVisibleSection] = useState<string>('media-search'); // 기본적으로 미디어 검색 섹션 표시
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]); // 완료된 단계들
+  const [maxReachedStep, setMaxReachedStep] = useState<string>('media-search'); // 최대 도달한 단계
+
+  // 단계별 순서 정의
+  const stepOrder = [
+    'media-search',
+    'middle-issuepool', 
+    'survey-create',
+    'survey-upload',
+    'survey-send',
+    'survey-results',
+    'final-issuepool'
+  ];
+
+  // 현재 상태 저장 함수
+  const saveCurrentState = () => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const currentState = {
+        visibleSection,
+        completedSteps,
+        maxReachedStep,
+        companyId,
+        searchPeriod,
+        searchResult,
+        assessmentResult,
+        surveyResult,
+        excelData,
+        surveyUploadData,
+        timestamp: new Date().toISOString()
+      };
+      
+      localStorage.setItem('materialityProgressState', JSON.stringify(currentState));
+      console.log('💾 현재 상태 저장 완료:', currentState);
+    } catch (error) {
+      console.error('❌ 상태 저장 실패:', error);
+    }
+  };
+
+  // 다음 단계로 이동 함수
+  const moveToNextStep = () => {
+    const currentIndex = stepOrder.indexOf(visibleSection);
+    if (currentIndex < stepOrder.length - 1) {
+      const nextStep = stepOrder[currentIndex + 1];
+      
+      // 현재 단계를 완료된 단계에 추가
+      if (!completedSteps.includes(visibleSection)) {
+        setCompletedSteps(prev => [...prev, visibleSection]);
+      }
+      
+      // 최대 도달 단계 업데이트
+      setMaxReachedStep(nextStep);
+      
+      // 다음 단계로 이동
+      setVisibleSection(nextStep);
+      
+      // IndexBar에 섹션 변경 이벤트 발생
+      const sectionChangeEvent = new CustomEvent('sectionChange', { 
+        detail: { 
+          sectionId: nextStep,
+          completedSteps: [...completedSteps, visibleSection],
+          maxReachedStep: nextStep
+        } 
+      });
+      window.dispatchEvent(sectionChangeEvent);
+      
+      console.log('✅ 다음 단계로 이동:', nextStep);
+    } else {
+      console.log('🎉 모든 단계 완료!');
+    }
+  };
+
+  // 저장된 상태 복원 함수
+  const restoreSavedState = () => {
+    if (typeof window === 'undefined') return;
+    
+    try {
+      const savedState = localStorage.getItem('materialityProgressState');
+      if (savedState) {
+        const parsedState = JSON.parse(savedState);
+        setVisibleSection(parsedState.visibleSection || 'media-search');
+        setCompletedSteps(parsedState.completedSteps || []);
+        setMaxReachedStep(parsedState.maxReachedStep || 'media-search');
+        
+        // 다른 상태들도 복원
+        if (parsedState.companyId) setCompanyId(parsedState.companyId);
+        if (parsedState.searchPeriod) setSearchPeriod(parsedState.searchPeriod);
+        if (parsedState.searchResult) setSearchResult(parsedState.searchResult);
+        if (parsedState.assessmentResult) setAssessmentResult(parsedState.assessmentResult);
+        if (parsedState.surveyResult) setSurveyResult(parsedState.surveyResult);
+        
+        console.log('🔄 저장된 상태 복원 완료:', parsedState);
+      }
+    } catch (error) {
+      console.error('❌ 상태 복원 실패:', error);
+    }
+  };
 
   // 중대성 평가 관련 상태
   const [issuepoolData, setIssuepoolData] = useState<IssuepoolData | null>(null);
@@ -177,6 +275,22 @@ export default function MaterialityHomePage() {
       window.removeEventListener('sectionChange', handleSectionChange as EventListener);
     };
   }, []);
+
+  // IndexBar에 상태 정보 전달
+  useEffect(() => {
+    const updateIndexBarState = () => {
+      const sectionChangeEvent = new CustomEvent('sectionChange', { 
+        detail: { 
+          sectionId: visibleSection,
+          completedSteps: completedSteps,
+          maxReachedStep: maxReachedStep
+        } 
+      });
+      window.dispatchEvent(sectionChangeEvent);
+    };
+
+    updateIndexBarState();
+  }, [visibleSection, completedSteps, maxReachedStep]);
 
   // 로그인한 사용자의 기업 정보 가져오기
   useEffect(() => {
@@ -219,6 +333,9 @@ export default function MaterialityHomePage() {
     } catch (error) {
       console.error('❌ 표시할 카테고리 개수 초기 복원 실패:', error);
     }
+    
+    // 저장된 진행 상태 복원
+    restoreSavedState();
   }, []); // loadSurveyUploadData는 Zustand store에서 가져오므로 의존성 배열에서 제외
 
   // 설문 결과 데이터 로드 및 업데이트
@@ -469,7 +586,20 @@ export default function MaterialityHomePage() {
   
           {/* 헤더 */}
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">중대성 평가 자동화 플랫폼</h1>
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-4xl font-bold text-gray-900">중대성 평가 자동화 플랫폼</h1>
+              <button
+                onClick={() => {
+                  // 현재 상태 저장
+                  saveCurrentState();
+                  // 다음 단계로 이동
+                  moveToNextStep();
+                }}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+              >
+                다음 →
+              </button>
+            </div>
             <p className="text-lg text-gray-600">기업의 중대성 이슈를 자동으로 추천합니다</p>
           </div>
   
